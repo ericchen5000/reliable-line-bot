@@ -5,14 +5,20 @@ import json
 import os
 from datetime import datetime
 import requests
+from dotenv import load_dotenv
+
+# =========================
+# LOAD ENV（🔥你現在缺的關鍵）
+# =========================
+load_dotenv()
 
 app = FastAPI()
 
 DB_PATH = "data.db"
 LOG_PATH = "logs/chat_logs.json"
 
-# ⚠️ LINE TOKEN（請確保這裡是「真的 token」，不是字串）
-LINE_TOKEN = "YOUR_LINE_CHANNEL_ACCESS_TOKEN"
+# ⚠️ 這行已修正（從 .env 讀）
+LINE_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
 
 # =========================
@@ -64,7 +70,7 @@ def faq_page():
     return """
     <html>
     <body>
-        <h1>FAQ 管理</h1>
+        <h1>FAQ</h1>
 
         <form method="post" action="/faq/add">
             問題:<br>
@@ -73,7 +79,7 @@ def faq_page():
             答案:<br>
             <textarea name="answer"></textarea><br><br>
 
-            <button type="submit">新增</button>
+            <button>新增</button>
         </form>
 
         <hr>
@@ -83,18 +89,12 @@ def faq_page():
     """
 
 
-# =========================
-# ADD FAQ
-# =========================
 @app.post("/faq/add")
 async def add_faq(question: str = Form(...), answer: str = Form(...)):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    c.execute(
-        "INSERT INTO faq (question, answer) VALUES (?, ?)",
-        (question, answer)
-    )
+    c.execute("INSERT INTO faq VALUES (NULL, ?, ?)", (question, answer))
 
     conn.commit()
     conn.close()
@@ -102,9 +102,6 @@ async def add_faq(question: str = Form(...), answer: str = Form(...)):
     return {"status": "ok"}
 
 
-# =========================
-# LIST FAQ
-# =========================
 @app.get("/faq/list", response_class=HTMLResponse)
 def list_faq():
     conn = sqlite3.connect(DB_PATH)
@@ -115,7 +112,7 @@ def list_faq():
 
     conn.close()
 
-    html = "<h1>FAQ LIST</h1><hr>"
+    html = "<h1>FAQ</h1><hr>"
 
     for r in rows:
         html += f"""
@@ -130,22 +127,6 @@ def list_faq():
 
 
 # =========================
-# FAQ API
-# =========================
-@app.get("/api/faq")
-def api_faq():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    c.execute("SELECT question, answer FROM faq")
-    rows = c.fetchall()
-
-    conn.close()
-
-    return [{"question": r[0], "answer": r[1]} for r in rows]
-
-
-# =========================
 # LOG SAVE
 # =========================
 def save_log(user, message, reply):
@@ -156,9 +137,9 @@ def save_log(user, message, reply):
 
     logs.append({
         "time": datetime.now().isoformat(),
-        "user": user or "",
-        "message": message or "",
-        "reply": reply or ""
+        "user": user,
+        "message": message,
+        "reply": reply
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -166,9 +147,14 @@ def save_log(user, message, reply):
 
 
 # =========================
-# LINE REPLY (DEBUG VERSION - VERY IMPORTANT)
+# LINE REPLY (🔥修正版 + debug)
 # =========================
 def reply_line(reply_token, text):
+
+    if not LINE_TOKEN:
+        print("❌ LINE_TOKEN is EMPTY (env 沒載入)")
+        return
+
     url = "https://api.line.me/v2/bot/message/reply"
 
     headers = {
@@ -186,45 +172,41 @@ def reply_line(reply_token, text):
     try:
         resp = requests.post(url, headers=headers, json=data)
 
-        # 🔥 這是你現在最關鍵的 debug
-        print("===== LINE REPLY DEBUG =====")
+        print("===== LINE DEBUG =====")
         print("STATUS:", resp.status_code)
-        print("RESPONSE:", resp.text)
-        print("============================")
+        print("BODY:", resp.text)
+        print("======================")
 
     except Exception as e:
-        print("LINE REQUEST ERROR:", e)
+        print("❌ LINE REQUEST ERROR:", e)
 
 
 # =========================
-# LINE WEBHOOK (SAFE)
+# LINE WEBHOOK
 # =========================
 @app.post("/line/webhook")
 async def line_webhook(request: Request):
+
     try:
         body = await request.json()
 
         event = body.get("events", [])[0]
 
-        message = event.get("message", {})
-        user_text = message.get("text")
+        msg = event.get("message", {})
+        text = msg.get("text")
 
         reply_token = event.get("replyToken")
         user_id = event.get("source", {}).get("userId")
 
-        if not user_text:
+        if not text:
             return {"status": "ignored"}
 
-        print("USER:", user_text)
+        print("USER:", text)
 
-        # 👉 暫時 echo（確保流程通）
-        reply = f"收到：{user_text}"
+        reply_text = f"收到：{text}"
 
-        # 回 LINE
-        reply_line(reply_token, reply)
-
-        # 存 LOG
-        save_log(user_id, user_text, reply)
+        reply_line(reply_token, reply_text)
+        save_log(user_id, text, reply_text)
 
         return {"status": "ok"}
 
@@ -259,7 +241,7 @@ def logs():
 
 
 # =========================
-# LOG API
+# API LOGS
 # =========================
 @app.get("/api/logs")
 def api_logs():
