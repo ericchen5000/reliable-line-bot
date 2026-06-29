@@ -3,6 +3,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
 import json
 import os
+import time
 from datetime import datetime
 
 from config import (
@@ -41,9 +42,9 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# LOG SAVE (FIX + META READY)
+# LOG SAVE (FINAL: platform + latency)
 # =========================
-def save_log(user, message, reply, request: Request):
+def save_log(user, message, reply, request: Request, platform, latency):
 
     os.makedirs("logs", exist_ok=True)
 
@@ -59,18 +60,13 @@ def save_log(user, message, reply, request: Request):
 
     ua = request.headers.get("user-agent", "")
 
-    meta = {
-        "model": "deepseek",
-        "device": "mobile" if "Mobile" in ua else "desktop",
-        "browser": ua
-    }
-
     logs.append({
         "time": datetime.now().isoformat(),
         "user": user,
         "message": message,
         "reply": reply,
-        "meta": meta
+        "platform": platform,
+        "latency": latency
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -78,7 +74,7 @@ def save_log(user, message, reply, request: Request):
 
 
 # =========================
-# FAQ (LOGIC ONLY)
+# FAQ
 # =========================
 def search_faq(question):
     if not FAQ_FILE or not os.path.exists(FAQ_FILE):
@@ -140,15 +136,12 @@ def handle_products(user_message):
 
     if "vates" in msg:
         return "VATES = 虛擬化管理平台（XCP-ng / Xen Orchestra）"
-
     if "array" in msg:
         return "Array Networks = APV / SSL VPN / ZTNA"
-
     if "penguin" in msg:
-        return "Penguin Solutions = 高可用與邊緣運算平台"
-
+        return "Penguin Solutions = 高可用平台"
     if "neverfail" in msg:
-        return "Neverfail = 系統不中斷與災難備援"
+        return "Neverfail = 災難備援"
 
     return None
 
@@ -230,6 +223,8 @@ def ai_reply(user_message):
 @app.post("/line/webhook")
 async def line_webhook(request: Request):
 
+    start = time.time()
+
     body = await request.json()
 
     if "events" not in body:
@@ -246,13 +241,25 @@ async def line_webhook(request: Request):
         user_msg = event["message"]["text"]
         user_id = event["source"].get("userId")
 
+        # platform
+        platform = "LINE"
+
         reply = ai_reply(user_msg)
+
+        latency = round(time.time() - start, 3)
 
         line_bot_api.reply_message(
             event["replyToken"],
             TextSendMessage(text=reply[:1000])
         )
 
-        save_log(user_id, user_msg, reply, request)
+        save_log(
+            user_id,
+            user_msg,
+            reply,
+            request,
+            platform,
+            latency
+        )
 
     return {"status": "ok"}
