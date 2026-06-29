@@ -12,7 +12,7 @@ LOG_PATH = "logs/chat_logs.json"
 
 
 # =========================
-# DB INIT
+# INIT DB
 # =========================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -31,7 +31,7 @@ def init_db():
 
 
 # =========================
-# LOG INIT
+# INIT LOG FILE
 # =========================
 def init_log():
     os.makedirs("logs", exist_ok=True)
@@ -45,7 +45,7 @@ init_log()
 
 
 # =========================
-# HOME
+# ROOT
 # =========================
 @app.get("/")
 def root():
@@ -156,7 +156,7 @@ def delete_faq(faq_id: int):
 
 
 # =========================
-# API FAQ (給 AI 用)
+# API FAQ
 # =========================
 @app.get("/api/faq")
 def api_faq():
@@ -172,9 +172,9 @@ def api_faq():
 
 
 # =========================
-# LOG SAVE
+# LOG SAVE (SAFE - no crash)
 # =========================
-def save_log(user, message, reply):
+def save_log(user="", message="", reply=""):
     init_log()
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
@@ -182,9 +182,9 @@ def save_log(user, message, reply):
 
     logs.append({
         "time": datetime.now().isoformat(),
-        "user": user,
-        "message": message,
-        "reply": reply
+        "user": user or "",
+        "message": message or "",
+        "reply": reply or ""
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -192,7 +192,7 @@ def save_log(user, message, reply):
 
 
 # =========================
-# LOG VIEW (UI)
+# LOG UI (FIXED)
 # =========================
 @app.get("/logs", response_class=HTMLResponse)
 def view_logs():
@@ -212,10 +212,10 @@ def view_logs():
     for l in reversed(logs):
         html += f"""
         <div>
-            <b>Time:</b> {l['time']}<br>
-            <b>User:</b> {l['user']}<br>
-            <b>Msg:</b> {l['message']}<br>
-            <b>Reply:</b> {l['reply']}<br>
+            <b>Time:</b> {l.get('time','')}<br>
+            <b>User:</b> {l.get('user','')}<br>
+            <b>Msg:</b> {l.get('message','')}<br>
+            <b>Reply:</b> {l.get('reply','')}<br>
         </div>
         <hr>
         """
