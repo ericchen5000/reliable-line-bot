@@ -4,11 +4,15 @@ import sqlite3
 import json
 import os
 from datetime import datetime
+import requests
 
 app = FastAPI()
 
 DB_PATH = "data.db"
 LOG_PATH = "logs/chat_logs.json"
+
+# ⚠️ LINE TOKEN（請確保這裡是「真的 token」，不是字串）
+LINE_TOKEN = "YOUR_LINE_CHANNEL_ACCESS_TOKEN"
 
 
 # =========================
@@ -31,7 +35,7 @@ def init_db():
 
 
 # =========================
-# INIT LOG FILE
+# INIT LOG
 # =========================
 def init_log():
     os.makedirs("logs", exist_ok=True)
@@ -60,7 +64,7 @@ def faq_page():
     return """
     <html>
     <body>
-        <h1>FAQ</h1>
+        <h1>FAQ 管理</h1>
 
         <form method="post" action="/faq/add">
             問題:<br>
@@ -73,18 +77,24 @@ def faq_page():
         </form>
 
         <hr>
-        <a href="/faq/list">查看 FAQ</a>
+        <a href="/faq/list">FAQ LIST</a>
     </body>
     </html>
     """
 
 
+# =========================
+# ADD FAQ
+# =========================
 @app.post("/faq/add")
 async def add_faq(question: str = Form(...), answer: str = Form(...)):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    c.execute("INSERT INTO faq (question, answer) VALUES (?, ?)", (question, answer))
+    c.execute(
+        "INSERT INTO faq (question, answer) VALUES (?, ?)",
+        (question, answer)
+    )
 
     conn.commit()
     conn.close()
@@ -92,6 +102,9 @@ async def add_faq(question: str = Form(...), answer: str = Form(...)):
     return {"status": "ok"}
 
 
+# =========================
+# LIST FAQ
+# =========================
 @app.get("/faq/list", response_class=HTMLResponse)
 def list_faq():
     conn = sqlite3.connect(DB_PATH)
@@ -107,7 +120,6 @@ def list_faq():
     for r in rows:
         html += f"""
         <div>
-            <b>ID:</b> {r[0]}<br>
             <b>Q:</b> {r[1]}<br>
             <b>A:</b> {r[2]}<br>
         </div>
@@ -117,21 +129,8 @@ def list_faq():
     return HTMLResponse(html)
 
 
-@app.get("/faq/delete/{faq_id}")
-def delete_faq(faq_id: int):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    c.execute("DELETE FROM faq WHERE id = ?", (faq_id,))
-
-    conn.commit()
-    conn.close()
-
-    return {"deleted": faq_id}
-
-
 # =========================
-# FAQ API (給 LINE / AI 用)
+# FAQ API
 # =========================
 @app.get("/api/faq")
 def api_faq():
@@ -147,9 +146,9 @@ def api_faq():
 
 
 # =========================
-# LOG SAVE (SAFE)
+# LOG SAVE
 # =========================
-def save_log(user="", message="", reply=""):
+def save_log(user, message, reply):
     init_log()
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
@@ -157,9 +156,9 @@ def save_log(user="", message="", reply=""):
 
     logs.append({
         "time": datetime.now().isoformat(),
-        "user": user,
-        "message": message,
-        "reply": reply
+        "user": user or "",
+        "message": message or "",
+        "reply": reply or ""
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -167,10 +166,78 @@ def save_log(user="", message="", reply=""):
 
 
 # =========================
-# LOG VIEW (FIXED - NO CRASH)
+# LINE REPLY (DEBUG VERSION - VERY IMPORTANT)
+# =========================
+def reply_line(reply_token, text):
+    url = "https://api.line.me/v2/bot/message/reply"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_TOKEN}"
+    }
+
+    data = {
+        "replyToken": reply_token,
+        "messages": [
+            {"type": "text", "text": text[:1000]}
+        ]
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, json=data)
+
+        # 🔥 這是你現在最關鍵的 debug
+        print("===== LINE REPLY DEBUG =====")
+        print("STATUS:", resp.status_code)
+        print("RESPONSE:", resp.text)
+        print("============================")
+
+    except Exception as e:
+        print("LINE REQUEST ERROR:", e)
+
+
+# =========================
+# LINE WEBHOOK (SAFE)
+# =========================
+@app.post("/line/webhook")
+async def line_webhook(request: Request):
+    try:
+        body = await request.json()
+
+        event = body.get("events", [])[0]
+
+        message = event.get("message", {})
+        user_text = message.get("text")
+
+        reply_token = event.get("replyToken")
+        user_id = event.get("source", {}).get("userId")
+
+        if not user_text:
+            return {"status": "ignored"}
+
+        print("USER:", user_text)
+
+        # 👉 暫時 echo（確保流程通）
+        reply = f"收到：{user_text}"
+
+        # 回 LINE
+        reply_line(reply_token, reply)
+
+        # 存 LOG
+        save_log(user_id, user_text, reply)
+
+        return {"status": "ok"}
+
+    except Exception as e:
+        print("WEBHOOK ERROR:", e)
+        return {"status": "error"}
+
+
+# =========================
+# LOG VIEW
 # =========================
 @app.get("/logs", response_class=HTMLResponse)
-def view_logs():
+def logs():
     init_log()
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
@@ -181,7 +248,6 @@ def view_logs():
     for l in reversed(logs):
         html += f"""
         <div>
-            <b>Time:</b> {l.get('time','')}<br>
             <b>User:</b> {l.get('user','')}<br>
             <b>Msg:</b> {l.get('message','')}<br>
             <b>Reply:</b> {l.get('reply','')}<br>
@@ -201,16 +267,3 @@ def api_logs():
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-# =========================
-# LINE WEBHOOK (FIXED - NO 404)
-# =========================
-@app.post("/line/webhook")
-async def line_webhook(request: Request):
-    data = await request.json()
-
-    print("LINE WEBHOOK:", data)
-
-    # LINE 先回 200（避免 404）
-    return {"status": "ok"}
