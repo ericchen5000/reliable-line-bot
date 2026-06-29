@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
 import json
@@ -90,7 +91,7 @@ def handle_company(user_message):
 
 
 # =========================
-# PRODUCTS（鎖死版本）
+# PRODUCTS
 # =========================
 def handle_products(user_message):
     msg = user_message.lower()
@@ -111,7 +112,7 @@ def handle_products(user_message):
 
 
 # =========================
-# 🔥 KB（完全修正版：穩定可命中）
+# KB
 # =========================
 def search_knowledge(user_message):
     kb_path = "knowledge"
@@ -120,7 +121,7 @@ def search_knowledge(user_message):
         return None
 
     msg = user_message.lower()
-    msg_tokens = [w for w in msg.split() if len(w) > 1]
+    tokens = [w for w in msg.split() if len(w) > 1]
 
     results = []
 
@@ -135,10 +136,10 @@ def search_knowledge(user_message):
                 with open(path, "r", encoding="utf-8") as f:
                     content = f.read().lower()
 
-                    # 🔥 強化命中（修正你之前錯的地方）
                     if (
                         msg in content
-                        or any(t in content for t in msg_tokens)
+                        or any(t in content for t in tokens)
+                        or any(k in content for k in ["vates", "array", "penguin", "neverfail"])
                     ):
                         results.append(content[:1000])
 
@@ -152,7 +153,7 @@ def search_knowledge(user_message):
 
 
 # =========================
-# AI FALLBACK（禁止亂編）
+# AI FALLBACK
 # =========================
 def ai_fallback(user_message):
     prompt = SYSTEM_PROMPT + """
@@ -169,7 +170,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER（唯一入口）
+# ROUTER
 # =========================
 def ai_reply(user_message):
 
@@ -221,3 +222,57 @@ async def line_webhook(request: Request):
         )
 
     return {"status": "ok"}
+
+
+# =========================
+# ADMIN (FAQ + LOGS)
+# =========================
+
+LOG_PATH = "logs/chat_logs.json"
+
+
+@app.get("/faq", response_class=HTMLResponse)
+def faq_page():
+
+    if not FAQ_FILE or not os.path.exists(FAQ_FILE):
+        return HTMLResponse("<h1>No FAQ</h1>")
+
+    with open(FAQ_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    html = "<h1>FAQ</h1><hr>"
+
+    for item in data:
+        html += f"""
+        <div>
+            Q: {item.get('question','')}<br>
+            A: {item.get('answer','')}<br>
+        </div>
+        <hr>
+        """
+
+    return HTMLResponse(html)
+
+
+@app.get("/logs", response_class=HTMLResponse)
+def logs_page():
+
+    if not os.path.exists(LOG_PATH):
+        return HTMLResponse("<h1>No Logs</h1>")
+
+    with open(LOG_PATH, "r", encoding="utf-8") as f:
+        logs = json.load(f)
+
+    html = "<h1>LOGS</h1><hr>"
+
+    for l in reversed(logs):
+        html += f"""
+        <div>
+            <b>User:</b> {l.get('user','')}<br>
+            <b>Msg:</b> {l.get('message','')}<br>
+            <b>Reply:</b> {l.get('reply','')}<br>
+        </div>
+        <hr>
+        """
+
+    return HTMLResponse(html)
