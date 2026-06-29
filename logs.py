@@ -20,7 +20,7 @@ def load_logs():
 
 
 # =========================
-# LOG DASHBOARD UI
+# LIGHT DASHBOARD UI
 # =========================
 @router.get("/logs", response_class=HTMLResponse)
 def logs_ui(
@@ -63,146 +63,207 @@ def logs_ui(
     end = start + size
     logs_page = logs[start:end]
 
-    # =========================
-    # HTML UI
-    # =========================
     html = """
     <html>
     <head>
-        <title>AI Logs Dashboard</title>
-        <style>
-            body {
-                font-family: Arial;
-                background: #0f172a;
-                color: #e2e8f0;
-                margin: 0;
-                padding: 20px;
-            }
+    <meta charset="utf-8"/>
+    <title>LOGS</title>
 
-            .container {
-                max-width: 1200px;
-                margin: auto;
-            }
+    <style>
+        body{
+            margin:0;
+            font-family: Arial;
+            background:#f7f9fc;
+            color:#1f2937;
+        }
 
-            h1 {
-                color: #38bdf8;
-            }
+        .wrap{
+            width:100%;
+            padding:20px 30px;
+            box-sizing:border-box;
+        }
 
-            .filters {
-                background: #1e293b;
-                padding: 15px;
-                border-radius: 10px;
-                margin-bottom: 20px;
-            }
+        h1{
+            font-size:22px;
+            margin-bottom:15px;
+            font-weight:600;
+        }
 
-            input, select {
-                padding: 8px;
-                margin-right: 8px;
-                border-radius: 6px;
-                border: none;
-            }
+        /* =========================
+           FILTER BAR
+        ========================= */
+        .filters{
+            display:flex;
+            flex-wrap:wrap;
+            gap:10px;
+            background:#ffffff;
+            padding:15px;
+            border-radius:16px;
+            box-shadow:0 6px 18px rgba(0,0,0,0.05);
+            margin-bottom:20px;
+        }
 
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                background: #1e293b;
-                border-radius: 10px;
-                overflow: hidden;
-            }
+        input, select{
+            padding:10px 14px;
+            border-radius:999px;
+            border:1px solid #e5e7eb;
+            outline:none;
+            background:#f9fafb;
+        }
 
-            th {
-                background: #334155;
-                padding: 12px;
-                text-align: left;
-                font-size: 14px;
-            }
+        input:focus{
+            border-color:#93c5fd;
+            background:#fff;
+        }
 
-            td {
-                padding: 10px;
-                border-top: 1px solid #334155;
-                font-size: 13px;
-            }
+        /* =========================
+           PILL BUTTON
+        ========================= */
+        .btn{
+            padding:10px 16px;
+            border-radius:999px;
+            border:none;
+            cursor:pointer;
+            background:linear-gradient(135deg,#60a5fa,#a78bfa);
+            color:white;
+            font-weight:500;
+            transition:0.2s;
+        }
 
-            tr:hover {
-                background: #334155;
-                cursor: pointer;
-            }
+        .btn:hover{
+            transform:scale(1.03);
+            opacity:0.95;
+        }
 
-            .badge {
-                padding: 2px 6px;
-                border-radius: 6px;
-                background: #0ea5e9;
-                font-size: 12px;
-            }
+        /* =========================
+           TABLE
+        ========================= */
+        table{
+            width:100%;
+            border-collapse:collapse;
+            background:white;
+            border-radius:16px;
+            overflow:hidden;
+            box-shadow:0 6px 18px rgba(0,0,0,0.05);
+        }
 
-            .small {
-                font-size: 12px;
-                opacity: 0.8;
-            }
+        th{
+            text-align:left;
+            background:#f3f4f6;
+            padding:14px;
+            font-size:13px;
+            color:#374151;
+        }
 
-            .expand {
-                display: none;
-                background: #0b1220;
-            }
+        td{
+            padding:12px 14px;
+            border-top:1px solid #f1f1f1;
+            font-size:13px;
+            vertical-align:top;
+        }
 
-            .pagination a {
-                color: #38bdf8;
-                margin-right: 8px;
-                text-decoration: none;
-            }
-        </style>
+        tr:hover{
+            background:#f9fafb;
+            cursor:pointer;
+        }
 
-        <script>
-            function toggle(id){
-                var el = document.getElementById(id);
-                el.style.display = (el.style.display === "none") ? "table-row" : "none";
-            }
-        </script>
+        /* =========================
+           BADGE
+        ========================= */
+        .badge{
+            display:inline-block;
+            padding:4px 10px;
+            border-radius:999px;
+            background:linear-gradient(135deg,#93c5fd,#c4b5fd);
+            color:#1e293b;
+            font-size:12px;
+        }
+
+        /* =========================
+           EXPAND ROW
+        ========================= */
+        .expand{
+            display:none;
+            background:#f9fafb;
+        }
+
+        /* =========================
+           PAGINATION
+        ========================= */
+        .pagination{
+            margin-top:20px;
+        }
+
+        .page{
+            display:inline-block;
+            padding:6px 12px;
+            margin-right:6px;
+            border-radius:999px;
+            background:#fff;
+            border:1px solid #e5e7eb;
+            text-decoration:none;
+            color:#374151;
+        }
+
+        .page:hover{
+            background:#eef2ff;
+        }
+
+        .small{
+            font-size:12px;
+            color:#6b7280;
+        }
+
+    </style>
+
+    <script>
+        function toggle(id){
+            var el = document.getElementById(id);
+            el.style.display = (el.style.display === "table-row") ? "none" : "table-row";
+        }
+    </script>
+
     </head>
-    <body>
-    <div class="container">
 
-    <h1>LOGS DASHBOARD</h1>
+    <body>
+    <div class="wrap">
+
+    <h1>LOGS 系統</h1>
 
     <form class="filters" method="get">
-        Keyword:
-        <input name="keyword" placeholder="search...">
 
-        User:
-        <input name="user" placeholder="user id">
+        <input name="keyword" placeholder="關鍵字搜尋">
 
-        Model:
-        <input name="model" placeholder="gpt / deepseek">
+        <input name="user" placeholder="使用者ID">
 
-        Size:
+        <input name="model" placeholder="模型名稱">
+
         <select name="size">
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
+            <option value="10">每頁10筆</option>
+            <option value="20">每頁20筆</option>
+            <option value="50">每頁50筆</option>
         </select>
 
-        Sort:
         <select name="sort">
-            <option value="desc">Newest</option>
-            <option value="asc">Oldest</option>
+            <option value="desc">最新優先</option>
+            <option value="asc">最舊優先</option>
         </select>
 
-        <button>Apply</button>
+        <button class="btn">搜尋</button>
     </form>
 
     <table>
         <tr>
-            <th>Time</th>
-            <th>User</th>
-            <th>Message</th>
-            <th>Reply</th>
-            <th>Meta</th>
+            <th>時間</th>
+            <th>使用者</th>
+            <th>訊息</th>
+            <th>回覆</th>
+            <th>資訊</th>
         </tr>
     """
 
     for i, l in enumerate(logs_page):
-        row_id = f"row_{i}"
-
+        row_id = f"r_{i}"
         meta = l.get("meta", {})
 
         html += f"""
@@ -212,17 +273,17 @@ def logs_ui(
             <td>{l.get('message','')[:40]}</td>
             <td>{l.get('reply','')[:40]}</td>
             <td class="small">
-                model: {meta.get('model','-')}<br>
-                device: {meta.get('device','-')}<br>
-                browser: {meta.get('browser','-')}
+                模型：{meta.get('model','-')}<br>
+                裝置：{meta.get('device','-')}<br>
+                瀏覽器：{meta.get('browser','-')}
             </td>
         </tr>
 
         <tr id="{row_id}" class="expand">
             <td colspan="5">
-                <b>Full Message:</b><br>{l.get('message','')}<br><br>
-                <b>Full Reply:</b><br>{l.get('reply','')}<br><br>
-                <b>Meta:</b><br>{json.dumps(meta, ensure_ascii=False, indent=2)}
+                <b>完整訊息：</b><br>{l.get('message','')}<br><br>
+                <b>完整回覆：</b><br>{l.get('reply','')}<br><br>
+                <b>Meta資訊：</b><pre>{json.dumps(meta, ensure_ascii=False, indent=2)}</pre>
             </td>
         </tr>
         """
@@ -230,13 +291,13 @@ def logs_ui(
     html += """
     </table>
 
-    <div class="pagination" style="margin-top:20px;">
+    <div class="pagination">
     """
 
-    total_pages = (total // size) + 1
+    total_pages = max(1, (total // size) + 1)
 
     for p in range(1, total_pages + 1):
-        html += f"<a href='?page={p}&size={size}'>{p}</a>"
+        html += f"<a class='page' href='?page={p}&size={size}'>{p}</a>"
 
     html += """
     </div>
