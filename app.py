@@ -1,229 +1,223 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
-import sqlite3
+from fastapi import FastAPI, Request, HTTPException
+from linebot import LineBotApi, WebhookHandler
+from linebot.models import TextSendMessage
 import json
 import os
-from datetime import datetime
-import requests
-from dotenv import load_dotenv
 
-# =========================
-# ENV
-# =========================
-load_dotenv()
+from config import (
+    LINE_CHANNEL_ACCESS_TOKEN,
+    LINE_CHANNEL_SECRET,
+    FAQ_FILE,
+    SYSTEM_PROMPT_FILE,
+)
 
-app = FastAPI()
+from deepseek import ask_deepseek
 
-DB_PATH = "data.db"
-LOG_PATH = "logs/chat_logs.json"
-KB_PATH = "knowledge"
+app = FastAPI(title="AI Assistant")
 
-LINE_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 
 # =========================
-# INIT DB
+# SYSTEM PROMPT
 # =========================
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+def load_system_prompt():
+    if SYSTEM_PROMPT_FILE and os.path.exists(SYSTEM_PROMPT_FILE):
+        with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as f:
+            return f.read()
+    return ""
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS faq (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        question TEXT,
-        answer TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-# =========================
-# INIT LOG
-# =========================
-def init_log():
-    os.makedirs("logs", exist_ok=True)
-    if not os.path.exists(LOG_PATH):
-        with open(LOG_PATH, "w", encoding="utf-8") as f:
-            json.dump([], f)
-
-
-init_db()
-init_log()
-
-
-# =========================
-# LOG SAVE
-# =========================
-def save_log(user, msg, reply):
-    init_log()
-
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        logs = json.load(f)
-
-    logs.append({
-        "time": datetime.now().isoformat(),
-        "user": user,
-        "message": msg,
-        "reply": reply
-    })
-
-    with open(LOG_PATH, "w", encoding="utf-8") as f:
-        json.dump(logs, f, ensure_ascii=False, indent=2)
+SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
 # FAQ
 # =========================
-def faq_search(text):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    c.execute("SELECT answer FROM faq WHERE question LIKE ?", (f"%{text}%",))
-    row = c.fetchone()
-
-    conn.close()
-
-    return row[0] if row else None
-
-
-# =========================
-# 🔥 KB（已接上）
-# =========================
-def kb_search(text):
-    if not os.path.exists(KB_PATH):
+def search_faq(question):
+    if not FAQ_FILE or not os.path.exists(FAQ_FILE):
         return None
 
-    for file in os.listdir(KB_PATH):
-        path = os.path.join(KB_PATH, file)
+    try:
+        with open(FAQ_FILE, "r", encoding="utf-8") as f:
+            faq = json.load(f)
+    except:
+        return None
 
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read()
+    q = question.strip().lower()
 
-                if text.lower() in content.lower():
-                    return content[:800]
+    for item in faq:
+        faq_q = item.get("question", "").strip().lower()
+        faq_a = item.get("answer", "")
 
-        except:
-            continue
+        if faq_q == q:
+            return faq_a
+
+        if faq_q in q or q in faq_q:
+            return faq_a
 
     return None
 
 
 # =========================
-# AI（DeepSeek）
+# COMPANY
 # =========================
-def ai_answer(text):
-    try:
-        url = "https://api.deepseek.com/chat/completions"
+def handle_company(user_message):
+    keywords = ["公司", "電話", "地址", "email", "聯絡", "聯絡方式"]
 
-        headers = {
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-            "Content-Type": "application/json"
-        }
+    msg = user_message.lower()
 
-        data = {
-            "model": "deepseek-chat",
-            "messages": [
-                {"role": "system", "content": "你是企業AI客服，用繁體中文回答"},
-                {"role": "user", "content": text}
-            ]
-        }
+    if any(k in msg for k in keywords):
+        path = "data/company.json"
+        if not os.path.exists(path):
+            return None
 
-        r = requests.post(url, headers=headers, json=data)
-        return r.json()["choices"][0]["message"]["content"]
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except:
+            return None
 
-    except Exception as e:
-        return f"AI error: {str(e)}"
+        return (
+            "公司名稱：" + data.get("company_name", "") + "\n" +
+            "電話：" + data.get("phone", "") + "\n" +
+            "Email：" + data.get("email", "") + "\n" +
+            "地址：" + data.get("address", "") + "\n" +
+            "網站：" + data.get("website", "")
+        )
+
+    return None
 
 
 # =========================
-# 🚀 三層 Fallback（FAQ → KB → AI）
+# PRODUCTS（鎖死版本）
 # =========================
-def answer_engine(text):
+def handle_products(user_message):
+    msg = user_message.lower()
 
-    # 1️⃣ FAQ
-    faq = faq_search(text)
+    if "vates" in msg:
+        return "VATES = 虛擬化管理平台（XCP-ng / Xen Orchestra）"
+
+    if "array" in msg:
+        return "Array Networks = APV / SSL VPN / ZTNA"
+
+    if "penguin" in msg:
+        return "Penguin Solutions = 高可用與邊緣運算平台"
+
+    if "neverfail" in msg:
+        return "Neverfail = 系統不中斷與災難備援"
+
+    return None
+
+
+# =========================
+# 🔥 KB（完全修正版：穩定可命中）
+# =========================
+def search_knowledge(user_message):
+    kb_path = "knowledge"
+
+    if not os.path.exists(kb_path):
+        return None
+
+    msg = user_message.lower()
+    msg_tokens = [w for w in msg.split() if len(w) > 1]
+
+    results = []
+
+    for root, dirs, files in os.walk(kb_path):
+        for file in files:
+            if not file.endswith(".txt"):
+                continue
+
+            path = os.path.join(root, file)
+
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read().lower()
+
+                    # 🔥 強化命中（修正你之前錯的地方）
+                    if (
+                        msg in content
+                        or any(t in content for t in msg_tokens)
+                    ):
+                        results.append(content[:1000])
+
+            except:
+                continue
+
+    if results:
+        return "\n\n---\n\n".join(results[:2])
+
+    return None
+
+
+# =========================
+# AI FALLBACK（禁止亂編）
+# =========================
+def ai_fallback(user_message):
+    prompt = SYSTEM_PROMPT + """
+
+規則：
+1. 不可編造不存在的產品或技術
+2. 沒有資料就回答：目前資料庫中沒有相關資訊
+3. 不可延伸或解釋未提供內容
+4. 使用繁體中文
+5. 回答簡短
+"""
+
+    return ask_deepseek(prompt, user_message)
+
+
+# =========================
+# ROUTER（唯一入口）
+# =========================
+def ai_reply(user_message):
+
+    faq = search_faq(user_message)
     if faq:
         return faq
 
-    # 2️⃣ KB
-    kb = kb_search(text)
+    company = handle_company(user_message)
+    if company:
+        return company
+
+    product = handle_products(user_message)
+    if product:
+        return product
+
+    kb = search_knowledge(user_message)
     if kb:
         return kb
 
-    # 3️⃣ AI
-    return ai_answer(text)
+    return ai_fallback(user_message)
 
 
 # =========================
-# LINE REPLY
-# =========================
-def reply_line(token, text):
-
-    if not LINE_TOKEN:
-        print("❌ LINE TOKEN missing")
-        return
-
-    url = "https://api.line.me/v2/bot/message/reply"
-
-    headers = {
-        "Authorization": f"Bearer {LINE_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "replyToken": token,
-        "messages": [{"type": "text", "text": text[:1000]}]
-    }
-
-    requests.post(url, headers=headers, json=data)
-
-
-# =========================
-# WEBHOOK
+# LINE WEBHOOK
 # =========================
 @app.post("/line/webhook")
-async def webhook(request: Request):
+async def line_webhook(request: Request):
 
     body = await request.json()
-    event = body["events"][0]
 
-    text = event["message"]["text"]
-    token = event["replyToken"]
-    user = event["source"]["userId"]
+    if "events" not in body:
+        raise HTTPException(status_code=400)
 
-    # 🔥 核心：三層 AI
-    reply = answer_engine(text)
+    for event in body["events"]:
 
-    reply_line(token, reply)
-    save_log(user, text, reply)
+        if event.get("type") != "message":
+            continue
+
+        if event["message"]["type"] != "text":
+            continue
+
+        user_msg = event["message"]["text"]
+
+        reply = ai_reply(user_msg)
+
+        line_bot_api.reply_message(
+            event["replyToken"],
+            TextSendMessage(text=reply[:1000])
+        )
 
     return {"status": "ok"}
-
-
-# =========================
-# LOG UI
-# =========================
-@app.get("/logs", response_class=HTMLResponse)
-def logs():
-
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        logs = json.load(f)
-
-    html = "<h1>LOGS</h1><hr>"
-
-    for l in reversed(logs):
-        html += f"""
-        <div>
-            <b>User:</b> {l["user"]}<br>
-            <b>Msg:</b> {l["message"]}<br>
-            <b>Reply:</b> {l["reply"]}<br>
-        </div>
-        <hr>
-        """
-
-    return HTMLResponse(html)
