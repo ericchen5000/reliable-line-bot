@@ -1,0 +1,10 @@
+{
+  "products": [
+    "Array Networks - APV（應用交付控制器 / 負載平衡）",
+    "Array Networks - AG（SSL VPN / 零信任遠端存取）",
+    "Array Networks - ZTAG-A（Zero Trust Gateway）",
+    "Vates VMS（XCP-ng / Xen Orchestra 虛擬化平台）",
+    "Penguin Solutions - Stratus ztC Edge / everRun（高可用平台）",
+    "Neverfail Continuity Engine（應用不中斷備援）"
+  ]
+}

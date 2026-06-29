@@ -1,0 +1,11 @@
+Stratus 提供高可用與容錯運算平台。
+
+主要產品：
+- everRun：軟體定義高可用
+- ztC Edge：邊緣運算設備
+- ztC Endurance：企業級容錯平台
+
+特點：
+- 即時容錯（Fault Tolerance）
+- 適用關鍵系統（ERP、MES、資料庫）
+- 降低停機風險
