@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 import json
 import os
@@ -16,11 +16,28 @@ def load_logs():
         return []
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except:
+            return []
 
 
 # =========================
-# LIGHT DASHBOARD UI
+# PLATFORM DETECT (fallback-safe)
+# =========================
+def get_platform(log):
+    return log.get("platform", "LINE")
+
+
+# =========================
+# RESPONSE TIME
+# =========================
+def get_latency(log):
+    return log.get("latency", "-")
+
+
+# =========================
+# UI
 # =========================
 @router.get("/logs", response_class=HTMLResponse)
 def logs_ui(
@@ -28,7 +45,6 @@ def logs_ui(
     size: int = 10,
     keyword: str = None,
     user: str = None,
-    model: str = None,
     sort: str = "desc"
 ):
 
@@ -47,9 +63,6 @@ def logs_ui(
     if user:
         logs = [l for l in logs if l.get("user") == user]
 
-    if model:
-        logs = [l for l in logs if l.get("meta", {}).get("model") == model]
-
     # =========================
     # SORT
     # =========================
@@ -67,7 +80,6 @@ def logs_ui(
     <html>
     <head>
     <meta charset="utf-8"/>
-    <title>LOGS</title>
 
     <style>
         body{
@@ -79,85 +91,64 @@ def logs_ui(
 
         .wrap{
             width:100%;
-            padding:20px 30px;
+            padding:20px;
             box-sizing:border-box;
         }
 
         h1{
-            font-size:22px;
+            font-size:20px;
             margin-bottom:15px;
-            font-weight:600;
         }
 
-        /* =========================
-           FILTER BAR
-        ========================= */
+        /* FILTER */
         .filters{
             display:flex;
             flex-wrap:wrap;
             gap:10px;
-            background:#ffffff;
+            background:white;
             padding:15px;
-            border-radius:16px;
-            box-shadow:0 6px 18px rgba(0,0,0,0.05);
-            margin-bottom:20px;
+            border-radius:14px;
+            box-shadow:0 5px 15px rgba(0,0,0,0.05);
+            margin-bottom:15px;
         }
 
         input, select{
             padding:10px 14px;
             border-radius:999px;
             border:1px solid #e5e7eb;
-            outline:none;
             background:#f9fafb;
         }
 
-        input:focus{
-            border-color:#93c5fd;
-            background:#fff;
-        }
-
-        /* =========================
-           PILL BUTTON
-        ========================= */
+        /* BUTTON */
         .btn{
             padding:10px 16px;
             border-radius:999px;
             border:none;
-            cursor:pointer;
             background:linear-gradient(135deg,#60a5fa,#a78bfa);
             color:white;
-            font-weight:500;
-            transition:0.2s;
+            cursor:pointer;
         }
 
-        .btn:hover{
-            transform:scale(1.03);
-            opacity:0.95;
-        }
-
-        /* =========================
-           TABLE
-        ========================= */
+        /* TABLE */
         table{
             width:100%;
             border-collapse:collapse;
             background:white;
-            border-radius:16px;
+            border-radius:14px;
             overflow:hidden;
-            box-shadow:0 6px 18px rgba(0,0,0,0.05);
+            box-shadow:0 5px 15px rgba(0,0,0,0.05);
         }
 
         th{
             text-align:left;
+            padding:12px;
             background:#f3f4f6;
-            padding:14px;
             font-size:13px;
-            color:#374151;
         }
 
         td{
-            padding:12px 14px;
-            border-top:1px solid #f1f1f1;
+            padding:12px;
+            border-top:1px solid #eee;
             font-size:13px;
             vertical-align:top;
         }
@@ -167,46 +158,11 @@ def logs_ui(
             cursor:pointer;
         }
 
-        /* =========================
-           BADGE
-        ========================= */
         .badge{
-            display:inline-block;
             padding:4px 10px;
             border-radius:999px;
             background:linear-gradient(135deg,#93c5fd,#c4b5fd);
-            color:#1e293b;
-            font-size:12px;
-        }
-
-        /* =========================
-           EXPAND ROW
-        ========================= */
-        .expand{
-            display:none;
-            background:#f9fafb;
-        }
-
-        /* =========================
-           PAGINATION
-        ========================= */
-        .pagination{
-            margin-top:20px;
-        }
-
-        .page{
             display:inline-block;
-            padding:6px 12px;
-            margin-right:6px;
-            border-radius:999px;
-            background:#fff;
-            border:1px solid #e5e7eb;
-            text-decoration:none;
-            color:#374151;
-        }
-
-        .page:hover{
-            background:#eef2ff;
         }
 
         .small{
@@ -214,6 +170,35 @@ def logs_ui(
             color:#6b7280;
         }
 
+        .expand{
+            display:none;
+            background:#fafafa;
+        }
+
+        .pill{
+            padding:4px 10px;
+            border-radius:999px;
+            background:#e0f2fe;
+            font-size:12px;
+        }
+
+        .latency{
+            color:#16a34a;
+            font-weight:bold;
+        }
+
+        .pagination{
+            margin-top:15px;
+        }
+
+        .page{
+            padding:6px 12px;
+            border-radius:999px;
+            background:white;
+            margin-right:6px;
+            text-decoration:none;
+            border:1px solid #e5e7eb;
+        }
     </style>
 
     <script>
@@ -231,22 +216,18 @@ def logs_ui(
     <h1>LOGS 系統</h1>
 
     <form class="filters" method="get">
-
-        <input name="keyword" placeholder="關鍵字搜尋">
-
+        <input name="keyword" placeholder="關鍵字">
         <input name="user" placeholder="使用者ID">
 
-        <input name="model" placeholder="模型名稱">
-
         <select name="size">
-            <option value="10">每頁10筆</option>
-            <option value="20">每頁20筆</option>
-            <option value="50">每頁50筆</option>
+            <option value="10">10筆</option>
+            <option value="20">20筆</option>
+            <option value="50">50筆</option>
         </select>
 
         <select name="sort">
-            <option value="desc">最新優先</option>
-            <option value="asc">最舊優先</option>
+            <option value="desc">最新</option>
+            <option value="asc">最舊</option>
         </select>
 
         <button class="btn">搜尋</button>
@@ -264,7 +245,9 @@ def logs_ui(
 
     for i, l in enumerate(logs_page):
         row_id = f"r_{i}"
-        meta = l.get("meta", {})
+
+        platform = get_platform(l)
+        latency = get_latency(l)
 
         html += f"""
         <tr onclick="toggle('{row_id}')">
@@ -273,9 +256,8 @@ def logs_ui(
             <td>{l.get('message','')[:40]}</td>
             <td>{l.get('reply','')[:40]}</td>
             <td class="small">
-                模型：{meta.get('model','-')}<br>
-                裝置：{meta.get('device','-')}<br>
-                瀏覽器：{meta.get('browser','-')}
+                平台：<span class="pill">{platform}</span><br>
+                回應時間：<span class="latency">{latency}s</span>
             </td>
         </tr>
 
@@ -283,7 +265,8 @@ def logs_ui(
             <td colspan="5">
                 <b>完整訊息：</b><br>{l.get('message','')}<br><br>
                 <b>完整回覆：</b><br>{l.get('reply','')}<br><br>
-                <b>Meta資訊：</b><pre>{json.dumps(meta, ensure_ascii=False, indent=2)}</pre>
+                <b>平台：</b>{platform}<br>
+                <b>回應時間：</b>{latency}s
             </td>
         </tr>
         """
