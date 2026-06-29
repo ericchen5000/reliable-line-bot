@@ -265,8 +265,6 @@ def logs_ui(
             <td colspan="5">
                 <b>完整訊息：</b><br>{l.get('message','')}<br><br>
                 <b>完整回覆：</b><br>{l.get('reply','')}<br><br>
-                <b>平台：</b>{platform}<br>
-                <b>回應時間：</b>{latency}s
             </td>
         </tr>
         """
