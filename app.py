@@ -8,7 +8,7 @@ import requests
 from dotenv import load_dotenv
 
 # =========================
-# LOAD ENV（🔥你現在缺的關鍵）
+# ENV LOAD（LINE 關鍵）
 # =========================
 load_dotenv()
 
@@ -17,8 +17,8 @@ app = FastAPI()
 DB_PATH = "data.db"
 LOG_PATH = "logs/chat_logs.json"
 
-# ⚠️ 這行已修正（從 .env 讀）
 LINE_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 
 
 # =========================
@@ -70,14 +70,14 @@ def faq_page():
     return """
     <html>
     <body>
-        <h1>FAQ</h1>
+        <h1>FAQ 管理</h1>
 
         <form method="post" action="/faq/add">
             問題:<br>
-            <input name="question"><br><br>
+            <input name="question" style="width:400px"><br><br>
 
             答案:<br>
-            <textarea name="answer"></textarea><br><br>
+            <textarea name="answer" style="width:400px;height:120px"></textarea><br><br>
 
             <button>新增</button>
         </form>
@@ -94,7 +94,10 @@ async def add_faq(question: str = Form(...), answer: str = Form(...)):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    c.execute("INSERT INTO faq VALUES (NULL, ?, ?)", (question, answer))
+    c.execute(
+        "INSERT INTO faq (question, answer) VALUES (?, ?)",
+        (question, answer)
+    )
 
     conn.commit()
     conn.close()
@@ -112,7 +115,7 @@ def list_faq():
 
     conn.close()
 
-    html = "<h1>FAQ</h1><hr>"
+    html = "<h1>FAQ LIST</h1><hr>"
 
     for r in rows:
         html += f"""
@@ -147,12 +150,12 @@ def save_log(user, message, reply):
 
 
 # =========================
-# LINE REPLY (🔥修正版 + debug)
+# LINE REPLY (已修正 + debug)
 # =========================
 def reply_line(reply_token, text):
 
     if not LINE_TOKEN:
-        print("❌ LINE_TOKEN is EMPTY (env 沒載入)")
+        print("❌ LINE TOKEN not loaded")
         return
 
     url = "https://api.line.me/v2/bot/message/reply"
@@ -178,19 +181,18 @@ def reply_line(reply_token, text):
         print("======================")
 
     except Exception as e:
-        print("❌ LINE REQUEST ERROR:", e)
+        print("LINE ERROR:", e)
 
 
 # =========================
-# LINE WEBHOOK
+# LINE WEBHOOK（完整保留 + FAQ/KB位置）
 # =========================
 @app.post("/line/webhook")
 async def line_webhook(request: Request):
 
     try:
         body = await request.json()
-
-        event = body.get("events", [])[0]
+        event = body["events"][0]
 
         msg = event.get("message", {})
         text = msg.get("text")
@@ -203,9 +205,32 @@ async def line_webhook(request: Request):
 
         print("USER:", text)
 
-        reply_text = f"收到：{text}"
+        # =========================
+        # 🔥 FAQ 查詢（已恢復）
+        # =========================
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
 
+        c.execute(
+            "SELECT answer FROM faq WHERE question LIKE ?",
+            (f"%{text}%",)
+        )
+
+        row = c.fetchone()
+        conn.close()
+
+        # =========================
+        # 🔥 回覆邏輯
+        # =========================
+        if row:
+            reply_text = row[0]
+        else:
+            reply_text = f"收到：{text}"
+
+        # 回 LINE
         reply_line(reply_token, reply_text)
+
+        # LOG
         save_log(user_id, text, reply_text)
 
         return {"status": "ok"}
