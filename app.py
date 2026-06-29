@@ -76,25 +76,22 @@ def save_log(user, msg, reply):
 
 
 # =========================
-# FAQ SEARCH
+# FAQ
 # =========================
 def faq_search(text):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    c.execute(
-        "SELECT answer FROM faq WHERE question LIKE ?",
-        (f"%{text}%",)
-    )
-
+    c.execute("SELECT answer FROM faq WHERE question LIKE ?", (f"%{text}%",))
     row = c.fetchone()
+
     conn.close()
 
     return row[0] if row else None
 
 
 # =========================
-# KB SEARCH（本地文件）
+# 🔥 KB（已接上）
 # =========================
 def kb_search(text):
     if not os.path.exists(KB_PATH):
@@ -109,6 +106,7 @@ def kb_search(text):
 
                 if text.lower() in content.lower():
                     return content[:800]
+
         except:
             continue
 
@@ -116,9 +114,9 @@ def kb_search(text):
 
 
 # =========================
-# DEEPSEEK AI
+# AI（DeepSeek）
 # =========================
-def ai_reply(text):
+def ai_answer(text):
     try:
         url = "https://api.deepseek.com/chat/completions"
 
@@ -130,7 +128,7 @@ def ai_reply(text):
         data = {
             "model": "deepseek-chat",
             "messages": [
-                {"role": "system", "content": "你是企業AI客服，請用繁體中文簡潔回答"},
+                {"role": "system", "content": "你是企業AI客服，用繁體中文回答"},
                 {"role": "user", "content": text}
             ]
         }
@@ -143,7 +141,7 @@ def ai_reply(text):
 
 
 # =========================
-# 三層 Fallback（核心）
+# 🚀 三層 Fallback（FAQ → KB → AI）
 # =========================
 def answer_engine(text):
 
@@ -158,13 +156,13 @@ def answer_engine(text):
         return kb
 
     # 3️⃣ AI
-    return ai_reply(text)
+    return ai_answer(text)
 
 
 # =========================
 # LINE REPLY
 # =========================
-def reply_line(reply_token, text):
+def reply_line(token, text):
 
     if not LINE_TOKEN:
         print("❌ LINE TOKEN missing")
@@ -178,16 +176,11 @@ def reply_line(reply_token, text):
     }
 
     data = {
-        "replyToken": reply_token,
-        "messages": [
-            {"type": "text", "text": text[:1000]}
-        ]
+        "replyToken": token,
+        "messages": [{"type": "text", "text": text[:1000]}]
     }
 
-    r = requests.post(url, headers=headers, json=data)
-
-    print("LINE STATUS:", r.status_code)
-    print("LINE BODY:", r.text)
+    requests.post(url, headers=headers, json=data)
 
 
 # =========================
@@ -200,46 +193,21 @@ async def webhook(request: Request):
     event = body["events"][0]
 
     text = event["message"]["text"]
-    reply_token = event["replyToken"]
-    user_id = event["source"]["userId"]
+    token = event["replyToken"]
+    user = event["source"]["userId"]
 
-    print("USER:", text)
-
+    # 🔥 核心：三層 AI
     reply = answer_engine(text)
 
-    reply_line(reply_token, reply)
-    save_log(user_id, text, reply)
+    reply_line(token, reply)
+    save_log(user, text, reply)
 
     return {"status": "ok"}
 
 
 # =========================
-# FAQ UI
+# LOG UI
 # =========================
-@app.get("/faq", response_class=HTMLResponse)
-def faq_page():
-    return """
-    <h1>FAQ</h1>
-    <form method="post" action="/faq/add">
-        問題:<br><input name="question"><br><br>
-        答案:<br><textarea name="answer"></textarea><br><br>
-        <button>新增</button>
-    </form>
-    <hr>
-    <a href="/logs">LOGS</a>
-    """
-
-
-@app.post("/faq/add")
-async def add_faq(question: str = Form(...), answer: str = Form(...)):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT INTO faq VALUES (NULL, ?, ?)", (question, answer))
-    conn.commit()
-    conn.close()
-    return {"status": "ok"}
-
-
 @app.get("/logs", response_class=HTMLResponse)
 def logs():
 
