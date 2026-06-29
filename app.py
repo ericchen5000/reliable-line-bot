@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 import sqlite3
 import json
 import os
@@ -8,7 +8,7 @@ import requests
 from dotenv import load_dotenv
 
 # =========================
-# ENV LOAD（LINE 關鍵）
+# ENV
 # =========================
 load_dotenv()
 
@@ -16,9 +16,10 @@ app = FastAPI()
 
 DB_PATH = "data.db"
 LOG_PATH = "logs/chat_logs.json"
+KB_PATH = "knowledge"
 
 LINE_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-LINE_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
 
 # =========================
@@ -55,84 +56,9 @@ init_log()
 
 
 # =========================
-# ROOT
-# =========================
-@app.get("/")
-def root():
-    return {"status": "running"}
-
-
-# =========================
-# FAQ UI
-# =========================
-@app.get("/faq", response_class=HTMLResponse)
-def faq_page():
-    return """
-    <html>
-    <body>
-        <h1>FAQ 管理</h1>
-
-        <form method="post" action="/faq/add">
-            問題:<br>
-            <input name="question" style="width:400px"><br><br>
-
-            答案:<br>
-            <textarea name="answer" style="width:400px;height:120px"></textarea><br><br>
-
-            <button>新增</button>
-        </form>
-
-        <hr>
-        <a href="/faq/list">FAQ LIST</a>
-    </body>
-    </html>
-    """
-
-
-@app.post("/faq/add")
-async def add_faq(question: str = Form(...), answer: str = Form(...)):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    c.execute(
-        "INSERT INTO faq (question, answer) VALUES (?, ?)",
-        (question, answer)
-    )
-
-    conn.commit()
-    conn.close()
-
-    return {"status": "ok"}
-
-
-@app.get("/faq/list", response_class=HTMLResponse)
-def list_faq():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    c.execute("SELECT id, question, answer FROM faq ORDER BY id DESC")
-    rows = c.fetchall()
-
-    conn.close()
-
-    html = "<h1>FAQ LIST</h1><hr>"
-
-    for r in rows:
-        html += f"""
-        <div>
-            <b>Q:</b> {r[1]}<br>
-            <b>A:</b> {r[2]}<br>
-        </div>
-        <hr>
-        """
-
-    return HTMLResponse(html)
-
-
-# =========================
 # LOG SAVE
 # =========================
-def save_log(user, message, reply):
+def save_log(user, msg, reply):
     init_log()
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
@@ -141,7 +67,7 @@ def save_log(user, message, reply):
     logs.append({
         "time": datetime.now().isoformat(),
         "user": user,
-        "message": message,
+        "message": msg,
         "reply": reply
     })
 
@@ -150,19 +76,105 @@ def save_log(user, message, reply):
 
 
 # =========================
-# LINE REPLY (已修正 + debug)
+# FAQ SEARCH
+# =========================
+def faq_search(text):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    c.execute(
+        "SELECT answer FROM faq WHERE question LIKE ?",
+        (f"%{text}%",)
+    )
+
+    row = c.fetchone()
+    conn.close()
+
+    return row[0] if row else None
+
+
+# =========================
+# KB SEARCH（本地文件）
+# =========================
+def kb_search(text):
+    if not os.path.exists(KB_PATH):
+        return None
+
+    for file in os.listdir(KB_PATH):
+        path = os.path.join(KB_PATH, file)
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+                if text.lower() in content.lower():
+                    return content[:800]
+        except:
+            continue
+
+    return None
+
+
+# =========================
+# DEEPSEEK AI
+# =========================
+def ai_reply(text):
+    try:
+        url = "https://api.deepseek.com/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "你是企業AI客服，請用繁體中文簡潔回答"},
+                {"role": "user", "content": text}
+            ]
+        }
+
+        r = requests.post(url, headers=headers, json=data)
+        return r.json()["choices"][0]["message"]["content"]
+
+    except Exception as e:
+        return f"AI error: {str(e)}"
+
+
+# =========================
+# 三層 Fallback（核心）
+# =========================
+def answer_engine(text):
+
+    # 1️⃣ FAQ
+    faq = faq_search(text)
+    if faq:
+        return faq
+
+    # 2️⃣ KB
+    kb = kb_search(text)
+    if kb:
+        return kb
+
+    # 3️⃣ AI
+    return ai_reply(text)
+
+
+# =========================
+# LINE REPLY
 # =========================
 def reply_line(reply_token, text):
 
     if not LINE_TOKEN:
-        print("❌ LINE TOKEN not loaded")
+        print("❌ LINE TOKEN missing")
         return
 
     url = "https://api.line.me/v2/bot/message/reply"
 
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {LINE_TOKEN}"
+        "Authorization": f"Bearer {LINE_TOKEN}",
+        "Content-Type": "application/json"
     }
 
     data = {
@@ -172,80 +184,64 @@ def reply_line(reply_token, text):
         ]
     }
 
-    try:
-        resp = requests.post(url, headers=headers, json=data)
+    r = requests.post(url, headers=headers, json=data)
 
-        print("===== LINE DEBUG =====")
-        print("STATUS:", resp.status_code)
-        print("BODY:", resp.text)
-        print("======================")
-
-    except Exception as e:
-        print("LINE ERROR:", e)
+    print("LINE STATUS:", r.status_code)
+    print("LINE BODY:", r.text)
 
 
 # =========================
-# LINE WEBHOOK（完整保留 + FAQ/KB位置）
+# WEBHOOK
 # =========================
 @app.post("/line/webhook")
-async def line_webhook(request: Request):
+async def webhook(request: Request):
 
-    try:
-        body = await request.json()
-        event = body["events"][0]
+    body = await request.json()
+    event = body["events"][0]
 
-        msg = event.get("message", {})
-        text = msg.get("text")
+    text = event["message"]["text"]
+    reply_token = event["replyToken"]
+    user_id = event["source"]["userId"]
 
-        reply_token = event.get("replyToken")
-        user_id = event.get("source", {}).get("userId")
+    print("USER:", text)
 
-        if not text:
-            return {"status": "ignored"}
+    reply = answer_engine(text)
 
-        print("USER:", text)
+    reply_line(reply_token, reply)
+    save_log(user_id, text, reply)
 
-        # =========================
-        # 🔥 FAQ 查詢（已恢復）
-        # =========================
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-
-        c.execute(
-            "SELECT answer FROM faq WHERE question LIKE ?",
-            (f"%{text}%",)
-        )
-
-        row = c.fetchone()
-        conn.close()
-
-        # =========================
-        # 🔥 回覆邏輯
-        # =========================
-        if row:
-            reply_text = row[0]
-        else:
-            reply_text = f"收到：{text}"
-
-        # 回 LINE
-        reply_line(reply_token, reply_text)
-
-        # LOG
-        save_log(user_id, text, reply_text)
-
-        return {"status": "ok"}
-
-    except Exception as e:
-        print("WEBHOOK ERROR:", e)
-        return {"status": "error"}
+    return {"status": "ok"}
 
 
 # =========================
-# LOG VIEW
+# FAQ UI
 # =========================
+@app.get("/faq", response_class=HTMLResponse)
+def faq_page():
+    return """
+    <h1>FAQ</h1>
+    <form method="post" action="/faq/add">
+        問題:<br><input name="question"><br><br>
+        答案:<br><textarea name="answer"></textarea><br><br>
+        <button>新增</button>
+    </form>
+    <hr>
+    <a href="/logs">LOGS</a>
+    """
+
+
+@app.post("/faq/add")
+async def add_faq(question: str = Form(...), answer: str = Form(...)):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO faq VALUES (NULL, ?, ?)", (question, answer))
+    conn.commit()
+    conn.close()
+    return {"status": "ok"}
+
+
 @app.get("/logs", response_class=HTMLResponse)
 def logs():
-    init_log()
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
         logs = json.load(f)
@@ -255,22 +251,11 @@ def logs():
     for l in reversed(logs):
         html += f"""
         <div>
-            <b>User:</b> {l.get('user','')}<br>
-            <b>Msg:</b> {l.get('message','')}<br>
-            <b>Reply:</b> {l.get('reply','')}<br>
+            <b>User:</b> {l["user"]}<br>
+            <b>Msg:</b> {l["message"]}<br>
+            <b>Reply:</b> {l["reply"]}<br>
         </div>
         <hr>
         """
 
     return HTMLResponse(html)
-
-
-# =========================
-# API LOGS
-# =========================
-@app.get("/api/logs")
-def api_logs():
-    init_log()
-
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
