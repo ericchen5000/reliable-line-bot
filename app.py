@@ -59,42 +59,32 @@ def root():
 def faq_page():
     return """
     <html>
-    <head><title>FAQ</title></head>
     <body>
-        <h1>FAQ 管理</h1>
+        <h1>FAQ</h1>
 
         <form method="post" action="/faq/add">
             問題:<br>
-            <input name="question" style="width:400px"><br><br>
+            <input name="question"><br><br>
 
             答案:<br>
-            <textarea name="answer" style="width:400px;height:120px"></textarea><br><br>
+            <textarea name="answer"></textarea><br><br>
 
             <button type="submit">新增</button>
         </form>
 
         <hr>
-        <a href="/faq/list">FAQ 列表</a>
+        <a href="/faq/list">查看 FAQ</a>
     </body>
     </html>
     """
 
 
-# =========================
-# ADD FAQ
-# =========================
 @app.post("/faq/add")
-async def add_faq(
-    question: str = Form(...),
-    answer: str = Form(...)
-):
+async def add_faq(question: str = Form(...), answer: str = Form(...)):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    c.execute(
-        "INSERT INTO faq (question, answer) VALUES (?, ?)",
-        (question, answer)
-    )
+    c.execute("INSERT INTO faq (question, answer) VALUES (?, ?)", (question, answer))
 
     conn.commit()
     conn.close()
@@ -102,9 +92,6 @@ async def add_faq(
     return {"status": "ok"}
 
 
-# =========================
-# LIST FAQ
-# =========================
 @app.get("/faq/list", response_class=HTMLResponse)
 def list_faq():
     conn = sqlite3.connect(DB_PATH)
@@ -115,14 +102,7 @@ def list_faq():
 
     conn.close()
 
-    html = """
-    <html>
-    <head><title>FAQ LIST</title></head>
-    <body>
-    <h1>FAQ 列表</h1>
-    <a href="/faq">回新增</a>
-    <hr>
-    """
+    html = "<h1>FAQ LIST</h1><hr>"
 
     for r in rows:
         html += f"""
@@ -130,18 +110,13 @@ def list_faq():
             <b>ID:</b> {r[0]}<br>
             <b>Q:</b> {r[1]}<br>
             <b>A:</b> {r[2]}<br>
-            <a href="/faq/delete/{r[0]}">刪除</a>
         </div>
         <hr>
         """
 
-    html += "</body></html>"
     return HTMLResponse(html)
 
 
-# =========================
-# DELETE FAQ
-# =========================
 @app.get("/faq/delete/{faq_id}")
 def delete_faq(faq_id: int):
     conn = sqlite3.connect(DB_PATH)
@@ -152,11 +127,11 @@ def delete_faq(faq_id: int):
     conn.commit()
     conn.close()
 
-    return {"status": "deleted", "id": faq_id}
+    return {"deleted": faq_id}
 
 
 # =========================
-# API FAQ
+# FAQ API (給 LINE / AI 用)
 # =========================
 @app.get("/api/faq")
 def api_faq():
@@ -172,7 +147,7 @@ def api_faq():
 
 
 # =========================
-# LOG SAVE (SAFE - no crash)
+# LOG SAVE (SAFE)
 # =========================
 def save_log(user="", message="", reply=""):
     init_log()
@@ -182,9 +157,9 @@ def save_log(user="", message="", reply=""):
 
     logs.append({
         "time": datetime.now().isoformat(),
-        "user": user or "",
-        "message": message or "",
-        "reply": reply or ""
+        "user": user,
+        "message": message,
+        "reply": reply
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -192,7 +167,7 @@ def save_log(user="", message="", reply=""):
 
 
 # =========================
-# LOG UI (FIXED)
+# LOG VIEW (FIXED - NO CRASH)
 # =========================
 @app.get("/logs", response_class=HTMLResponse)
 def view_logs():
@@ -201,13 +176,7 @@ def view_logs():
     with open(LOG_PATH, "r", encoding="utf-8") as f:
         logs = json.load(f)
 
-    html = """
-    <html>
-    <head><title>Logs</title></head>
-    <body>
-    <h1>Chat Logs</h1>
-    <hr>
-    """
+    html = "<h1>LOGS</h1><hr>"
 
     for l in reversed(logs):
         html += f"""
@@ -220,7 +189,6 @@ def view_logs():
         <hr>
         """
 
-    html += "</body></html>"
     return HTMLResponse(html)
 
 
@@ -232,6 +200,17 @@ def api_logs():
     init_log()
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
-        logs = json.load(f)
+        return json.load(f)
 
-    return logs
+
+# =========================
+# LINE WEBHOOK (FIXED - NO 404)
+# =========================
+@app.post("/line/webhook")
+async def line_webhook(request: Request):
+    data = await request.json()
+
+    print("LINE WEBHOOK:", data)
+
+    # LINE 先回 200（避免 404）
+    return {"status": "ok"}
