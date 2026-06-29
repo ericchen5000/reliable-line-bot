@@ -3,6 +3,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
 import json
 import os
+from datetime import datetime
 
 from config import (
     LINE_CHANNEL_ACCESS_TOKEN,
@@ -24,6 +25,8 @@ app.include_router(faq_router)
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
+LOG_PATH = "logs/chat_logs.json"
+
 
 # =========================
 # SYSTEM PROMPT
@@ -35,6 +38,30 @@ def load_system_prompt():
     return ""
 
 SYSTEM_PROMPT = load_system_prompt()
+
+
+# =========================
+# LOG SAVE
+# =========================
+def save_log(user, message, reply):
+    os.makedirs("logs", exist_ok=True)
+
+    if not os.path.exists(LOG_PATH):
+        with open(LOG_PATH, "w", encoding="utf-8") as f:
+            json.dump([], f)
+
+    with open(LOG_PATH, "r", encoding="utf-8") as f:
+        logs = json.load(f)
+
+    logs.append({
+        "time": datetime.now().isoformat(),
+        "user": user,
+        "message": message,
+        "reply": reply
+    })
+
+    with open(LOG_PATH, "w", encoding="utf-8") as f:
+        json.dump(logs, f, ensure_ascii=False, indent=2)
 
 
 # =========================
@@ -205,6 +232,7 @@ async def line_webhook(request: Request):
             continue
 
         user_msg = event["message"]["text"]
+        user_id = event["source"].get("userId")
 
         reply = ai_reply(user_msg)
 
@@ -212,5 +240,7 @@ async def line_webhook(request: Request):
             event["replyToken"],
             TextSendMessage(text=reply[:1000])
         )
+
+        save_log(user_id, user_msg, reply)
 
     return {"status": "ok"}
