@@ -1,127 +1,156 @@
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
-from linebot import LineBotApi, WebhookHandler
-from linebot.models import TextSendMessage
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, JSONResponse
+import sqlite3
 
-from config import LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET
-from routers.chat import ai_reply
-from core.db import get_logs
+app = FastAPI()
 
-app = FastAPI(title="AI Chat Enterprise System")
+DB_PATH = "data.db"
 
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# -----------------------------
-# health check
-# -----------------------------
-@app.get("/")
-def home():
-    return {"status": "ok"}
+# =========================
+# DB INIT
+# =========================
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 
-# -----------------------------
-# LINE webhook
-# -----------------------------
-@app.post("/line/webhook")
-async def webhook(request: Request):
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS faq (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT,
+        answer TEXT
+    )
+    """)
 
-    body = await request.json()
+    conn.commit()
+    conn.close()
 
-    if "events" not in body:
-        raise HTTPException(status_code=400)
 
-    for event in body["events"]:
+init_db()
 
-        if event.get("type") != "message":
-            continue
 
-        if event["message"]["type"] != "text":
-            continue
-
-        user_msg = event["message"]["text"]
-
-        reply = ai_reply(user_msg)
-
-        line_bot_api.reply_message(
-            event["replyToken"],
-            TextSendMessage(text=reply)
-        )
-
-    return {"status": "ok"}
-
-# -----------------------------
-# logs API
-# -----------------------------
-@app.get("/logs")
-def logs(limit: int = 50, keyword: str = None):
-
-    data = get_logs(limit)
-
-    if keyword:
-        keyword = keyword.lower()
-        data = [
-            row for row in data
-            if keyword in str(row).lower()
-        ]
-
-    return {
-        "status": "ok",
-        "count": len(data),
-        "data": [
-            {
-                "user": row[0],
-                "message": row[1],
-                "reply": row[2],
-                "time": row[3]
-            }
-            for row in data
-        ]
-    }
-
-# -----------------------------
-# UI: logs dashboard
-# -----------------------------
-@app.get("/ui/logs", response_class=HTMLResponse)
-def logs_ui():
-
+# =========================
+# FAQ UI
+# =========================
+@app.get("/faq", response_class=HTMLResponse)
+def faq_page():
     return """
     <html>
     <head>
-        <title>AI Logs Dashboard</title>
-        <style>
-            body { font-family: Arial; background:#f4f4f4; padding:20px; }
-            table { border-collapse: collapse; width:100%; background:white; }
-            th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
-            th { background:#333; color:white; }
-        </style>
+        <title>FAQ 管理系統</title>
     </head>
     <body>
-        <h2>AI Logs Dashboard</h2>
-        <div id="data">Loading...</div>
+        <h1>FAQ 管理</h1>
 
-        <script>
-        async function loadLogs(){
-            const res = await fetch('/logs');
-            const json = await res.json();
+        <h2>新增 FAQ</h2>
 
-            let html = '<table><tr><th>User</th><th>Message</th><th>Reply</th><th>Time</th></tr>';
+        <form method="post" action="/faq/add">
+            問題：<br>
+            <input name="question" style="width:400px"><br><br>
 
-            json.data.forEach(row => {
-                html += `<tr>
-                    <td>${row.user}</td>
-                    <td>${row.message}</td>
-                    <td>${row.reply}</td>
-                    <td>${row.time}</td>
-                </tr>`;
-            });
+            答案：<br>
+            <textarea name="answer" style="width:400px;height:120px"></textarea><br><br>
 
-            html += '</table>';
-            document.getElementById('data').innerHTML = html;
-        }
+            <button type="submit">新增</button>
+        </form>
 
-        loadLogs();
-        setInterval(loadLogs, 3000);
-        </script>
+        <hr>
+
+        <h2>FAQ 列表</h2>
+        <a href="/faq/list">查看所有 FAQ</a>
+
     </body>
     </html>
     """
+
+
+# =========================
+# ADD FAQ
+# =========================
+@app.post("/faq/add")
+async def add_faq(
+    question: str = Form(...),
+    answer: str = Form(...)
+):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    c.execute(
+        "INSERT INTO faq (question, answer) VALUES (?, ?)",
+        (question, answer)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "ok"}
+
+
+# =========================
+# LIST FAQ
+# =========================
+@app.get("/faq/list", response_class=HTMLResponse)
+def list_faq():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    c.execute("SELECT id, question, answer FROM faq ORDER BY id DESC")
+    rows = c.fetchall()
+
+    conn.close()
+
+    html = """
+    <html>
+    <head><title>FAQ List</title></head>
+    <body>
+    <h1>FAQ 列表</h1>
+    <a href="/faq">回新增頁</a>
+    <hr>
+    """
+
+    for r in rows:
+        html += f"""
+        <div style="margin-bottom:20px;">
+            <b>ID:</b> {r[0]}<br>
+            <b>Q:</b> {r[1]}<br>
+            <b>A:</b> {r[2]}<br>
+        </div>
+        <hr>
+        """
+
+    html += "</body></html>"
+    return HTMLResponse(content=html)
+
+
+# =========================
+# DELETE FAQ
+# =========================
+@app.get("/faq/delete/{faq_id}")
+def delete_faq(faq_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    c.execute("DELETE FROM faq WHERE id = ?", (faq_id,))
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "deleted", "id": faq_id}
+
+
+# =========================
+# API (給 AI 用)
+# =========================
+@app.get("/api/faq")
+def api_faq():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    c.execute("SELECT question, answer FROM faq")
+    rows = c.fetchall()
+
+    conn.close()
+
+    return JSONResponse([
+        {"question": r[0], "answer": r[1]} for r in rows
+    ])
