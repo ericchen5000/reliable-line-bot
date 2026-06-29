@@ -20,15 +20,16 @@ def load_logs():
 
 
 # =========================
-# LOGS UI (PRO)
+# LOG DASHBOARD UI
 # =========================
 @router.get("/logs", response_class=HTMLResponse)
 def logs_ui(
-    user: str = None,
-    keyword: str = None,
-    sort: str = "desc",
     page: int = 1,
-    size: int = 20
+    size: int = 10,
+    keyword: str = None,
+    user: str = None,
+    model: str = None,
+    sort: str = "desc"
 ):
 
     logs = load_logs()
@@ -36,15 +37,18 @@ def logs_ui(
     # =========================
     # FILTER
     # =========================
-    if user:
-        logs = [l for l in logs if l.get("user") == user]
-
     if keyword:
         logs = [
             l for l in logs
             if keyword.lower() in l.get("message", "").lower()
             or keyword.lower() in l.get("reply", "").lower()
         ]
+
+    if user:
+        logs = [l for l in logs if l.get("user") == user]
+
+    if model:
+        logs = [l for l in logs if l.get("meta", {}).get("model") == model]
 
     # =========================
     # SORT
@@ -60,47 +64,130 @@ def logs_ui(
     logs_page = logs[start:end]
 
     # =========================
-    # HTML
+    # HTML UI
     # =========================
     html = """
     <html>
     <head>
-        <title>LOGS Dashboard</title>
+        <title>AI Logs Dashboard</title>
         <style>
-            body { font-family: Arial; background:#f4f4f4; padding:20px; }
-            table { width:100%; border-collapse: collapse; background:white; }
-            th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
-            th { background:#333; color:white; }
-            tr:hover { background:#f1f1f1; cursor:pointer; }
-            .box { margin-bottom:15px; }
-            input, select { padding:6px; margin-right:5px; }
-            .expand { display:none; background:#fafafa; }
+            body {
+                font-family: Arial;
+                background: #0f172a;
+                color: #e2e8f0;
+                margin: 0;
+                padding: 20px;
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: auto;
+            }
+
+            h1 {
+                color: #38bdf8;
+            }
+
+            .filters {
+                background: #1e293b;
+                padding: 15px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+            }
+
+            input, select {
+                padding: 8px;
+                margin-right: 8px;
+                border-radius: 6px;
+                border: none;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                background: #1e293b;
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            th {
+                background: #334155;
+                padding: 12px;
+                text-align: left;
+                font-size: 14px;
+            }
+
+            td {
+                padding: 10px;
+                border-top: 1px solid #334155;
+                font-size: 13px;
+            }
+
+            tr:hover {
+                background: #334155;
+                cursor: pointer;
+            }
+
+            .badge {
+                padding: 2px 6px;
+                border-radius: 6px;
+                background: #0ea5e9;
+                font-size: 12px;
+            }
+
+            .small {
+                font-size: 12px;
+                opacity: 0.8;
+            }
+
+            .expand {
+                display: none;
+                background: #0b1220;
+            }
+
+            .pagination a {
+                color: #38bdf8;
+                margin-right: 8px;
+                text-decoration: none;
+            }
         </style>
 
         <script>
-            function toggleRow(id){
+            function toggle(id){
                 var el = document.getElementById(id);
-                if(el.style.display === "none"){
-                    el.style.display = "table-row";
-                } else {
-                    el.style.display = "none";
-                }
+                el.style.display = (el.style.display === "none") ? "table-row" : "none";
             }
         </script>
     </head>
     <body>
+    <div class="container">
 
-    <h2>LOGS DASHBOARD</h2>
+    <h1>LOGS DASHBOARD</h1>
 
-    <form method="get" class="box">
-        User: <input name="user">
-        Keyword: <input name="keyword">
+    <form class="filters" method="get">
+        Keyword:
+        <input name="keyword" placeholder="search...">
+
+        User:
+        <input name="user" placeholder="user id">
+
+        Model:
+        <input name="model" placeholder="gpt / deepseek">
+
+        Size:
+        <select name="size">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+        </select>
+
         Sort:
         <select name="sort">
-            <option value="desc">DESC</option>
-            <option value="asc">ASC</option>
+            <option value="desc">Newest</option>
+            <option value="asc">Oldest</option>
         </select>
-        <button>Search</button>
+
+        <button>Apply</button>
     </form>
 
     <table>
@@ -109,46 +196,52 @@ def logs_ui(
             <th>User</th>
             <th>Message</th>
             <th>Reply</th>
+            <th>Meta</th>
         </tr>
     """
 
-    for i, log in enumerate(logs_page):
+    for i, l in enumerate(logs_page):
+        row_id = f"row_{i}"
 
-        detail_id = f"detail_{i}"
+        meta = l.get("meta", {})
 
         html += f"""
-        <tr onclick="toggleRow('{detail_id}')">
-            <td>{log.get('time','')}</td>
-            <td>{log.get('user','')}</td>
-            <td>{log.get('message','')[:50]}</td>
-            <td>{log.get('reply','')[:50]}</td>
+        <tr onclick="toggle('{row_id}')">
+            <td>{l.get('time','')}</td>
+            <td><span class="badge">{l.get('user','')}</span></td>
+            <td>{l.get('message','')[:40]}</td>
+            <td>{l.get('reply','')[:40]}</td>
+            <td class="small">
+                model: {meta.get('model','-')}<br>
+                device: {meta.get('device','-')}<br>
+                browser: {meta.get('browser','-')}
+            </td>
         </tr>
 
-        <tr id="{detail_id}" class="expand" style="display:none;">
-            <td colspan="4">
-                <b>Full Message:</b><br>{log.get('message','')}<br><br>
-                <b>Full Reply:</b><br>{log.get('reply','')}<br>
+        <tr id="{row_id}" class="expand">
+            <td colspan="5">
+                <b>Full Message:</b><br>{l.get('message','')}<br><br>
+                <b>Full Reply:</b><br>{l.get('reply','')}<br><br>
+                <b>Meta:</b><br>{json.dumps(meta, ensure_ascii=False, indent=2)}
             </td>
         </tr>
         """
 
     html += """
     </table>
+
+    <div class="pagination" style="margin-top:20px;">
     """
 
-    # =========================
-    # PAGINATION UI
-    # =========================
     total_pages = (total // size) + 1
 
-    html += "<div style='margin-top:15px;'>"
-
     for p in range(1, total_pages + 1):
-        html += f"<a href='?page={p}&size={size}' style='margin-right:8px;'>{p}</a>"
-
-    html += "</div>"
+        html += f"<a href='?page={p}&size={size}'>{p}</a>"
 
     html += """
+    </div>
+
+    </div>
     </body>
     </html>
     """
