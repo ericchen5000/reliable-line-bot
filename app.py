@@ -41,9 +41,10 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# LOG SAVE
+# LOG SAVE (FIX + META READY)
 # =========================
-def save_log(user, message, reply):
+def save_log(user, message, reply, request: Request):
+
     os.makedirs("logs", exist_ok=True)
 
     if not os.path.exists(LOG_PATH):
@@ -51,13 +52,25 @@ def save_log(user, message, reply):
             json.dump([], f)
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
-        logs = json.load(f)
+        try:
+            logs = json.load(f)
+        except:
+            logs = []
+
+    ua = request.headers.get("user-agent", "")
+
+    meta = {
+        "model": "deepseek",
+        "device": "mobile" if "Mobile" in ua else "desktop",
+        "browser": ua
+    }
 
     logs.append({
         "time": datetime.now().isoformat(),
         "user": user,
         "message": message,
-        "reply": reply
+        "reply": reply,
+        "meta": meta
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -150,7 +163,6 @@ def search_knowledge(user_message):
         return None
 
     msg = user_message.lower()
-
     results = []
 
     for root, dirs, files in os.walk(kb_path):
@@ -241,6 +253,6 @@ async def line_webhook(request: Request):
             TextSendMessage(text=reply[:1000])
         )
 
-        save_log(user_id, user_msg, reply)
+        save_log(user_id, user_msg, reply, request)
 
     return {"status": "ok"}

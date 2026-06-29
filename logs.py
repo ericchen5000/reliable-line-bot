@@ -1,261 +1,310 @@
-from fastapi import FastAPI, Request, HTTPException
-from linebot import LineBotApi, WebhookHandler
-from linebot.models import TextSendMessage
+from fastapi import APIRouter, Query
+from fastapi.responses import HTMLResponse
 import json
 import os
-from datetime import datetime
 
-from config import (
-    LINE_CHANNEL_ACCESS_TOKEN,
-    LINE_CHANNEL_SECRET,
-    FAQ_FILE,
-    SYSTEM_PROMPT_FILE,
-)
-
-from deepseek import ask_deepseek
-
-app = FastAPI(title="AI Assistant")
-
-from logs import router as logs_router
-from faq import router as faq_router
-
-app.include_router(logs_router)
-app.include_router(faq_router)
-
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
+router = APIRouter()
 
 LOG_PATH = "logs/chat_logs.json"
 
 
 # =========================
-# SYSTEM PROMPT
+# LOAD LOGS
 # =========================
-def load_system_prompt():
-    if SYSTEM_PROMPT_FILE and os.path.exists(SYSTEM_PROMPT_FILE):
-        with open(SYSTEM_PROMPT_FILE, "r", encoding="utf-8") as f:
-            return f.read()
-    return ""
-
-SYSTEM_PROMPT = load_system_prompt()
-
-
-# =========================
-# LOG SAVE (✔ META 完整版)
-# =========================
-def save_log(user, message, reply, request: Request):
-
-    os.makedirs("logs", exist_ok=True)
-
+def load_logs():
     if not os.path.exists(LOG_PATH):
-        with open(LOG_PATH, "w", encoding="utf-8") as f:
-            json.dump([], f)
+        return []
 
     with open(LOG_PATH, "r", encoding="utf-8") as f:
-        logs = json.load(f)
-
-    ua = request.headers.get("user-agent", "")
-
-    meta = {
-        "model": "deepseek",
-        "device": "mobile" if "Mobile" in ua else "desktop",
-        "browser": ua,
-    }
-
-    logs.append({
-        "time": datetime.now().isoformat(),
-        "user": user,
-        "message": message,
-        "reply": reply,
-        "meta": meta
-    })
-
-    with open(LOG_PATH, "w", encoding="utf-8") as f:
-        json.dump(logs, f, ensure_ascii=False, indent=2)
+        return json.load(f)
 
 
 # =========================
-# FAQ
+# LIGHT DASHBOARD UI
 # =========================
-def search_faq(question):
-    if not FAQ_FILE or not os.path.exists(FAQ_FILE):
-        return None
+@router.get("/logs", response_class=HTMLResponse)
+def logs_ui(
+    page: int = 1,
+    size: int = 10,
+    keyword: str = None,
+    user: str = None,
+    model: str = None,
+    sort: str = "desc"
+):
 
-    try:
-        with open(FAQ_FILE, "r", encoding="utf-8") as f:
-            faq = json.load(f)
-    except:
-        return None
+    logs = load_logs()
 
-    q = question.strip().lower()
+    # =========================
+    # FILTER
+    # =========================
+    if keyword:
+        logs = [
+            l for l in logs
+            if keyword.lower() in l.get("message", "").lower()
+            or keyword.lower() in l.get("reply", "").lower()
+        ]
 
-    for item in faq:
-        faq_q = item.get("question", "").strip().lower()
-        faq_a = item.get("answer", "")
+    if user:
+        logs = [l for l in logs if l.get("user") == user]
 
-        if faq_q == q:
-            return faq_a
+    if model:
+        logs = [l for l in logs if l.get("meta", {}).get("model") == model]
 
-        if faq_q in q or q in faq_q:
-            return faq_a
+    # =========================
+    # SORT
+    # =========================
+    logs.sort(key=lambda x: x.get("time", ""), reverse=(sort == "desc"))
 
-    return None
+    # =========================
+    # PAGINATION
+    # =========================
+    total = len(logs)
+    start = (page - 1) * size
+    end = start + size
+    logs_page = logs[start:end]
 
+    html = """
+    <html>
+    <head>
+    <meta charset="utf-8"/>
+    <title>LOGS</title>
 
-# =========================
-# COMPANY
-# =========================
-def handle_company(user_message):
-    keywords = ["公司", "電話", "地址", "email", "聯絡", "聯絡方式"]
+    <style>
+        body{
+            margin:0;
+            font-family: Arial;
+            background:#f7f9fc;
+            color:#1f2937;
+        }
 
-    msg = user_message.lower()
+        .wrap{
+            width:100%;
+            padding:20px 30px;
+            box-sizing:border-box;
+        }
 
-    if any(k in msg for k in keywords):
-        path = "data/company.json"
-        if not os.path.exists(path):
-            return None
+        h1{
+            font-size:22px;
+            margin-bottom:15px;
+            font-weight:600;
+        }
 
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        /* =========================
+           FILTER BAR
+        ========================= */
+        .filters{
+            display:flex;
+            flex-wrap:wrap;
+            gap:10px;
+            background:#ffffff;
+            padding:15px;
+            border-radius:16px;
+            box-shadow:0 6px 18px rgba(0,0,0,0.05);
+            margin-bottom:20px;
+        }
 
-        return (
-            "公司名稱：" + data.get("company_name", "") + "\n" +
-            "電話：" + data.get("phone", "") + "\n" +
-            "Email：" + data.get("email", "") + "\n" +
-            "地址：" + data.get("address", "") + "\n" +
-            "網站：" + data.get("website", "")
-        )
+        input, select{
+            padding:10px 14px;
+            border-radius:999px;
+            border:1px solid #e5e7eb;
+            outline:none;
+            background:#f9fafb;
+        }
 
-    return None
+        input:focus{
+            border-color:#93c5fd;
+            background:#fff;
+        }
 
+        /* =========================
+           PILL BUTTON
+        ========================= */
+        .btn{
+            padding:10px 16px;
+            border-radius:999px;
+            border:none;
+            cursor:pointer;
+            background:linear-gradient(135deg,#60a5fa,#a78bfa);
+            color:white;
+            font-weight:500;
+            transition:0.2s;
+        }
 
-# =========================
-# PRODUCTS
-# =========================
-def handle_products(user_message):
-    msg = user_message.lower()
+        .btn:hover{
+            transform:scale(1.03);
+            opacity:0.95;
+        }
 
-    if "vates" in msg:
-        return "VATES = 虛擬化管理平台（XCP-ng / Xen Orchestra）"
+        /* =========================
+           TABLE
+        ========================= */
+        table{
+            width:100%;
+            border-collapse:collapse;
+            background:white;
+            border-radius:16px;
+            overflow:hidden;
+            box-shadow:0 6px 18px rgba(0,0,0,0.05);
+        }
 
-    if "array" in msg:
-        return "Array Networks = APV / SSL VPN / ZTNA"
+        th{
+            text-align:left;
+            background:#f3f4f6;
+            padding:14px;
+            font-size:13px;
+            color:#374151;
+        }
 
-    if "penguin" in msg:
-        return "Penguin Solutions = 高可用與邊緣運算平台"
+        td{
+            padding:12px 14px;
+            border-top:1px solid #f1f1f1;
+            font-size:13px;
+            vertical-align:top;
+        }
 
-    if "neverfail" in msg:
-        return "Neverfail = 系統不中斷與災難備援"
+        tr:hover{
+            background:#f9fafb;
+            cursor:pointer;
+        }
 
-    return None
+        /* =========================
+           BADGE
+        ========================= */
+        .badge{
+            display:inline-block;
+            padding:4px 10px;
+            border-radius:999px;
+            background:linear-gradient(135deg,#93c5fd,#c4b5fd);
+            color:#1e293b;
+            font-size:12px;
+        }
 
+        /* =========================
+           EXPAND ROW
+        ========================= */
+        .expand{
+            display:none;
+            background:#f9fafb;
+        }
 
-# =========================
-# KB
-# =========================
-def search_knowledge(user_message):
-    kb_path = "knowledge"
+        /* =========================
+           PAGINATION
+        ========================= */
+        .pagination{
+            margin-top:20px;
+        }
 
-    if not os.path.exists(kb_path):
-        return None
+        .page{
+            display:inline-block;
+            padding:6px 12px;
+            margin-right:6px;
+            border-radius:999px;
+            background:#fff;
+            border:1px solid #e5e7eb;
+            text-decoration:none;
+            color:#374151;
+        }
 
-    msg = user_message.lower()
+        .page:hover{
+            background:#eef2ff;
+        }
 
-    results = []
+        .small{
+            font-size:12px;
+            color:#6b7280;
+        }
 
-    for root, dirs, files in os.walk(kb_path):
-        for file in files:
-            if not file.endswith(".txt"):
-                continue
+    </style>
 
-            path = os.path.join(root, file)
+    <script>
+        function toggle(id){
+            var el = document.getElementById(id);
+            el.style.display = (el.style.display === "table-row") ? "none" : "table-row";
+        }
+    </script>
 
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read().lower()
+    </head>
 
-                if msg in content:
-                    results.append(content[:1000])
+    <body>
+    <div class="wrap">
 
-    if results:
-        return "\n\n---\n\n".join(results[:2])
+    <h1>LOGS 系統</h1>
 
-    return None
+    <form class="filters" method="get">
 
+        <input name="keyword" placeholder="關鍵字搜尋">
 
-# =========================
-# AI FALLBACK
-# =========================
-def ai_fallback(user_message):
-    prompt = SYSTEM_PROMPT + """
+        <input name="user" placeholder="使用者ID">
 
-規則：
-1. 不可亂編
-2. 沒資料就回答：目前資料庫中沒有相關資訊
-3. 使用繁體中文
-4. 簡短回答
-"""
+        <input name="model" placeholder="模型名稱">
 
-    return ask_deepseek(prompt, user_message)
+        <select name="size">
+            <option value="10">每頁10筆</option>
+            <option value="20">每頁20筆</option>
+            <option value="50">每頁50筆</option>
+        </select>
 
+        <select name="sort">
+            <option value="desc">最新優先</option>
+            <option value="asc">最舊優先</option>
+        </select>
 
-# =========================
-# ROUTER
-# =========================
-def ai_reply(user_message):
+        <button class="btn">搜尋</button>
+    </form>
 
-    faq = search_faq(user_message)
-    if faq:
-        return faq
+    <table>
+        <tr>
+            <th>時間</th>
+            <th>使用者</th>
+            <th>訊息</th>
+            <th>回覆</th>
+            <th>資訊</th>
+        </tr>
+    """
 
-    company = handle_company(user_message)
-    if company:
-        return company
+    for i, l in enumerate(logs_page):
+        row_id = f"r_{i}"
+        meta = l.get("meta", {})
 
-    product = handle_products(user_message)
-    if product:
-        return product
+        html += f"""
+        <tr onclick="toggle('{row_id}')">
+            <td>{l.get('time','')}</td>
+            <td><span class="badge">{l.get('user','')}</span></td>
+            <td>{l.get('message','')[:40]}</td>
+            <td>{l.get('reply','')[:40]}</td>
+            <td class="small">
+                模型：{meta.get('model','-')}<br>
+                裝置：{meta.get('device','-')}<br>
+                瀏覽器：{meta.get('browser','-')}
+            </td>
+        </tr>
 
-    kb = search_knowledge(user_message)
-    if kb:
-        return kb
+        <tr id="{row_id}" class="expand">
+            <td colspan="5">
+                <b>完整訊息：</b><br>{l.get('message','')}<br><br>
+                <b>完整回覆：</b><br>{l.get('reply','')}<br><br>
+                <b>Meta資訊：</b><pre>{json.dumps(meta, ensure_ascii=False, indent=2)}</pre>
+            </td>
+        </tr>
+        """
 
-    return ai_fallback(user_message)
+    html += """
+    </table>
 
+    <div class="pagination">
+    """
 
-# =========================
-# LINE WEBHOOK
-# =========================
-@app.post("/line/webhook")
-async def line_webhook(request: Request):
+    total_pages = max(1, (total // size) + 1)
 
-    body = await request.json()
+    for p in range(1, total_pages + 1):
+        html += f"<a class='page' href='?page={p}&size={size}'>{p}</a>"
 
-    if "events" not in body:
-        raise HTTPException(status_code=400)
+    html += """
+    </div>
 
-    for event in body["events"]:
+    </div>
+    </body>
+    </html>
+    """
 
-        if event.get("type") != "message":
-            continue
-
-        if event["message"]["type"] != "text":
-            continue
-
-        user_msg = event["message"]["text"]
-        user_id = event["source"].get("userId")
-
-        reply = ai_reply(user_msg)
-
-        line_bot_api.reply_message(
-            event["replyToken"],
-            TextSendMessage(text=reply[:1000])
-        )
-
-        save_log(
-            user=user_id,
-            message=user_msg,
-            reply=reply,
-            request=request
-        )
-
-    return {"status": "ok"}
+    return HTMLResponse(html)
