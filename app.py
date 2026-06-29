@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
 import json
@@ -15,6 +14,12 @@ from config import (
 from deepseek import ask_deepseek
 
 app = FastAPI(title="AI Assistant")
+
+from logs import router as logs_router
+from faq import router as faq_router
+
+app.include_router(logs_router)
+app.include_router(faq_router)
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
@@ -33,7 +38,7 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# FAQ
+# FAQ (LOGIC ONLY)
 # =========================
 def search_faq(question):
     if not FAQ_FILE or not os.path.exists(FAQ_FILE):
@@ -73,11 +78,8 @@ def handle_company(user_message):
         if not os.path.exists(path):
             return None
 
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except:
-            return None
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
 
         return (
             "公司名稱：" + data.get("company_name", "") + "\n" +
@@ -121,7 +123,6 @@ def search_knowledge(user_message):
         return None
 
     msg = user_message.lower()
-    tokens = [w for w in msg.split() if len(w) > 1]
 
     results = []
 
@@ -132,19 +133,11 @@ def search_knowledge(user_message):
 
             path = os.path.join(root, file)
 
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    content = f.read().lower()
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read().lower()
 
-                    if (
-                        msg in content
-                        or any(t in content for t in tokens)
-                        or any(k in content for k in ["vates", "array", "penguin", "neverfail"])
-                    ):
-                        results.append(content[:1000])
-
-            except:
-                continue
+                if msg in content:
+                    results.append(content[:1000])
 
     if results:
         return "\n\n---\n\n".join(results[:2])
@@ -159,11 +152,10 @@ def ai_fallback(user_message):
     prompt = SYSTEM_PROMPT + """
 
 規則：
-1. 不可編造不存在的產品或技術
-2. 沒有資料就回答：目前資料庫中沒有相關資訊
-3. 不可延伸或解釋未提供內容
-4. 使用繁體中文
-5. 回答簡短
+1. 不可亂編
+2. 沒資料就回答：目前資料庫中沒有相關資訊
+3. 使用繁體中文
+4. 簡短回答
 """
 
     return ask_deepseek(prompt, user_message)
@@ -222,57 +214,3 @@ async def line_webhook(request: Request):
         )
 
     return {"status": "ok"}
-
-
-# =========================
-# ADMIN (FAQ + LOGS)
-# =========================
-
-LOG_PATH = "logs/chat_logs.json"
-
-
-@app.get("/faq", response_class=HTMLResponse)
-def faq_page():
-
-    if not FAQ_FILE or not os.path.exists(FAQ_FILE):
-        return HTMLResponse("<h1>No FAQ</h1>")
-
-    with open(FAQ_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    html = "<h1>FAQ</h1><hr>"
-
-    for item in data:
-        html += f"""
-        <div>
-            Q: {item.get('question','')}<br>
-            A: {item.get('answer','')}<br>
-        </div>
-        <hr>
-        """
-
-    return HTMLResponse(html)
-
-
-@app.get("/logs", response_class=HTMLResponse)
-def logs_page():
-
-    if not os.path.exists(LOG_PATH):
-        return HTMLResponse("<h1>No Logs</h1>")
-
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        logs = json.load(f)
-
-    html = "<h1>LOGS</h1><hr>"
-
-    for l in reversed(logs):
-        html += f"""
-        <div>
-            <b>User:</b> {l.get('user','')}<br>
-            <b>Msg:</b> {l.get('message','')}<br>
-            <b>Reply:</b> {l.get('reply','')}<br>
-        </div>
-        <hr>
-        """
-
-    return HTMLResponse(html)
