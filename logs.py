@@ -38,7 +38,20 @@ SORT_MAP = {
     "platform": "platform",
     "latency": "latency",
     "ip": "ip",
+    "source": "source",
 }
+
+
+# =========================
+# SHORT TIME FORMAT
+# =========================
+def short_time(t):
+    if not t:
+        return "-"
+    try:
+        return str(t)[11:19]  # HH:MM:SS
+    except:
+        return str(t)
 
 
 # =========================
@@ -65,7 +78,7 @@ def logs_ui(
             l for l in logs
             if k in str(l.get("message", "")).lower()
             or k in str(l.get("reply", "")).lower()
-            or k in str(l.get("sources", "")).lower()
+            or k in str(l.get("source", "")).lower()
         ]
 
     if user:
@@ -95,7 +108,7 @@ def logs_ui(
     logs_page = logs[start:end]
 
     # =========================
-    # ROWS
+    # ROWS (FULL WIDTH DETAIL ROW)
     # =========================
     rows = ""
 
@@ -103,46 +116,45 @@ def logs_ui(
         meta = l.get("meta", {}) if isinstance(l.get("meta"), dict) else {}
 
         rows += f"""
-        <tr>
+        <tr class="main-row">
             <td>{g(l,'id', i+1)}</td>
-            <td>{g(l,'time')}</td>
+            <td class="time">{short_time(g(l,'time'))}</td>
             <td><span class="pill">{g(l,'platform','LINE')}</span></td>
 
-            <td>{str(g(l,'message'))[:50]}</td>
-            <td>{str(g(l,'reply'))[:80]}</td>
+            <td class="msg">{str(g(l,'message'))[:40]}</td>
+            <td class="reply">{str(g(l,'reply'))[:60]}</td>
 
             <td class="latency">{g(l,'latency','-')}s</td>
-
-            <td>{g(l,'sources','-')}</td>
-
+            <td>{g(l,'source','-')}</td>
             <td>{g(l,'ip','-')}</td>
+        </tr>
 
-            <td>
-                <details>
-                    <summary>View</summary>
+        <tr class="detail-row">
+            <td colspan="8">
+                <div class="detail-box">
 
-                    <div class="detail">
+                    <div class="detail-title">DETAIL</div>
 
-                        <div><b>來源</b><br>{g(l,'sources','-')}</div>
-                        <hr>
-
+                    <div class="grid">
+                        <div><b>來源</b><br>{g(l,'source','-')}</div>
                         <div><b>IP</b><br>{g(l,'ip','-')}</div>
-                        <hr>
-
                         <div><b>SESSION</b><br>{g(l,'session_id','-')}</div>
-                        <hr>
-
                         <div><b>DEVICE</b><br>{meta.get('device','-')}</div>
                         <div><b>BROWSER</b><br>{meta.get('browser','-')}</div>
                         <div><b>USER AGENT</b><br>{meta.get('user_agent','-')}</div>
-
-                        <hr>
-
-                        <div><b>完整問題</b><br>{g(l,'message','')}</div>
-                        <div><b>完整回覆</b><br>{g(l,'reply','')}</div>
-
                     </div>
-                </details>
+
+                    <div class="block">
+                        <b>完整問題</b>
+                        <div>{g(l,'message','')}</div>
+                    </div>
+
+                    <div class="block">
+                        <b>完整回覆</b>
+                        <div class="reply-box">{g(l,'reply','')}</div>
+                    </div>
+
+                </div>
             </td>
         </tr>
         """
@@ -155,7 +167,7 @@ def logs_ui(
     if page > 1:
         pages += f'<a href="?page={page-1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">上一頁</a> '
 
-    pages += f"<span> 第 {page} / {total_pages} 頁 ｜ 總筆數 {total} ｜ 每頁 {size} 筆 </span> "
+    pages += f"<span> 第 {page}/{total_pages} 頁 ｜ 總 {total} 筆 ｜ 每頁 {size} 筆 </span> "
 
     if page < total_pages:
         pages += f'<a href="?page={page+1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">下一頁</a>'
@@ -172,8 +184,8 @@ def logs_ui(
         body {{
             margin:0;
             font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
-            background:#f5f7fb;
-            padding:20px;
+            background:#f4f6fb;
+            padding:18px;
         }}
 
         table {{
@@ -185,22 +197,22 @@ def logs_ui(
         }}
 
         th {{
-            background:#f3f4f6;
+            background:#eef2ff;
             padding:10px;
             text-align:left;
-            cursor:pointer;
         }}
 
         td {{
             padding:10px;
             border-top:1px solid #eee;
             font-size:13px;
+            vertical-align:top;
         }}
 
         .pill {{
             padding:4px 10px;
             border-radius:999px;
-            background:#e0f2fe;
+            background:#dbeafe;
             font-size:12px;
         }}
 
@@ -209,33 +221,64 @@ def logs_ui(
             font-weight:bold;
         }}
 
-        details summary {{
-            cursor:pointer;
-            background:#3b82f6;
-            color:white;
-            padding:4px 10px;
-            border-radius:999px;
-            font-size:12px;
+        .msg {{
+            max-width:160px;
         }}
 
-        .detail {{
-            margin-top:10px;
-            padding:10px;
+        .reply {{
+            max-width:220px;
+            color:#374151;
+        }}
+
+        /* DETAIL FULL WIDTH */
+        .detail-row td {{
             background:#f9fafb;
-            border-radius:10px;
+        }}
+
+        .detail-box {{
+            padding:12px;
+        }}
+
+        .detail-title {{
+            font-weight:700;
+            margin-bottom:10px;
+            color:#111827;
+        }}
+
+        .grid {{
+            display:grid;
+            grid-template-columns:repeat(3, 1fr);
+            gap:10px;
+            font-size:12px;
+            margin-bottom:10px;
+        }}
+
+        .block {{
+            margin-top:10px;
             font-size:13px;
         }}
 
+        .reply-box {{
+            background:white;
+            padding:10px;
+            border-radius:8px;
+            border:1px solid #eee;
+        }}
+
+        .time {{
+            font-size:12px;
+            color:#6b7280;
+        }}
+
         a {{
-            margin:0 4px;
-            text-decoration:none;
+            margin:0 5px;
         }}
     </style>
     </head>
 
     <body>
 
-    <h2>Logs</h2>
+    <h2>LOGS</h2>
 
     <div style="margin-bottom:10px">
         {pages}
@@ -248,10 +291,9 @@ def logs_ui(
             <th>平台</th>
             <th>問題</th>
             <th>回覆</th>
-            <th>回應時間</th>
+            <th>延遲</th>
             <th>來源</th>
             <th>IP</th>
-            <th>Detail</th>
         </tr>
 
         {rows}
