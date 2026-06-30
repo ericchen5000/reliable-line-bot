@@ -294,12 +294,8 @@ def logs_ui(
             <td><span class="badge">{l.get('user','')}</span></td>
             <td>{l.get('message','')[:40]}</td>
             <td>{l.get('reply','')[:40]}</td>
-            <td class="small">
-                平台：<span class="pill">{platform}</span><br>
-            </td>
-            <td class="small">
-                回應時間：<span class="latency">{latency}s</span>
-            </td>
+            <td><span class="pill">{platform}</span><br></td>
+            <td><span class="latency">{latency}s</span></td>
         </tr>
 
         <tr id="{row_id}" class="expand">
