@@ -6,6 +6,8 @@ import os
 import time
 from datetime import datetime
 from urllib.parse import urlparse
+
+import jieba
 import requests
 from bs4 import BeautifulSoup
 
@@ -111,19 +113,22 @@ def search_faq(question):
 
 
 # =========================
-# URL CONTENT SEARCH (NEW RAG-LITE)
+# URL RAG SEARCH (UPGRADED)
 # =========================
 def fetch_url_text(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(url, headers=headers, timeout=5)
+        r = requests.get(url, headers=headers, timeout=6)
+
         soup = BeautifulSoup(r.text, "html.parser")
 
-        for script in soup(["script", "style"]):
-            script.decompose()
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
 
-        text = soup.get_text(separator=" ", strip=True)
-        return text[:3000]
+        text = soup.get_text(separator=" ")
+        text = " ".join(text.split())
+        return text[:4000]
+
     except:
         return ""
 
@@ -140,7 +145,9 @@ def search_urls(user_message):
     except:
         return None, None
 
-    msg = user_message.lower()
+    # 🔥 中文斷詞
+    words = [w for w in jieba.lcut(user_message) if len(w.strip()) > 1]
+
     best_score = 0
     best_result = None
 
@@ -148,9 +155,19 @@ def search_urls(user_message):
         url = item.get("url")
         title = item.get("title")
 
-        page_text = fetch_url_text(url)
+        content = fetch_url_text(url)
+        content_low = content.lower()
 
-        score = sum(1 for w in msg.split() if w in page_text.lower())
+        # 🔥 scoring (語意 + 斷詞)
+        score = 0
+
+        for w in words:
+            if w.lower() in content_low:
+                score += 2
+
+        # fallback: 原句 match
+        if user_message.lower() in content_low:
+            score += 5
 
         if score > best_score:
             best_score = score
@@ -189,13 +206,6 @@ def handle_company(user_message):
             "網站：" + data.get("website", "")
         ), "COMPANY"
 
-    return None, None
-
-
-# =========================
-# PRODUCTS
-# =========================
-def handle_products(user_message):
     return None, None
 
 
@@ -302,13 +312,17 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
     logs.append({
         "id": len(logs) + 1,
         "time": datetime.now().isoformat(),
+
         "user": user,
         "message": message,
         "reply": reply,
+
         "platform": platform,
         "latency": latency,
+
         "ip": ip,
         "source": source,
+
         "meta": {
             "user_agent": ua,
             "device": detect_device(request),
