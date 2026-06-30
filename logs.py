@@ -95,7 +95,6 @@ def logs_ui(
     end = start + size
     logs_page = logs[start:end]
 
-
     # =========================
     # ROWS
     # =========================
@@ -107,40 +106,45 @@ def logs_ui(
         rows += f"""
         <tr>
             <td>{g(l,'id', i+1)}</td>
-            <td>{g(l,'time')}</td>
-            <td>{g(l,'platform','LINE')}</td>
+            <td class="time">{g(l,'time')}</td>
+            <td><span class="pill">{g(l,'platform','LINE')}</span></td>
 
-            <td>{str(g(l,'message',''))[:45]}</td>
-            <td>{str(g(l,'reply',''))[:70]}</td>
+            <td class="msg">{str(g(l,'message',''))[:45]}</td>
+            <td class="reply">{str(g(l,'reply',''))[:70]}</td>
 
-            <td>{g(l,'latency','-')}</td>
-            <td>{g(l,'source','-')}</td>
-            <td>{g(l,'ip','-')}</td>
+            <td class="latency">{g(l,'latency','-')}</td>
+            <td class="source">{g(l,'source','-')}</td>
+            <td class="ip">{g(l,'ip','-')}</td>
 
             <td>
                 <details>
                     <summary>DETAIL</summary>
 
-                    <div style="padding:10px;background:#f9fafb;margin-top:8px;border-radius:10px">
+                    <div class="detail-box">
 
-                        <b>來源</b><br>{g(l,'source','-')}<br><br>
+                        <div class="grid">
+                            <div><b>來源</b><br>{g(l,'source','-')}</div>
+                            <div><b>IP</b><br>{g(l,'ip','-')}</div>
+                            <div><b>DEVICE</b><br>{meta.get('device','-')}</div>
+                            <div><b>BROWSER</b><br>{meta.get('browser','-')}</div>
+                            <div><b>USER AGENT</b><br>{meta.get('user_agent','-')}</div>
+                        </div>
 
-                        <b>IP</b><br>{g(l,'ip','-')}<br><br>
+                        <div class="block">
+                            <b>完整問題</b>
+                            <div>{g(l,'message','')}</div>
+                        </div>
 
-                        <b>DEVICE</b><br>{meta.get('device','-')}<br>
-                        <b>BROWSER</b><br>{meta.get('browser','-')}<br><br>
+                        <div class="block">
+                            <b>完整回覆</b>
+                            <div class="reply-box">{g(l,'reply','')}</div>
+                        </div>
 
-                        <b>USER AGENT</b><br>{meta.get('user_agent','-')}<br><br>
-
-                        <b>完整問題</b><br>{g(l,'message','')}<br><br>
-
-                        <b>完整回覆</b><br>{g(l,'reply','')}
                     </div>
                 </details>
             </td>
         </tr>
         """
-
 
     # =========================
     # OPTIONS
@@ -150,139 +154,251 @@ def logs_ui(
     def link(p):
         return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&sort_by={sort_by}&sort_order={sort_order}"
 
-
     # =========================
     # PAGE BAR
     # =========================
     pages = ""
 
     if page > 1:
-        pages += f'<a href="{link(page-1)}">上一頁</a> '
+        pages += f'<a href="{link(page-1)}">← 上一頁</a> '
 
-    pages += f" 第 {page}/{total_pages} 頁 ｜ 總數 {total} ｜ 每頁 {size} "
+    pages += f"<span class='info'>第 {page}/{total_pages} 頁 ｜ 總數 {total} ｜ 每頁 {size} 筆</span> "
 
     if page < total_pages:
-        pages += f' <a href="{link(page+1)}">下一頁</a>'
-
+        pages += f'<a href="{link(page+1)}">下一頁 →</a>'
 
     # =========================
     # SIZE OPTIONS
     # =========================
-    size_select = "".join([f'<option value="{s}" {"selected" if s==size else ""}>{s}筆</option>' for s in page_opts])
-
+    size_select = "".join(
+        [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
+    )
 
     # =========================
-    # HTML
+    # CSS ONLY UPGRADE
     # =========================
+    css = """
+    body {
+        margin:0;
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
+        background: linear-gradient(180deg,#f4f6fb,#eef2ff);
+        padding:18px;
+        color:#111827;
+    }
+
+    h2 {
+        margin-bottom:12px;
+        font-weight:700;
+    }
+
+    /* FILTER BAR */
+    .bar {
+        background:white;
+        padding:14px;
+        margin-bottom:14px;
+        border-radius:16px;
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        box-shadow:0 8px 20px rgba(0,0,0,0.06);
+    }
+
+    input, select {
+        padding:8px 12px;
+        border-radius:999px;
+        border:1px solid #e5e7eb;
+        background:#f9fafb;
+        outline:none;
+        transition:0.2s;
+    }
+
+    input:focus, select:focus {
+        border-color:#93c5fd;
+        background:white;
+    }
+
+    button {
+        padding:8px 14px;
+        border-radius:999px;
+        border:none;
+        background:linear-gradient(135deg,#60a5fa,#a78bfa);
+        color:white;
+        cursor:pointer;
+        font-weight:600;
+    }
+
+    /* TABLE */
+    table {
+        width:100%;
+        border-collapse:collapse;
+        background:white;
+        border-radius:16px;
+        overflow:hidden;
+        box-shadow:0 10px 24px rgba(0,0,0,0.06);
+    }
+
+    th {
+        background:linear-gradient(135deg,#eef2ff,#f8fafc);
+        padding:12px;
+        text-align:left;
+        font-size:13px;
+        font-weight:700;
+        color:#374151;
+    }
+
+    td {
+        padding:12px;
+        border-top:1px solid #f1f1f1;
+        font-size:13px;
+        vertical-align:top;
+    }
+
+    tr:hover {
+        background:#f9fafb;
+    }
+
+    .pill {
+        padding:4px 10px;
+        border-radius:999px;
+        background:linear-gradient(135deg,#dbeafe,#e0e7ff);
+        font-size:12px;
+    }
+
+    .latency {
+        color:#16a34a;
+        font-weight:700;
+    }
+
+    .msg { max-width:160px; color:#111827; }
+    .reply { max-width:240px; color:#374151; }
+
+    .source {
+        font-weight:600;
+        color:#4f46e5;
+    }
+
+    .ip {
+        font-family:monospace;
+        color:#6b7280;
+    }
+
+    details summary {
+        cursor:pointer;
+        padding:6px 10px;
+        border-radius:999px;
+        background:linear-gradient(135deg,#3b82f6,#6366f1);
+        color:white;
+        font-size:12px;
+        font-weight:600;
+    }
+
+    .detail-box {
+        margin-top:10px;
+        padding:12px;
+        background:#f8fafc;
+        border-radius:12px;
+    }
+
+    .grid {
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:10px;
+        font-size:12px;
+        margin-bottom:10px;
+    }
+
+    .block {
+        margin-top:10px;
+        font-size:13px;
+    }
+
+    .reply-box {
+        background:white;
+        padding:10px;
+        border-radius:10px;
+        border:1px solid #e5e7eb;
+    }
+
+    .pages {
+        margin:12px 0;
+        display:flex;
+        gap:10px;
+        align-items:center;
+        flex-wrap:wrap;
+    }
+
+    .pages a {
+        padding:6px 10px;
+        border-radius:999px;
+        background:white;
+        border:1px solid #e5e7eb;
+        text-decoration:none;
+        color:#374151;
+    }
+
+    .info {
+        font-size:13px;
+        color:#6b7280;
+    }
+    """
+
     return HTMLResponse(f"""
-<html>
-<head>
-<meta charset="utf-8"/>
+    <html>
+    <head>
+    <meta charset="utf-8"/>
+    </head>
 
-<style>
-body {{
-    margin:0;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
-    background:#f4f6fb;
-    padding:16px;
-}}
+    <body>
 
-table {{
-    width:100%;
-    border-collapse:collapse;
-    background:white;
-    border-radius:12px;
-    overflow:hidden;
-}}
+    <h2>LOGS DASHBOARD</h2>
 
-th {{
-    background:#eef2ff;
-    padding:10px;
-    text-align:left;
-    cursor:pointer;
-}}
+    <form class="bar">
+        <input name="keyword" placeholder="關鍵字" value="{keyword}">
+        <input name="platform" placeholder="平台" value="{platform}">
+        <input name="source" placeholder="來源 (FAQ / KB / AI)" value="{source}">
 
-td {{
-    padding:10px;
-    border-top:1px solid #eee;
-    font-size:13px;
-}}
+        <select name="size">
+            {size_select}
+        </select>
 
-input, select {{
-    padding:6px 10px;
-    border-radius:999px;
-    border:1px solid #ddd;
-}}
+        <select name="sort_by">
+            <option value="time">時間</option>
+            <option value="platform">平台</option>
+            <option value="latency">回應時間</option>
+            <option value="source">來源</option>
+            <option value="ip">IP</option>
+        </select>
 
-.bar {{
-    background:white;
-    padding:12px;
-    margin-bottom:10px;
-    border-radius:12px;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-}}
+        <select name="sort_order">
+            <option value="desc">DESC</option>
+            <option value="asc">ASC</option>
+        </select>
 
-a {{
-    margin:0 5px;
-}}
-</style>
-</head>
+        <button>搜尋</button>
+    </form>
 
-<body>
+    <div class="pages">{pages}</div>
 
-<h2>LOGS</h2>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>時間</th>
+            <th>平台</th>
+            <th>問題</th>
+            <th>回覆</th>
+            <th>延遲</th>
+            <th>來源</th>
+            <th>IP</th>
+            <th>DETAIL</th>
+        </tr>
 
-<form class="bar">
+        {rows}
+    </table>
 
-<input name="keyword" placeholder="關鍵字" value="{keyword}">
-<input name="platform" placeholder="平台" value="{platform}">
-<input name="source" placeholder="來源 FAQ/KB/AI" value="{source}">
+    <div class="pages">{pages}</div>
 
-<select name="size">
-    {size_select}
-</select>
+    <style>{css}</style>
 
-<select name="sort_by">
-    <option value="time">時間</option>
-    <option value="platform">平台</option>
-    <option value="latency">回應時間</option>
-    <option value="source">來源</option>
-</select>
-
-<select name="sort_order">
-    <option value="desc">DESC</option>
-    <option value="asc">ASC</option>
-</select>
-
-<button>搜尋</button>
-</form>
-
-<div style="margin-bottom:10px">
-{pages}
-</div>
-
-<table>
-<tr>
-<th>ID</th>
-<th>時間</th>
-<th>平台</th>
-<th>問題</th>
-<th>回覆</th>
-<th>延遲</th>
-<th>來源</th>
-<th>IP</th>
-<th>DETAIL</th>
-</tr>
-
-{rows}
-</table>
-
-<div style="margin-top:10px">
-{pages}
-</div>
-
-</body>
-</html>
-""")
+    </body>
+    </html>
+    """)
