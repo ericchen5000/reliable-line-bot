@@ -335,6 +335,7 @@ def logs_ui(
         gap:10px;
         align-items:center;
         flex-wrap:wrap;
+        justify-content:center; /* ← 加這行才會置中 */
     }
 
     .pages a {
@@ -385,7 +386,7 @@ def logs_ui(
         <button>搜尋</button>
     </form>
 
-    <center><div class="pages">{pages}</div></center>
+    <div class="pages">{pages}</div>
 
     <table>
         <tr>
