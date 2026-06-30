@@ -406,15 +406,15 @@ def logs_ui(
 
     <table>
         <tr>
-            <th>ID</th>
-            <th>時間</th>
-            <th>平台</th>
-            <th>問題</th>
-            <th>回覆</th>
-            <th>延遲</th>
-            <th>來源</th>
-            <th>IP</th>
-            <th>操作</th>
+            <th width="3%">ID</th>
+            <th width="15%">時間</th>
+            <th width="10%">平台</th>
+            <th width="10%">問題</th>
+            <th width="10%">回覆</th>
+            <th width="10%">延遲</th>
+            <th width="10%">來源</th>
+            <th width="10%">IP</th>
+            <th width="10%">更多資訊</th>
         </tr>
 
         {rows}
