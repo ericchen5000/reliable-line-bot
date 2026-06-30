@@ -278,7 +278,8 @@ def logs_ui(
             <th>使用者</th>
             <th>訊息</th>
             <th>回覆</th>
-            <th>資訊</th>
+            <th>平台</th>
+            <th>回應時間</th>
         </tr>
     """
 
@@ -295,6 +296,8 @@ def logs_ui(
             <td>{l.get('reply','')[:40]}</td>
             <td class="small">
                 平台：<span class="pill">{platform}</span><br>
+            </td>
+            <td class="small">
                 回應時間：<span class="latency">{latency}s</span>
             </td>
         </tr>
