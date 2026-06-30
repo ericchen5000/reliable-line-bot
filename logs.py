@@ -389,9 +389,9 @@ def logs_ui(
 
     <table>
         <tr>
-            <th>ID</th>
-            <th>時間</th>
-            <th>平台</th>
+            <th width="5%">ID</th>
+            <th width="15%">時間</th>
+            <th width="5%">平台</th>
             <th>問題</th>
             <th>回覆</th>
             <th>延遲</th>
