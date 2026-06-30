@@ -7,6 +7,9 @@ import time
 from datetime import datetime
 from urllib.parse import urlparse
 
+import requests
+from bs4 import BeautifulSoup
+
 from config import (
     LINE_CHANNEL_ACCESS_TOKEN,
     LINE_CHANNEL_SECRET,
@@ -43,47 +46,6 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# PLATFORM DETECT
-# =========================
-def detect_platform(request: Request):
-    ua = request.headers.get("user-agent", "").lower()
-
-    if "line" in ua:
-        return "LINE"
-    if "facebook" in ua or "fb" in ua:
-        return "FB"
-    return "WEB"
-
-
-# =========================
-# DEVICE DETECT
-# =========================
-def detect_device(request: Request):
-    ua = request.headers.get("user-agent", "").lower()
-
-    if any(x in ua for x in ["iphone", "android", "mobile"]):
-        return "mobile"
-    return "desktop"
-
-
-# =========================
-# BROWSER DETECT
-# =========================
-def detect_browser(request: Request):
-    ua = request.headers.get("user-agent", "").lower()
-
-    if "chrome" in ua:
-        return "chrome"
-    if "firefox" in ua:
-        return "firefox"
-    if "safari" in ua and "chrome" not in ua:
-        return "safari"
-    if "line" in ua:
-        return "line-app"
-    return "unknown"
-
-
-# =========================
 # FAQ
 # =========================
 def search_faq(question):
@@ -109,7 +71,7 @@ def search_faq(question):
 
 
 # =========================
-# URL SEARCH (STABLE VERSION)
+# URL LIST SEARCH
 # =========================
 def search_urls(user_message):
     path = "data/urls.json"
@@ -125,53 +87,42 @@ def search_urls(user_message):
 
     msg = user_message.lower()
 
-    best_score = 0
-    best_result = None
+    best = None
 
     for item in urls:
+        keywords = item.get("keywords", [])
         url = item.get("url", "")
         title = item.get("title", "")
-        keywords = item.get("keywords", [])
 
-        if not url:
-            continue
+        if any(k.lower() in msg for k in keywords):
+            domain = urlparse(url).netloc.replace("www.", "")
+            source = "URL-" + domain.split(".")[0]
+            best = (url, title, source)
 
-        # =========================
-        # 🔥 FIX 1: title 也加入匹配
-        # =========================
-        text_pool = " ".join(keywords + [title]).lower()
+    return best
 
-        score = 0
-        for k in keywords:
-            if k.lower() in msg:
-                score += 2  # keywords weight higher
 
-        if title.lower() in msg:
-            score += 3
+# =========================
+# 🔥 NEW：抓網頁內容
+# =========================
+def fetch_url_content(url):
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, headers=headers, timeout=8)
 
-        # fallback domain match
-        domain = urlparse(url).netloc.lower()
-        if domain in msg:
-            score += 2
+        soup = BeautifulSoup(r.text, "html.parser")
 
-        # =========================
-        # keep best
-        # =========================
-        if score > best_score:
-            best_score = score
+        # 清掉 script/style
+        for tag in soup(["script", "style"]):
+            tag.decompose()
 
-            clean_domain = domain.replace("www.", "")
-            source = "URL-" + clean_domain.split(".")[0]
+        text = soup.get_text(separator=" ")
+        text = " ".join(text.split())
 
-            best_result = (f"{title}: {url}", source)
+        return text[:4000]  # 控制長度避免爆 token
 
-    # =========================
-    # 🔥 FIX 2: threshold 降低
-    # =========================
-    if best_score < 1:
-        return None, None
-
-    return best_result
+    except Exception as e:
+        return "無法取得網頁內容"
 
 
 # =========================
@@ -198,13 +149,6 @@ def handle_company(user_message):
             "網站：" + data.get("website", "")
         ), "COMPANY"
 
-    return None, None
-
-
-# =========================
-# PRODUCTS (disabled)
-# =========================
-def handle_products(user_message):
     return None, None
 
 
@@ -241,14 +185,19 @@ def search_knowledge(user_message):
 
 
 # =========================
-# AI fallback
+# AI（升級：可吃網頁內容）
 # =========================
-def ai_fallback(user_message):
-    prompt = SYSTEM_PROMPT + """
+def ai_fallback(user_message, context=""):
+    prompt = SYSTEM_PROMPT + f"""
+
+請根據以下資料回答：
+
+[網站內容]
+{context}
 
 規則：
 1. 不可亂編
-2. 沒資料回：目前資料庫中沒有相關資訊
+2. 用網站內容回答
 3. 使用繁體中文
 4. 簡短回答
 """
@@ -257,7 +206,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (SAFE ORDER)
+# ROUTER（重點升級）
 # =========================
 def ai_reply(user_message):
 
@@ -265,9 +214,18 @@ def ai_reply(user_message):
     if faq:
         return faq, "FAQ"
 
-    url_result = search_urls(user_message)
-    if url_result and url_result[0]:
-        return url_result
+    url_data = search_urls(user_message)
+    if url_data:
+        url, title, source = url_data
+
+        content = fetch_url_content(url)
+
+        answer = ask_deepseek(
+            SYSTEM_PROMPT + f"\n\n網站內容如下：\n{content}",
+            user_message
+        )
+
+        return answer, source
 
     kb, src = search_knowledge(user_message)
     if kb:
