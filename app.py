@@ -42,7 +42,50 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# LOG SAVE (FULL META VERSION)
+# PLATFORM DETECT
+# =========================
+def detect_platform(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "line" in ua:
+        return "LINE"
+    if "facebook" in ua or "fb" in ua:
+        return "FB"
+    if "mozilla" in ua:
+        return "WEB"
+    return "unknown"
+
+
+# =========================
+# DEVICE DETECT
+# =========================
+def detect_device(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if any(x in ua for x in ["iphone", "android", "mobile"]):
+        return "mobile"
+    return "desktop"
+
+
+# =========================
+# BROWSER DETECT
+# =========================
+def detect_browser(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "chrome" in ua:
+        return "chrome"
+    if "firefox" in ua:
+        return "firefox"
+    if "safari" in ua:
+        return "safari"
+    if "line" in ua:
+        return "line-app"
+    return "unknown"
+
+
+# =========================
+# LOG SAVE (FULL META + IP + SESSION + SOURCE)
 # =========================
 def save_log(user, message, reply, request: Request, platform, latency):
 
@@ -60,31 +103,17 @@ def save_log(user, message, reply, request: Request, platform, latency):
 
     ua = request.headers.get("user-agent", "")
 
-    # =========================
-    # PLATFORM + DEVICE + BROWSER DETECT
-    # =========================
-    ua_lower = ua.lower()
+    ip = request.headers.get("x-forwarded-for")
+    if not ip:
+        ip = request.client.host if request.client else "-"
 
-    if "mobile" in ua_lower or "iphone" in ua_lower or "android" in ua_lower:
-        device = "mobile"
-    else:
-        device = "desktop"
+    session_id = (
+        request.headers.get("x-session-id")
+        or request.headers.get("x-line-user-id")
+        or f"sess_{len(logs)+1}"
+    )
 
-    if "chrome" in ua_lower:
-        browser = "chrome"
-    elif "firefox" in ua_lower:
-        browser = "firefox"
-    elif "safari" in ua_lower:
-        browser = "safari"
-    else:
-        browser = "unknown"
-
-    # =========================
-    # MODEL (固定 deepseek)
-    # =========================
-    model = "deepseek"
-
-    logs.append({
+    log_entry = {
         "id": len(logs) + 1,
         "time": datetime.now().isoformat(),
 
@@ -92,19 +121,32 @@ def save_log(user, message, reply, request: Request, platform, latency):
         "message": message,
         "reply": reply,
 
+        # =========================
+        # CORE FIELDS
+        # =========================
         "platform": platform,
         "latency": latency,
 
+        "ip": ip,
+        "session_id": session_id,
+
         # =========================
-        # META BLOCK (for logs UI)
+        # SOURCE (先保留擴充)
+        # =========================
+        "sources": "-",   # 未來可放 RAG / FAQ / KB 命中來源
+
+        # =========================
+        # META
         # =========================
         "meta": {
-            "model": model,
-            "device": device,
-            "browser": browser,
-            "user_agent": ua
+            "user_agent": ua,
+            "device": detect_device(request),
+            "browser": detect_browser(request),
+            "platform_detected": detect_platform(request)
         }
-    })
+    }
+
+    logs.append(log_entry)
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
@@ -278,7 +320,7 @@ async def line_webhook(request: Request):
         user_msg = event["message"]["text"]
         user_id = event["source"].get("userId")
 
-        platform = "LINE"
+        platform = detect_platform(request)
 
         reply = ai_reply(user_msg)
 
