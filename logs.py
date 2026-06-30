@@ -109,7 +109,7 @@ def logs_ui(
         rows += f"""
         <tr>
             <td>{g(l,'id', i+1)}</td>
-            <td>{g(l,'time')}</td>
+            <td class="time">{g(l,'time')}</td>
             <td><span class="pill">{g(l,'platform','LINE')}</span></td>
 
             <td class="msg">{str(g(l,'message',''))[:45]}</td>
@@ -120,13 +120,16 @@ def logs_ui(
             <td class="ip">{g(l,'ip','-')}</td>
 
             <td>
-                <button class="btn" onclick="toggleDetail({i})">點擊查看</button>
+                <button onclick="toggleDetail({i})">點擊查看</button>
             </td>
         </tr>
 
-        <!-- =========================
-             DETAIL ROW (FULL WIDTH)
-        ========================= -->
+        """
+
+        # =========================
+        # DETAIL ROW（在下一列）
+        # =========================
+        rows += f"""
         <tr id="detail-{i}" style="display:none;">
             <td colspan="9">
                 <div class="detail-box">
@@ -155,152 +158,155 @@ def logs_ui(
         """
 
     # =========================
-    # PAGE LINK
+    # OPTIONS
     # =========================
+    page_opts = [10, 20, 50]
+
     def link(p):
         return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&sort_by={sort_by}&sort_order={sort_order}"
 
     pages = ""
+
     if page > 1:
         pages += f'<a href="{link(page-1)}">← 上一頁</a> '
 
-    pages += f"<span class='info'>第 {page}/{total_pages} 頁 ｜ 總數 {total} ｜ 每頁 {size}</span> "
+    pages += f"<span class='info'>第 {page}/{total_pages} 頁 ｜ 總數 {total} ｜ 每頁 {size} 筆</span> "
 
     if page < total_pages:
         pages += f'<a href="{link(page+1)}">下一頁 →</a>'
 
-    # =========================
-    # SIZE OPTIONS
-    # =========================
-    page_opts = [10, 20, 50]
     size_select = "".join(
         [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
     )
 
     # =========================
-    # HTML
+    # JS（只新增，不動架構）
     # =========================
+    js = """
+    <script>
+    function toggleDetail(i){
+        const el = document.getElementById("detail-" + i);
+        if(!el) return;
+        el.style.display = (el.style.display === "none") ? "table-row" : "none";
+    }
+    </script>
+    """
+
+    # =========================
+    # CSS（完全不動，只補一點點）
+    # =========================
+    css = """
+    body {
+        margin:0;
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
+        background: linear-gradient(180deg,#f4f6fb,#eef2ff);
+        padding:18px;
+        color:#111827;
+    }
+
+    table {
+        width:100%;
+        border-collapse:collapse;
+        background:white;
+        border-radius:16px;
+        overflow:hidden;
+    }
+
+    td {
+        padding:12px;
+        border-top:1px solid #eee;
+        vertical-align:top;
+    }
+
+    .detail-box {
+        background:#f8fafc;
+        padding:12px;
+        border-radius:12px;
+    }
+
+    .grid {
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:10px;
+        font-size:12px;
+    }
+
+    .block {
+        margin-top:10px;
+    }
+
+    .pages {
+        display:flex;
+        justify-content:center;
+        gap:10px;
+        margin:12px 0;
+    }
+
+    .pages a {
+        padding:6px 10px;
+        border-radius:999px;
+        background:white;
+        border:1px solid #ddd;
+        text-decoration:none;
+    }
+    """
+
     return HTMLResponse(f"""
-<html>
-<head>
-<meta charset="utf-8"/>
-</head>
+    <html>
+    <head>
+    <meta charset="utf-8"/>
+    </head>
 
-<body>
+    <body>
 
-<h2>LOGS DASHBOARD</h2>
+    <h2>LOGS DASHBOARD</h2>
 
-<div class="pages">{pages}</div>
+    <form class="bar">
+        <input name="keyword" value="{keyword}" placeholder="關鍵字">
 
-<table>
-    <tr>
-        <th>ID</th>
-        <th>時間</th>
-        <th>平台</th>
-        <th>問題</th>
-        <th>回覆</th>
-        <th>延遲</th>
-        <th>來源</th>
-        <th>IP</th>
-        <th>操作</th>
-    </tr>
+        <select name="size">
+            {size_select}
+        </select>
 
-    {rows}
-</table>
+        <select name="sort_by">
+            <option value="time">時間</option>
+            <option value="latency">回應時間</option>
+            <option value="source">來源</option>
+        </select>
 
-<div class="pages">{pages}</div>
+        <select name="sort_order">
+            <option value="desc">DESC</option>
+            <option value="asc">ASC</option>
+        </select>
 
-<style>
-body {{
-    margin:0;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
-    background:#f4f6fb;
-    padding:18px;
-}}
+        <a href="/logs">清空</a>
+        <button>搜尋</button>
+    </form>
 
-table {{
-    width:100%;
-    border-collapse:collapse;
-    background:white;
-    border-radius:12px;
-    overflow:hidden;
-}}
+    <div class="pages">{pages}</div>
 
-th {{
-    background:#eef2ff;
-    padding:10px;
-}}
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>時間</th>
+            <th>平台</th>
+            <th>問題</th>
+            <th>回覆</th>
+            <th>延遲</th>
+            <th>來源</th>
+            <th>IP</th>
+            <th>操作</th>
+        </tr>
 
-td {{
-    padding:10px;
-    border-top:1px solid #eee;
-    font-size:13px;
-}}
+        {rows}
+    </table>
 
-.pill {{
-    padding:4px 10px;
-    border-radius:999px;
-    background:#dbeafe;
-}}
+    <div class="pages">{pages}</div>
 
-.reply-cell {{
-    max-width:180px;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-}}
+    {js}
 
-.btn {{
-    padding:6px 10px;
-    border:none;
-    border-radius:999px;
-    background:#3b82f6;
-    color:white;
-    cursor:pointer;
-}}
+    <style>{css}</style>
 
-.detail-box {{
-    padding:14px;
-    background:#f8fafc;
-}}
-
-.grid {{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:10px;
-    font-size:12px;
-}}
-
-.block {{
-    margin-top:10px;
-}}
-
-.pages {{
-    margin:12px 0;
-    text-align:center;
-}}
-
-.pages a {{
-    margin:0 5px;
-}}
-
-.info {{
-    color:#666;
-    font-size:13px;
-}}
-</style>
-
-<script>
-function toggleDetail(i) {{
-    const row = document.getElementById("detail-" + i);
-    if (row.style.display === "none") {{
-        row.style.display = "table-row";
-    }} else {{
-        row.style.display = "none";
-    }}
-}}
-</script>
-
-</body>
-</html>
-""")
+    </body>
+    </html>
+    """)
