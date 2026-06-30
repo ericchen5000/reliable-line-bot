@@ -6,8 +6,6 @@ import os
 import time
 from datetime import datetime
 from urllib.parse import urlparse
-
-import jieba
 import requests
 from bs4 import BeautifulSoup
 
@@ -113,71 +111,42 @@ def search_faq(question):
 
 
 # =========================
-# URL RAG SEARCH (UPGRADED)
+# URL SEARCH (REAL CONTENT SEARCH)
 # =========================
-def fetch_url_text(url):
+URLS_FILE = "data/urls.json"
+
+def fetch_page_text(url):
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(url, headers=headers, timeout=6)
-
+        r = requests.get(url, timeout=5)
         soup = BeautifulSoup(r.text, "html.parser")
-
-        for tag in soup(["script", "style", "noscript"]):
-            tag.decompose()
-
-        text = soup.get_text(separator=" ")
-        text = " ".join(text.split())
-        return text[:4000]
-
+        return soup.get_text(" ", strip=True).lower()
     except:
         return ""
 
 
 def search_urls(user_message):
-    path = "data/urls.json"
-
-    if not os.path.exists(path):
+    if not os.path.exists(URLS_FILE):
         return None, None
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(URLS_FILE, "r", encoding="utf-8") as f:
             urls = json.load(f)
     except:
         return None, None
 
-    # 🔥 中文斷詞
-    words = [w for w in jieba.lcut(user_message) if len(w.strip()) > 1]
-
-    best_score = 0
-    best_result = None
+    msg = user_message.lower()
 
     for item in urls:
-        url = item.get("url")
-        title = item.get("title")
+        url = item.get("url", "")
+        title = item.get("title", "")
 
-        content = fetch_url_text(url)
-        content_low = content.lower()
+        page_text = fetch_page_text(url)
 
-        # 🔥 scoring (語意 + 斷詞)
-        score = 0
-
-        for w in words:
-            if w.lower() in content_low:
-                score += 2
-
-        # fallback: 原句 match
-        if user_message.lower() in content_low:
-            score += 5
-
-        if score > best_score:
-            best_score = score
-            best_result = (title, url)
-
-    if best_result and best_score > 0:
-        title, url = best_result
-        domain = urlparse(url).netloc.replace("www.", "")
-        source = "URL-" + domain.split(".")[0]
-        return f"{title}: {url}", source
+        # 🔥 真正內容比對
+        if msg in page_text:
+            domain = urlparse(url).netloc.replace("www.", "")
+            source = "URL-" + domain.split(".")[0]
+            return f"{title}: {url}", source
 
     return None, None
 
@@ -210,6 +179,13 @@ def handle_company(user_message):
 
 
 # =========================
+# PRODUCTS (disabled)
+# =========================
+def handle_products(user_message):
+    return None, None
+
+
+# =========================
 # KB
 # =========================
 def search_knowledge(user_message):
@@ -223,37 +199,33 @@ def search_knowledge(user_message):
 
     for root, dirs, files in os.walk(kb_path):
         for file in files:
-            if not file.endswith(".txt"):
-                continue
+            if file.endswith(".txt"):
+                path = os.path.join(root, file)
 
-            path = os.path.join(root, file)
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read().lower()
 
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read().lower()
-
-                if msg in content:
-                    results.append((content[:1000], file))
+                    if msg in content:
+                        results.append((content[:800], file))
 
     if results:
         text = "\n\n---\n\n".join([r[0] for r in results[:2]])
-
         names = [os.path.splitext(r[1])[0] for r in results[:2]]
         source = "KB-" + ",".join(names)
-
         return text, source
 
     return None, None
 
 
 # =========================
-# AI FALLBACK
+# AI fallback
 # =========================
 def ai_fallback(user_message):
     prompt = SYSTEM_PROMPT + """
 
 規則：
 1. 不可亂編
-2. 沒資料就回答：目前資料庫中沒有相關資訊
+2. 沒資料回：目前資料庫中沒有相關資訊
 3. 使用繁體中文
 4. 簡短回答
 """
@@ -262,7 +234,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER
+# ROUTER (ORDER FIXED)
 # =========================
 def ai_reply(user_message):
 
@@ -303,31 +275,18 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
     except:
         logs = []
 
-    ua = request.headers.get("user-agent", "")
-
-    ip = request.headers.get("x-forwarded-for")
-    if not ip:
-        ip = request.client.host if request.client else "-"
+    ip = request.headers.get("x-forwarded-for") or request.client.host or "-"
 
     logs.append({
         "id": len(logs) + 1,
         "time": datetime.now().isoformat(),
-
         "user": user,
         "message": message,
         "reply": reply,
-
         "platform": platform,
         "latency": latency,
-
         "ip": ip,
-        "source": source,
-
-        "meta": {
-            "user_agent": ua,
-            "device": detect_device(request),
-            "browser": detect_browser(request)
-        }
+        "source": source
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -341,7 +300,6 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
 async def line_webhook(request: Request):
 
     start = time.time()
-
     body = await request.json()
 
     if "events" not in body:
