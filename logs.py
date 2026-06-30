@@ -30,14 +30,14 @@ def g(d, key, default="-"):
 
 
 # =========================
-# UI
+# MAIN UI
 # =========================
 @router.get("/logs", response_class=HTMLResponse)
 def logs_ui(
     page: int = 1,
     size: int = 10,
     keyword: str = "",
-    channel: str = "",
+    user: str = "",
     sort: str = "desc"
 ):
 
@@ -53,8 +53,8 @@ def logs_ui(
             or keyword.lower() in str(l.get("reply", "")).lower()
         ]
 
-    if channel:
-        logs = [l for l in logs if l.get("platform", "LINE") == channel]
+    if user:
+        logs = [l for l in logs if l.get("user") == user]
 
     # =========================
     # SORT
@@ -77,7 +77,7 @@ def logs_ui(
     logs_page = logs[start:end]
 
     # =========================
-    # STATS TEXT
+    # STATS
     # =========================
     stats = f"第 {page} / {total_pages} 頁 ｜ 總筆數 {total} ｜ 每頁 {size} 筆"
 
@@ -89,52 +89,46 @@ def logs_ui(
     for i, l in enumerate(logs_page):
         meta = l.get("meta", {}) if isinstance(l.get("meta"), dict) else {}
 
-        session_id = g(l, "session_id")
-        response_time = g(l, "response_time", "-")
-        sources = g(l, "sources")
-        ip = g(l, "ip")
-        platform = g(l, "platform", "LINE")
-
-        model = g(meta, "model")
-        device = g(meta, "device")
-        browser = g(meta, "browser")
-        ua = g(meta, "user_agent")
-
         rows += f"""
         <tr>
             <td>{g(l,'id', i+1)}</td>
             <td>{g(l,'time')}</td>
-            <td><span class="pill">{platform}</span></td>
+            <td><span class="pill">{g(l,'platform','LINE')}</span></td>
+
             <td>{str(g(l,'message'))[:50]}</td>
             <td>{str(g(l,'reply'))[:80]}</td>
-            <td class="rt">{response_time}s</td>
-            <td class="src">{sources}</td>
-            <td>{ip}</td>
+
+            <td class="rt">{g(l,'latency','-')}s</td>
+            <td>{g(l,'sources','-')}</td>
+            <td>{g(l,'ip','-')}</td>
 
             <td>
                 <details>
-                    <summary class="btn-mini">查看</summary>
+                    <summary>View</summary>
 
-                    <div class="box">
-                        <div><b>SESSION ID</b><br>{session_id}</div>
+                    <div class="detail">
+
+                        <b>SESSION ID</b><br>
+                        {g(l,'session_id','-')}<br><br>
+
+                        <b>完整問題</b><br>
+                        {g(l,'message','')}<br><br>
+
+                        <b>完整回覆</b><br>
+                        {g(l,'reply','')}<br><br>
 
                         <div class="grid">
-                            <div><b>回應時間</b><br>{response_time}s</div>
-                            <div><b>平台</b><br>{platform}</div>
-                            <div><b>設備</b><br>{device}</div>
-                            <div><b>瀏覽器</b><br>{browser}</div>
+                            <div><b>平台</b><br>{g(l,'platform','LINE')}</div>
+                            <div><b>回應時間</b><br>{g(l,'latency','-')}s</div>
+                            <div><b>設備</b><br>{meta.get('device','-')}</div>
+                            <div><b>瀏覽器</b><br>{meta.get('browser','-')}</div>
                         </div>
 
-                        <div class="ua">
-                            <b>User Agent</b><br>{ua}
-                        </div>
+                        <br>
+                        <b>User Agent</b><br>
+                        {meta.get('user_agent','-')}
 
-                        <div class="full">
-                            <b>完整問題</b><br>{g(l,'message')}<br><br>
-                            <b>完整回覆</b><br>{g(l,'reply')}
-                        </div>
                     </div>
-
                 </details>
             </td>
         </tr>
@@ -143,22 +137,21 @@ def logs_ui(
     # =========================
     # PAGINATION UI
     # =========================
-    pages_html = ""
+    pages = ""
 
     if page > 1:
-        pages_html += f'<a class="page" href="?page={page-1}&size={size}">上一頁</a>'
+        pages += f'<a class="page" href="?page={page-1}&size={size}">上一頁</a>'
 
     for p in range(1, total_pages + 1):
-        active = "active" if p == page else ""
-        pages_html += f'<a class="page {active}" href="?page={p}&size={size}">{p}</a>'
+        pages += f'<a class="page {"active" if p==page else ""}" href="?page={p}&size={size}">{p}</a>'
 
     if page < total_pages:
-        pages_html += f'<a class="page" href="?page={page+1}&size={size}">下一頁</a>'
+        pages += f'<a class="page" href="?page={page+1}&size={size}">下一頁</a>'
 
     # =========================
     # HTML
     # =========================
-    html = f"""
+    return HTMLResponse(f"""
     <html>
     <head>
     <meta charset="utf-8"/>
@@ -176,13 +169,39 @@ def logs_ui(
         }}
 
         h1 {{
-            margin:0 0 10px 0;
+            margin:0 0 8px 0;
         }}
 
         .stats {{
-            margin:10px 0 18px 0;
-            color:#6b7280;
             font-size:13px;
+            color:#6b7280;
+            margin-bottom:15px;
+        }}
+
+        /* FILTER */
+        .filters {{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            background:white;
+            padding:14px;
+            border-radius:16px;
+            box-shadow:0 6px 20px rgba(0,0,0,0.06);
+            margin-bottom:15px;
+        }}
+
+        input {{
+            padding:10px;
+            border-radius:999px;
+            border:1px solid #e5e7eb;
+        }}
+
+        button {{
+            padding:10px 16px;
+            border-radius:999px;
+            border:none;
+            background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+            color:white;
         }}
 
         /* TABLE */
@@ -192,7 +211,6 @@ def logs_ui(
             background:white;
             border-radius:16px;
             overflow:hidden;
-            box-shadow:0 8px 24px rgba(0,0,0,0.06);
         }}
 
         th {{
@@ -209,7 +227,6 @@ def logs_ui(
             vertical-align:top;
         }}
 
-        /* PILL */
         .pill {{
             padding:4px 10px;
             border-radius:999px;
@@ -217,24 +234,24 @@ def logs_ui(
             font-size:12px;
         }}
 
-        /* BUTTON */
-        .btn-mini {{
+        .rt {{
+            color:#16a34a;
+            font-weight:700;
+        }}
+
+        details summary {{
+            cursor:pointer;
             padding:4px 10px;
             border-radius:999px;
-            background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+            background:#3b82f6;
             color:white;
-            cursor:pointer;
-            font-size:12px;
+            display:inline-block;
         }}
 
-        details {{
-            cursor:pointer;
-        }}
-
-        .box {{
+        .detail {{
             margin-top:10px;
-            background:#f9fafb;
             padding:12px;
+            background:#f9fafb;
             border-radius:12px;
         }}
 
@@ -242,14 +259,10 @@ def logs_ui(
             display:grid;
             grid-template-columns:repeat(2,1fr);
             gap:10px;
-            margin:10px 0;
+            margin-top:10px;
         }}
 
-        .rt {{
-            font-weight:700;
-            color:#16a34a;
-        }}
-
+        /* PAGINATION */
         .pages {{
             margin-top:15px;
         }}
@@ -260,9 +273,8 @@ def logs_ui(
             border-radius:999px;
             background:white;
             margin-right:6px;
-            text-decoration:none;
             border:1px solid #e5e7eb;
-            font-size:12px;
+            text-decoration:none;
         }}
 
         .active {{
@@ -276,33 +288,36 @@ def logs_ui(
     <body>
     <div class="wrap">
 
-        <h1>AI Chat Logs</h1>
+    <h1>AI Chat Logs</h1>
+    <div class="stats">{stats}</div>
 
-        <div class="stats">{stats}</div>
+    <form class="filters">
+        <input name="keyword" placeholder="關鍵字">
+        <input name="user" placeholder="使用者ID">
+        <button>搜尋</button>
+    </form>
 
-        <table>
-            <tr>
-                <th>ID</th>
-                <th>時間</th>
-                <th>平台</th>
-                <th>問題</th>
-                <th>回覆</th>
-                <th>回應時間</th>
-                <th>來源</th>
-                <th>IP</th>
-                <th>Detail</th>
-            </tr>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>時間</th>
+            <th>平台</th>
+            <th>問題</th>
+            <th>回覆</th>
+            <th>回應時間</th>
+            <th>來源</th>
+            <th>IP</th>
+            <th>Detail</th>
+        </tr>
 
-            {rows}
-        </table>
+        {rows}
+    </table>
 
-        <div class="pages">
-            {pages_html}
-        </div>
+    <div class="pages">
+        {pages}
+    </div>
 
     </div>
     </body>
     </html>
-    """
-
-    return HTMLResponse(html)
+    """)
