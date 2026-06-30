@@ -202,7 +202,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (WITH SOURCE FORMAT FIXED)
+# ROUTER (FIX SOURCE FINAL)
 # =========================
 def ai_reply(user_message):
 
@@ -227,7 +227,7 @@ def ai_reply(user_message):
 
 
 # =========================
-# LOG SAVE (FULL META + SOURCE FIXED)
+# LOG SAVE (NO CHANGE)
 # =========================
 def save_log(user, message, reply, request: Request, platform, latency, source):
 
@@ -261,7 +261,7 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
         "latency": latency,
 
         "ip": ip,
-        "source": source,   # ✅ FIXED: FAQ / KB:xxx.txt / AI
+        "source": source,   # ✅ FAQ / KB:xxx.txt / AI
 
         "meta": {
             "user_agent": ua,
