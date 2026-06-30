@@ -96,34 +96,38 @@ def logs_ui(
     logs_page = logs[start:end]
 
     # =========================
-    # ROWS (MAIN + DETAIL ROW)
+    # ROWS
     # =========================
     rows = ""
 
     for i, l in enumerate(logs_page):
         meta = l.get("meta", {}) if isinstance(l.get("meta"), dict) else {}
 
+        # =========================
+        # MAIN ROW
+        # =========================
         rows += f"""
-        <tr class="main-row">
-            <td width="3%">{g(l,'id', i+1)}</td>
-            <td width="15%">{g(l,'time')}</td>
-            <td width="6%">{g(l,'platform','LINE')}</td>
+        <tr>
+            <td>{g(l,'id', i+1)}</td>
+            <td>{g(l,'time')}</td>
+            <td><span class="pill">{g(l,'platform','LINE')}</span></td>
 
-            <td width="18%">{str(g(l,'message',''))[:50]}</td>
-            <td width="18%">{str(g(l,'reply',''))[:60]}</td>
+            <td class="msg">{str(g(l,'message',''))[:45]}</td>
+            <td class="reply-cell">{str(g(l,'reply',''))[:60]}</td>
 
-            <td width="6%">{g(l,'latency','-')}</td>
-            <td width="10%">{g(l,'source','-')}</td>
-            <td width="12%">{g(l,'ip','-')}</td>
+            <td class="latency">{g(l,'latency','-')}</td>
+            <td class="source">{g(l,'source','-')}</td>
+            <td class="ip">{g(l,'ip','-')}</td>
 
-            <td width="12%">
-                <details>
-                    <summary>點擊查看</summary>
-                </details>
+            <td>
+                <button class="btn" onclick="toggleDetail({i})">點擊查看</button>
             </td>
         </tr>
 
-        <tr class="detail-row">
+        <!-- =========================
+             DETAIL ROW (FULL WIDTH)
+        ========================= -->
+        <tr id="detail-{i}" style="display:none;">
             <td colspan="9">
                 <div class="detail-box">
 
@@ -151,127 +155,152 @@ def logs_ui(
         """
 
     # =========================
-    # PAGINATION
+    # PAGE LINK
     # =========================
     def link(p):
         return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&sort_by={sort_by}&sort_order={sort_order}"
 
     pages = ""
-
     if page > 1:
         pages += f'<a href="{link(page-1)}">← 上一頁</a> '
 
-    pages += f"<span>第 {page}/{total_pages} 頁 ｜ 總數 {total} ｜ 每頁 {size}</span> "
+    pages += f"<span class='info'>第 {page}/{total_pages} 頁 ｜ 總數 {total} ｜ 每頁 {size}</span> "
 
     if page < total_pages:
         pages += f'<a href="{link(page+1)}">下一頁 →</a>'
 
     # =========================
-    # CSS
+    # SIZE OPTIONS
     # =========================
-    css = """
-    body {
-        margin:0;
-        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
-        background:#f4f6fb;
-        padding:18px;
-    }
+    page_opts = [10, 20, 50]
+    size_select = "".join(
+        [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
+    )
 
-    table {
-        width:100%;
-        border-collapse:collapse;
-        background:white;
-        border-radius:12px;
-        overflow:hidden;
-    }
-
-    th {
-        background:#eef2ff;
-        padding:10px;
-        text-align:left;
-    }
-
-    td {
-        padding:10px;
-        border-top:1px solid #eee;
-        font-size:13px;
-        vertical-align:top;
-    }
-
-    .main-row:hover {
-        background:#f9fafb;
-    }
-
-    .detail-row td {
-        background:#f8fafc;
-        padding:0;
-    }
-
-    .detail-box {
-        padding:14px;
-    }
-
-    .grid {
-        display:grid;
-        grid-template-columns:repeat(3, 1fr);
-        gap:10px;
-        font-size:12px;
-        margin-bottom:10px;
-    }
-
-    .block {
-        margin-top:10px;
-        font-size:13px;
-    }
-
-    details summary {
-        cursor:pointer;
-        padding:6px 10px;
-        background:#3b82f6;
-        color:white;
-        border-radius:999px;
-        display:inline-block;
-        font-size:12px;
-    }
-
-    a {
-        margin:0 5px;
-        text-decoration:none;
-    }
-    """
-
+    # =========================
+    # HTML
+    # =========================
     return HTMLResponse(f"""
-    <html>
-    <head>
-    <meta charset="utf-8"/>
-    </head>
+<html>
+<head>
+<meta charset="utf-8"/>
+</head>
 
-    <body>
+<body>
 
-    <h2>LOGS DASHBOARD</h2>
+<h2>LOGS DASHBOARD</h2>
 
-    <div style="margin-bottom:10px">{pages}</div>
+<div class="pages">{pages}</div>
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>時間</th>
-            <th>平台</th>
-            <th>問題</th>
-            <th>回覆</th>
-            <th>延遲</th>
-            <th>來源</th>
-            <th>IP</th>
-            <th>DETAIL</th>
-        </tr>
+<table>
+    <tr>
+        <th>ID</th>
+        <th>時間</th>
+        <th>平台</th>
+        <th>問題</th>
+        <th>回覆</th>
+        <th>延遲</th>
+        <th>來源</th>
+        <th>IP</th>
+        <th>操作</th>
+    </tr>
 
-        {rows}
-    </table>
+    {rows}
+</table>
 
-    <div style="margin-top:10px">{pages}</div>
+<div class="pages">{pages}</div>
 
-    <style>{css}</style>
+<style>
+body {{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
+    background:#f4f6fb;
+    padding:18px;
+}}
 
-    </body>
-    </html>
-    """)
+table {{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+    border-radius:12px;
+    overflow:hidden;
+}}
+
+th {{
+    background:#eef2ff;
+    padding:10px;
+}}
+
+td {{
+    padding:10px;
+    border-top:1px solid #eee;
+    font-size:13px;
+}}
+
+.pill {{
+    padding:4px 10px;
+    border-radius:999px;
+    background:#dbeafe;
+}}
+
+.reply-cell {{
+    max-width:180px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}}
+
+.btn {{
+    padding:6px 10px;
+    border:none;
+    border-radius:999px;
+    background:#3b82f6;
+    color:white;
+    cursor:pointer;
+}}
+
+.detail-box {{
+    padding:14px;
+    background:#f8fafc;
+}}
+
+.grid {{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    font-size:12px;
+}}
+
+.block {{
+    margin-top:10px;
+}}
+
+.pages {{
+    margin:12px 0;
+    text-align:center;
+}}
+
+.pages a {{
+    margin:0 5px;
+}}
+
+.info {{
+    color:#666;
+    font-size:13px;
+}}
+</style>
+
+<script>
+function toggleDetail(i) {{
+    const row = document.getElementById("detail-" + i);
+    if (row.style.display === "none") {{
+        row.style.display = "table-row";
+    }} else {{
+        row.style.display = "none";
+    }}
+}}
+</script>
+
+</body>
+</html>
+""")
