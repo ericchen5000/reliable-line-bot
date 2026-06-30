@@ -9,7 +9,7 @@ FAQ_PATH = "data/faq.json"
 
 
 # =========================
-# LOAD FAQ
+# LOAD
 # =========================
 def load_faq():
     if not os.path.exists(FAQ_PATH):
@@ -22,7 +22,7 @@ def load_faq():
 
 
 # =========================
-# SAVE FAQ
+# SAVE
 # =========================
 def save_faq(data):
     os.makedirs(os.path.dirname(FAQ_PATH), exist_ok=True)
@@ -31,12 +31,16 @@ def save_faq(data):
 
 
 # =========================
-# LIST UI
+# MAIN PAGE (ALL IN ONE)
 # =========================
 @router.get("/faq", response_class=HTMLResponse)
-def faq_ui():
+def faq_page(edit_id: int = None):
 
     faq = load_faq()
+
+    edit_item = None
+    if edit_id is not None and 0 <= edit_id < len(faq):
+        edit_item = faq[edit_id]
 
     rows = ""
 
@@ -48,11 +52,30 @@ def faq_ui():
             <td>{item.get('answer','')}</td>
 
             <td>
-                <a href="/faq/edit/{i}" class="btn-edit">編輯</a>
+                <a href="/faq?edit_id={i}" class="btn-edit">編輯</a>
                 <a href="/faq/delete/{i}" class="btn-del">刪除</a>
             </td>
         </tr>
         """
+
+    # =========================
+    # FORM MODE
+    # =========================
+    is_edit = edit_item is not None
+
+    form_action = "/faq/add"
+    form_title = "新增 FAQ"
+    btn_text = "新增"
+
+    q_val = ""
+    a_val = ""
+
+    if is_edit:
+        form_action = f"/faq/edit/{edit_id}"
+        form_title = "編輯 FAQ"
+        btn_text = "更新"
+        q_val = edit_item.get("question", "")
+        a_val = edit_item.get("answer", "")
 
     return HTMLResponse(f"""
     <html>
@@ -71,29 +94,44 @@ def faq_ui():
             margin-bottom:10px;
         }}
 
-        .top {{
-            margin-bottom:10px;
+        .layout {{
+            display:grid;
+            grid-template-columns: 1fr 2fr;
+            gap:20px;
         }}
 
-        .btn-add {{
+        .card {{
+            background:white;
+            padding:16px;
+            border-radius:16px;
+            box-shadow:0 6px 18px rgba(0,0,0,0.05);
+        }}
+
+        input, textarea {{
+            width:100%;
+            padding:10px;
+            margin-bottom:10px;
+            border-radius:12px;
+            border:1px solid #e5e7eb;
+        }}
+
+        button {{
             padding:10px 14px;
+            border:none;
+            border-radius:999px;
             background:linear-gradient(135deg,#60a5fa,#a78bfa);
             color:white;
-            border-radius:999px;
-            text-decoration:none;
+            cursor:pointer;
         }}
 
         table {{
             width:100%;
             border-collapse:collapse;
-            background:white;
-            border-radius:12px;
-            overflow:hidden;
         }}
 
         th {{
-            background:#eef2ff;
             text-align:left;
+            background:#eef2ff;
             padding:10px;
         }}
 
@@ -119,64 +157,57 @@ def faq_ui():
             text-decoration:none;
             font-size:12px;
         }}
+
+        .top-title {{
+            font-weight:700;
+            margin-bottom:10px;
+        }}
     </style>
     </head>
 
     <body>
 
-    <h2>FAQ 管理</h2>
+    <h2>FAQ 管理中心</h2>
 
-    <div class="top">
-        <a class="btn-add" href="/faq/add">+ 新增 FAQ</a>
+    <div class="layout">
+
+        <!-- LEFT: FORM -->
+        <div class="card">
+            <div class="top-title">{form_title}</div>
+
+            <form method="post" action="{form_action}">
+                <input name="question" placeholder="問題" value="{q_val}" required>
+                <textarea name="answer" placeholder="答案" required>{a_val}</textarea>
+
+                <button>{btn_text}</button>
+            </form>
+        </div>
+
+        <!-- RIGHT: TABLE -->
+        <div class="card">
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>問題</th>
+                    <th>答案</th>
+                    <th>操作</th>
+                </tr>
+                {rows}
+            </table>
+        </div>
+
     </div>
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>問題</th>
-            <th>答案</th>
-            <th>操作</th>
-        </tr>
-
-        {rows}
-    </table>
-
     </body>
     </html>
     """)
 
 
 # =========================
-# ADD PAGE
-# =========================
-@router.get("/faq/add", response_class=HTMLResponse)
-def add_page():
-
-    return HTMLResponse("""
-    <html>
-    <body style="font-family:Arial;padding:20px;background:#f5f7fb">
-
-    <h2>新增 FAQ</h2>
-
-    <form method="post" action="/faq/add">
-        <input name="question" placeholder="問題" style="width:400px;padding:10px"><br><br>
-        <textarea name="answer" placeholder="答案" style="width:400px;height:120px;padding:10px"></textarea><br><br>
-
-        <button style="padding:10px 14px;background:#3b82f6;color:white;border:none;border-radius:999px">
-            儲存
-        </button>
-    </form>
-
-    </body>
-    </html>
-    """)
-
-
-# =========================
-# ADD POST
+# ADD
 # =========================
 @router.post("/faq/add")
-def add_faq(question: str = Form(...), answer: str = Form(...)):
+def add(question: str = Form(...), answer: str = Form(...)):
 
     faq = load_faq()
 
@@ -191,47 +222,18 @@ def add_faq(question: str = Form(...), answer: str = Form(...)):
 
 
 # =========================
-# EDIT PAGE
-# =========================
-@router.get("/faq/edit/{idx}", response_class=HTMLResponse)
-def edit_page(idx: int):
-
-    faq = load_faq()
-
-    item = faq[idx]
-
-    return HTMLResponse(f"""
-    <html>
-    <body style="font-family:Arial;padding:20px;background:#f5f7fb">
-
-    <h2>編輯 FAQ</h2>
-
-    <form method="post" action="/faq/edit/{idx}">
-        <input name="question" value="{item.get('question','')}" style="width:400px;padding:10px"><br><br>
-        <textarea name="answer" style="width:400px;height:120px;padding:10px">{item.get('answer','')}</textarea><br><br>
-
-        <button style="padding:10px 14px;background:#f59e0b;color:white;border:none;border-radius:999px">
-            更新
-        </button>
-    </form>
-
-    </body>
-    </html>
-    """)
-
-
-# =========================
-# EDIT POST
+# EDIT
 # =========================
 @router.post("/faq/edit/{idx}")
-def edit_faq(idx: int, question: str = Form(...), answer: str = Form(...)):
+def edit(idx: int, question: str = Form(...), answer: str = Form(...)):
 
     faq = load_faq()
 
-    faq[idx] = {
-        "question": question,
-        "answer": answer
-    }
+    if 0 <= idx < len(faq):
+        faq[idx] = {
+            "question": question,
+            "answer": answer
+        }
 
     save_faq(faq)
 
@@ -242,7 +244,7 @@ def edit_faq(idx: int, question: str = Form(...), answer: str = Form(...)):
 # DELETE
 # =========================
 @router.get("/faq/delete/{idx}")
-def delete_faq(idx: int):
+def delete(idx: int):
 
     faq = load_faq()
 
