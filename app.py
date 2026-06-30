@@ -6,6 +6,8 @@ import os
 import time
 from datetime import datetime
 from urllib.parse import urlparse
+import requests
+from bs4 import BeautifulSoup
 
 from config import (
     LINE_CHANNEL_ACCESS_TOKEN,
@@ -109,8 +111,23 @@ def search_faq(question):
 
 
 # =========================
-# URL SEARCH (NEW)
+# URL CONTENT SEARCH (NEW RAG-LITE)
 # =========================
+def fetch_url_text(url):
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        for script in soup(["script", "style"]):
+            script.decompose()
+
+        text = soup.get_text(separator=" ", strip=True)
+        return text[:3000]
+    except:
+        return ""
+
+
 def search_urls(user_message):
     path = "data/urls.json"
 
@@ -124,16 +141,26 @@ def search_urls(user_message):
         return None, None
 
     msg = user_message.lower()
+    best_score = 0
+    best_result = None
 
     for item in urls:
-        keywords = item.get("keywords", [])
-        url = item.get("url", "")
-        title = item.get("title", "")
+        url = item.get("url")
+        title = item.get("title")
 
-        if any(k in msg for k in keywords):
-            domain = urlparse(url).netloc.replace("www.", "")
-            source = "URL-" + domain.split(".")[0]
-            return f"{title}: {url}", source
+        page_text = fetch_url_text(url)
+
+        score = sum(1 for w in msg.split() if w in page_text.lower())
+
+        if score > best_score:
+            best_score = score
+            best_result = (title, url)
+
+    if best_result and best_score > 0:
+        title, url = best_result
+        domain = urlparse(url).netloc.replace("www.", "")
+        source = "URL-" + domain.split(".")[0]
+        return f"{title}: {url}", source
 
     return None, None
 
@@ -166,7 +193,7 @@ def handle_company(user_message):
 
 
 # =========================
-# PRODUCTS (已停止搶 KB)
+# PRODUCTS
 # =========================
 def handle_products(user_message):
     return None, None
@@ -225,7 +252,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (FAQ → URL → KB → COMPANY → AI)
+# ROUTER
 # =========================
 def ai_reply(user_message):
 
@@ -275,17 +302,13 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
     logs.append({
         "id": len(logs) + 1,
         "time": datetime.now().isoformat(),
-
         "user": user,
         "message": message,
         "reply": reply,
-
         "platform": platform,
         "latency": latency,
-
         "ip": ip,
         "source": source,
-
         "meta": {
             "user_agent": ua,
             "device": detect_device(request),
