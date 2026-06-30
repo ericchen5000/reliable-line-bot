@@ -385,7 +385,7 @@ def logs_ui(
         <button>搜尋</button>
     </form>
 
-    <div class="pages">{pages}</div>
+    <center><div class="pages">{pages}</div></center>
 
     <table>
         <tr>
