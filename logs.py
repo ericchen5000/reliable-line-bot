@@ -131,13 +131,13 @@ def logs_ui(
                         </div>
 
                         <div class="block">
-                            <b>完整問題</b>
+                            <b>問題</b>
                             <div>{g(l,'message','')}</div>
                         </div>
 
                         <div class="block">
-                            <b>完整回覆</b>
-                            <div class="reply-box">{g(l,'reply','')}</div>
+                            <b>回覆</b>
+                            <div>{g(l,'reply','')}</div>
                         </div>
 
                     </div>
