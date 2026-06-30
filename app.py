@@ -202,31 +202,32 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (WITH SOURCE)
+# ROUTER (WITH SOURCE FORMAT FIXED)
 # =========================
 def ai_reply(user_message):
 
     faq, src = search_faq(user_message)
     if faq:
-        return faq, src
+        return faq, "FAQ"
 
     company, src = handle_company(user_message)
     if company:
-        return company, src
+        return company, "COMPANY"
 
     product, src = handle_products(user_message)
     if product:
-        return product, src
+        return product, "RULE"
 
     kb, src = search_knowledge(user_message)
     if kb:
         return kb, src
 
-    return ai_fallback(user_message)
+    reply, src = ai_fallback(user_message)
+    return reply, "AI"
 
 
 # =========================
-# LOG SAVE (FULL META)
+# LOG SAVE (FULL META + SOURCE FIXED)
 # =========================
 def save_log(user, message, reply, request: Request, platform, latency, source):
 
@@ -260,7 +261,7 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
         "latency": latency,
 
         "ip": ip,
-        "source": source,
+        "source": source,   # ✅ FIXED: FAQ / KB:xxx.txt / AI
 
         "meta": {
             "user_agent": ua,
