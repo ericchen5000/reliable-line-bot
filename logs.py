@@ -23,17 +23,12 @@ def load_logs():
 
 
 # =========================
-# PLATFORM DETECT
+# FILTER HELPERS
 # =========================
-def get_platform(log):
-    return log.get("platform", "LINE")
-
-
-# =========================
-# RESPONSE TIME
-# =========================
-def get_latency(log):
-    return log.get("latency", "-")
+def match(log, key, value):
+    if not value:
+        return True
+    return str(log.get(key, "")).lower() == value.lower()
 
 
 # =========================
@@ -43,13 +38,20 @@ def get_latency(log):
 def logs_ui(
     page: int = 1,
     size: int = 10,
-    keyword: str = None,
-    user: str = None,
-    sort: str = "desc"
+    keyword: str = "",
+    channel: str = "",
+    model: str = "",
+    device: str = "",
+    browser: str = "",
+    sort_by: str = "time",
+    sort_order: str = "desc"
 ):
 
     logs = load_logs()
 
+    # =========================
+    # FILTER
+    # =========================
     if keyword:
         logs = [
             l for l in logs
@@ -57,216 +59,228 @@ def logs_ui(
             or keyword.lower() in l.get("reply", "").lower()
         ]
 
-    if user:
-        logs = [l for l in logs if l.get("user") == user]
+    logs = [l for l in logs if match(l, "channel", channel)]
+    logs = [l for l in logs if l.get("meta", {}).get("model", "") == model or not model]
+    logs = [l for l in logs if l.get("meta", {}).get("device", "") == device or not device]
+    logs = [l for l in logs if l.get("meta", {}).get("browser", "") == browser or not browser]
 
-    logs.sort(key=lambda x: x.get("time", ""), reverse=(sort == "desc"))
+    # =========================
+    # SORT
+    # =========================
+    reverse = sort_order == "desc"
+    logs.sort(key=lambda x: x.get(sort_by, ""), reverse=reverse)
 
+    # =========================
+    # PAGINATION
+    # =========================
     total = len(logs)
     start = (page - 1) * size
     end = start + size
     logs_page = logs[start:end]
 
-    html = """
+    # =========================
+    # OPTIONS (auto fill)
+    # =========================
+    models = sorted(set(l.get("meta", {}).get("model", "") for l in logs if l.get("meta")))
+    devices = sorted(set(l.get("meta", {}).get("device", "") for l in logs if l.get("meta")))
+    browsers = sorted(set(l.get("meta", {}).get("browser", "") for l in logs if l.get("meta")))
+    channels = sorted(set(l.get("channel", "") for l in logs))
+
+    # =========================
+    # HTML ROWS
+    # =========================
+    rows = ""
+
+    for i, l in enumerate(logs_page):
+        meta = l.get("meta", {})
+
+        rows += f"""
+        <tr>
+            <td>{l.get('id', i)}</td>
+            <td>{l.get('time','')}</td>
+
+            <td><span class="pill">{l.get('channel','web')}</span></td>
+
+            <td>{l.get('message','')[:50]}</td>
+            <td>{l.get('reply','')[:80]}</td>
+
+            <td class="time">{l.get('response_time','-')}s</td>
+
+            <td>{l.get('sources','-')}</td>
+
+            <td>{l.get('ip','-')}</td>
+
+            <td>
+                <details>
+                    <summary>View</summary>
+
+                    <div class="box">
+                        <b>SESSION ID</b><br>
+                        {l.get('session_id','-')}<br><br>
+
+                        <b>AI REPLY</b><br>
+                        {l.get('reply','')}<br><br>
+
+                        <div class="grid">
+                            <div>
+                                <b>RESPONSE TIME</b><br>
+                                {l.get('response_time','-')}s
+                            </div>
+                            <div>
+                                <b>MODEL</b><br>
+                                {meta.get('model','deepseek')}
+                            </div>
+                            <div>
+                                <b>DEVICE</b><br>
+                                {meta.get('device','-')}
+                            </div>
+                            <div>
+                                <b>BROWSER</b><br>
+                                {meta.get('browser','-')}
+                            </div>
+                        </div>
+
+                        <br>
+                        <b>USER AGENT</b><br>
+                        {meta.get('user_agent','-')}
+                    </div>
+
+                </details>
+            </td>
+        </tr>
+        """
+
+    # =========================
+    # HTML
+    # =========================
+    return HTMLResponse(f"""
     <html>
     <head>
     <meta charset="utf-8"/>
 
     <style>
-        body{
+        body {{
             margin:0;
-            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
             background:#f5f7fb;
-            color:#111827;
-        }
+        }}
 
-        .wrap{
-            width:100%;
-            padding:24px;
-            box-sizing:border-box;
-        }
+        .wrap {{
+            padding:20px;
+        }}
 
-        h1{
-            font-size:26px;
-            font-weight:700;
-            margin-bottom:18px;
-            letter-spacing:0.5px;
-        }
+        h1 {{
+            margin-bottom:10px;
+        }}
 
-        /* =========================
-           FILTER BAR (soft glass)
-        ========================= */
-        .filters{
-            display:flex;
-            flex-wrap:wrap;
+        /* FILTER */
+        .filters {{
+            display:grid;
+            grid-template-columns: repeat(6, 1fr);
             gap:10px;
-            background:rgba(255,255,255,0.8);
-            backdrop-filter: blur(10px);
-            padding:14px;
-            border-radius:18px;
-            box-shadow:0 8px 24px rgba(0,0,0,0.06);
-            margin-bottom:18px;
-        }
+            background:#fff;
+            padding:15px;
+            border-radius:16px;
+            box-shadow:0 6px 20px rgba(0,0,0,0.06);
+            margin-bottom:15px;
+        }}
 
-        input, select{
-            padding:10px 14px;
+        input, select {{
+            padding:10px;
             border-radius:999px;
-            border:1px solid #e5e7eb;
-            background:#ffffff;
-            outline:none;
-            transition:0.2s;
-        }
+            border:1px solid #ddd;
+        }}
 
-        input:focus{
-            border-color:#93c5fd;
-            box-shadow:0 0 0 3px rgba(147,197,253,0.3);
-        }
-
-        /* =========================
-           BUTTON (pill gradient)
-        ========================= */
-        .btn{
-            padding:10px 18px;
-            border-radius:999px;
-            border:none;
-            cursor:pointer;
-            background:linear-gradient(135deg,#60a5fa,#a78bfa);
+        .btn {{
+            background:linear-gradient(135deg,#3b82f6,#8b5cf6);
             color:white;
-            font-weight:600;
-            transition:0.2s;
-        }
+            border:none;
+            border-radius:999px;
+        }}
 
-        .btn:hover{
-            transform:translateY(-1px);
-            opacity:0.95;
-        }
-
-        /* =========================
-           TABLE (clean modern)
-        ========================= */
-        table{
+        /* TABLE */
+        table {{
             width:100%;
-            border-collapse:separate;
-            border-spacing:0;
             background:white;
             border-radius:16px;
             overflow:hidden;
-            box-shadow:0 10px 28px rgba(0,0,0,0.06);
-        }
+            border-collapse:collapse;
+        }}
 
-        th{
-            text-align:left;
-            padding:14px;
-            font-size:13px;
+        th {{
             background:#f3f4f6;
-            color:#374151;
-            position:sticky;
-            top:0;
-        }
+            text-align:left;
+            padding:12px;
+        }}
 
-        td{
-            padding:14px;
-            border-top:1px solid #f1f1f1;
+        td {{
+            padding:12px;
+            border-top:1px solid #eee;
             font-size:13px;
-            vertical-align:top;
-        }
+        }}
 
-        tr:hover{
-            background:#f9fafb;
-        }
-
-        /* =========================
-           BADGE (soft pill)
-        ========================= */
-        .badge{
-            display:inline-block;
+        .pill {{
             padding:4px 10px;
             border-radius:999px;
-            background:linear-gradient(135deg,#93c5fd,#c4b5fd);
-            color:#1e293b;
-            font-size:12px;
-        }
+            background:#dcfce7;
+        }}
 
-        .small{
-            font-size:12px;
-            color:#6b7280;
-        }
-
-        /* =========================
-           METRICS
-        ========================= */
-        .pill{
-            display:inline-block;
-            padding:4px 10px;
-            border-radius:999px;
-            background:#e0f2fe;
-            font-size:12px;
-            margin-top:2px;
-        }
-
-        .latency{
+        .time {{
             color:#16a34a;
-            font-weight:700;
-        }
+            font-weight:bold;
+        }}
 
-        /* =========================
-           EXPAND
-        ========================= */
-        .expand{
-            display:none;
-            background:#fafafa;
-        }
+        details {{
+            cursor:pointer;
+        }}
 
-        /* =========================
-           PAGINATION
-        ========================= */
-        .pagination{
-            margin-top:18px;
-        }
+        .box {{
+            background:#f9fafb;
+            padding:12px;
+            border-radius:12px;
+            margin-top:10px;
+        }}
 
-        .page{
-            display:inline-block;
-            padding:6px 12px;
-            border-radius:999px;
-            background:white;
-            margin-right:6px;
-            text-decoration:none;
-            border:1px solid #e5e7eb;
-            transition:0.2s;
-        }
-
-        .page:hover{
-            background:#eef2ff;
-        }
+        .grid {{
+            display:grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap:10px;
+            margin-top:10px;
+        }}
     </style>
-
-    <script>
-        function toggle(id){
-            var el = document.getElementById(id);
-            el.style.display = (el.style.display === "table-row") ? "none" : "table-row";
-        }
-    </script>
-
     </head>
 
     <body>
     <div class="wrap">
 
-    <h1>LOGS 系統</h1>
+    <h1>Enterprise Logs Dashboard</h1>
 
-    <form class="filters" method="get">
-        <input name="keyword" placeholder="關鍵字搜尋">
-        <input name="user" placeholder="使用者ID">
-
-        <select name="size">
-            <option value="10">10筆</option>
-            <option value="20">20筆</option>
-            <option value="50">50筆</option>
+    <form class="filters">
+        <input name="keyword" placeholder="搜尋關鍵字" value="{keyword}">
+        <select name="channel">
+            <option value="">Channel</option>
+            {''.join([f'<option>{c}</option>' for c in channels])}
         </select>
 
-        <select name="sort">
-            <option value="desc">最新</option>
-            <option value="asc">最舊</option>
+        <select name="model">
+            <option value="">Model</option>
+            {''.join([f'<option>{m}</option>' for m in models])}
+        </select>
+
+        <select name="device">
+            <option value="">Device</option>
+            {''.join([f'<option>{d}</option>' for d in devices])}
+        </select>
+
+        <select name="browser">
+            <option value="">Browser</option>
+            {''.join([f'<option>{b}</option>' for b in browsers])}
+        </select>
+
+        <select name="size">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
         </select>
 
         <button class="btn">搜尋</button>
@@ -274,55 +288,21 @@ def logs_ui(
 
     <table>
         <tr>
-            <th>時間</th>
-            <th>使用者</th>
-            <th>訊息</th>
-            <th>回覆</th>
-            <th>平台</th>
-            <th>回應時間</th>
-        </tr>
-    """
-
-    for i, l in enumerate(logs_page):
-        row_id = f"r_{i}"
-        platform = get_platform(l)
-        latency = get_latency(l)
-
-        html += f"""
-        <tr onclick="toggle('{row_id}')">
-            <td>{l.get('time','')}</td>
-            <td><span class="badge">{l.get('user','')}</span></td>
-            <td>{l.get('message','')[:40]}</td>
-            <td>{l.get('reply','')[:40]}</td>
-            <td><span class="pill">{platform}</span><br></td>
-            <td><span class="latency">{latency}s</span></td>
+            <th>ID</th>
+            <th>Time</th>
+            <th>Channel</th>
+            <th>Question</th>
+            <th>AI Reply</th>
+            <th>Response Time</th>
+            <th>Sources</th>
+            <th>IP</th>
+            <th>Detail</th>
         </tr>
 
-        <tr id="{row_id}" class="expand">
-            <td colspan="5">
-                <b>完整訊息：</b><br>{l.get('message','')}<br><br>
-                <b>完整回覆：</b><br>{l.get('reply','')}
-            </td>
-        </tr>
-        """
-
-    html += """
+        {rows}
     </table>
-
-    <div class="pagination">
-    """
-
-    total_pages = max(1, (total // size) + 1)
-
-    for p in range(1, total_pages + 1):
-        html += f"<a class='page' href='?page={p}&size={size}'>{p}</a>"
-
-    html += """
-    </div>
 
     </div>
     </body>
     </html>
-    """
-
-    return HTMLResponse(html)
+    """)

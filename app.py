@@ -42,7 +42,7 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# LOG SAVE (FINAL: platform + latency)
+# LOG SAVE (FULL META VERSION)
 # =========================
 def save_log(user, message, reply, request: Request, platform, latency):
 
@@ -52,21 +52,58 @@ def save_log(user, message, reply, request: Request, platform, latency):
         with open(LOG_PATH, "w", encoding="utf-8") as f:
             json.dump([], f)
 
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        try:
+    try:
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
             logs = json.load(f)
-        except:
-            logs = []
+    except:
+        logs = []
 
     ua = request.headers.get("user-agent", "")
 
+    # =========================
+    # PLATFORM + DEVICE + BROWSER DETECT
+    # =========================
+    ua_lower = ua.lower()
+
+    if "mobile" in ua_lower or "iphone" in ua_lower or "android" in ua_lower:
+        device = "mobile"
+    else:
+        device = "desktop"
+
+    if "chrome" in ua_lower:
+        browser = "chrome"
+    elif "firefox" in ua_lower:
+        browser = "firefox"
+    elif "safari" in ua_lower:
+        browser = "safari"
+    else:
+        browser = "unknown"
+
+    # =========================
+    # MODEL (固定 deepseek)
+    # =========================
+    model = "deepseek"
+
     logs.append({
+        "id": len(logs) + 1,
         "time": datetime.now().isoformat(),
+
         "user": user,
         "message": message,
         "reply": reply,
+
         "platform": platform,
-        "latency": latency
+        "latency": latency,
+
+        # =========================
+        # META BLOCK (for logs UI)
+        # =========================
+        "meta": {
+            "model": model,
+            "device": device,
+            "browser": browser,
+            "user_agent": ua
+        }
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -241,7 +278,6 @@ async def line_webhook(request: Request):
         user_msg = event["message"]["text"]
         user_id = event["source"].get("userId")
 
-        # platform
         platform = "LINE"
 
         reply = ai_reply(user_msg)
