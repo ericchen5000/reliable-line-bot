@@ -204,23 +204,123 @@ def logs_ui(
         color:#111827;
     }
 
+    h2 {
+        margin-bottom:12px;
+        font-weight:700;
+    }
+
+    /* FILTER BAR */
+    .bar {
+        background:white;
+        padding:14px;
+        margin-bottom:14px;
+        border-radius:16px;
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        box-shadow:0 8px 20px rgba(0,0,0,0.06);
+    }
+
+    input, select {
+        padding:8px 12px;
+        border-radius:999px;
+        border:1px solid #e5e7eb;
+        background:#f9fafb;
+        outline:none;
+        transition:0.2s;
+    }
+
+    input:focus, select:focus {
+        border-color:#93c5fd;
+        background:white;
+    }
+
+    button {
+        padding:8px 14px;
+        border-radius:999px;
+        border:none;
+        background:linear-gradient(135deg,#60a5fa,#a78bfa);
+        color:white;
+        cursor:pointer;
+        font-weight:600;
+    }
+
+    /* TABLE */
     table {
         width:100%;
         border-collapse:collapse;
         background:white;
         border-radius:16px;
         overflow:hidden;
+        box-shadow:0 10px 24px rgba(0,0,0,0.06);
+    }
+
+    th {
+        background:linear-gradient(135deg,#eef2ff,#f8fafc);
+        padding:12px;
+        text-align:left;
+        font-size:13px;
+        font-weight:700;
+        color:#374151;
     }
 
     td {
         padding:12px;
-        border-top:1px solid #eee;
+        border-top:1px solid #f1f1f1;
+        font-size:13px;
         vertical-align:top;
     }
 
+    tr:hover {
+        background:#f9fafb;
+    }
+
+    .pill {
+        padding:4px 10px;
+        border-radius:999px;
+        background:linear-gradient(135deg,#dbeafe,#e0e7ff);
+        font-size:12px;
+    }
+
+    .latency {
+        color:#16a34a;
+        font-weight:700;
+    }
+
+    .msg { max-width:160px; }
+
+    /* 🔥 核心修正：回覆欄位縮窄 */
+    .reply-cell {
+        max-width:180px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        color:#374151;
+    }
+
+    .source {
+        font-weight:600;
+        color:#4f46e5;
+    }
+
+    .ip {
+        font-family:monospace;
+        color:#6b7280;
+    }
+
+    details summary {
+        cursor:pointer;
+        padding:6px 10px;
+        border-radius:999px;
+        color:#333;
+        font-size:12px;
+        font-weight:600;
+    }
+
     .detail-box {
-        background:#f8fafc;
+        margin-top:10px;
         padding:12px;
+        background:#f8fafc;
         border-radius:12px;
     }
 
@@ -229,25 +329,43 @@ def logs_ui(
         grid-template-columns:repeat(3,1fr);
         gap:10px;
         font-size:12px;
+        margin-bottom:10px;
     }
 
     .block {
         margin-top:10px;
+        font-size:13px;
+    }
+
+    .reply-box {
+        background:white;
+        padding:10px;
+        border-radius:10px;
+        border:1px solid #e5e7eb;
     }
 
     .pages {
-        display:flex;
-        justify-content:center;
-        gap:10px;
         margin:12px 0;
+        display:flex;
+        gap:10px;
+        align-items:center;
+        flex-wrap:wrap;
+        justify-content:center; /* ← 加這行才會置中 */
     }
 
     .pages a {
         padding:6px 10px;
         border-radius:999px;
         background:white;
-        border:1px solid #ddd;
+        border:1px solid #e5e7eb;
         text-decoration:none;
+        color:#374151;
+        font-size: 12px;
+    }
+
+    .info {
+        font-size:13px;
+        color:#6b7280;
     }
     """
 
