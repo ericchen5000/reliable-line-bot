@@ -125,8 +125,6 @@ def logs_ui(
                     <div class="detail-box">
 
                         <div class="grid">
-                            <div><b>來源</b><br>{g(l,'source','-')}</div>
-                            <div><b>IP</b><br>{g(l,'ip','-')}</div>
                             <div><b>DEVICE</b><br>{meta.get('device','-')}</div>
                             <div><b>BROWSER</b><br>{meta.get('browser','-')}</div>
                             <div><b>USER AGENT</b><br>{meta.get('user_agent','-')}</div>
