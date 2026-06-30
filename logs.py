@@ -345,6 +345,7 @@ def logs_ui(
         border:1px solid #e5e7eb;
         text-decoration:none;
         color:#374151;
+        font-size: 12px;
     }
 
     .info {
