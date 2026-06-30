@@ -1,231 +1,328 @@
-from fastapi import APIRouter
+import sqlite3
+from urllib.parse import quote_plus
+
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-import json
-import os
+
+from core.config import DB_PATH
 
 router = APIRouter()
 
-LOG_PATH = "logs/chat_logs.json"
 
-
-# =========================
-# LOAD LOGS
-# =========================
-def load_logs():
-    if not os.path.exists(LOG_PATH):
-        return []
-
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        try:
-            return json.load(f)
-        except:
-            return []
-
-
-# =========================
-# PLATFORM DETECT (fallback-safe)
-# =========================
-def get_platform(log):
-    return log.get("platform", "LINE")
-
-
-# =========================
-# RESPONSE TIME
-# =========================
-def get_latency(log):
-    return log.get("latency", "-")
-
-
-# =========================
-# UI
-# =========================
 @router.get("/logs", response_class=HTMLResponse)
-def logs_ui(
+def view_logs(
+    request: Request,
     page: int = 1,
-    size: int = 10,
-    keyword: str = None,
-    user: str = None,
-    sort: str = "desc"
+    q: str = "",
+    channel: str = "",
+    sort_by: str = "created_at",
+    sort_order: str = "desc"
 ):
 
-    logs = load_logs()
+    allowed_sort_fields = {
+        "id": "id",
+        "created_at": "created_at",
+        "channel": "channel",
+        "response_time": "response_time"
+    }
+
+    sort_by_sql = allowed_sort_fields.get(sort_by, "created_at")
+    sort_order_sql = "ASC" if str(sort_order).lower() == "asc" else "DESC"
+
+    per_page = 30
+    if page < 1:
+        page = 1
+    offset = (page - 1) * per_page
+
+    where_clauses = []
+    params = []
 
     # =========================
-    # FILTER
+    # SEARCH
     # =========================
-    if keyword:
-        logs = [
-            l for l in logs
-            if keyword.lower() in l.get("message", "").lower()
-            or keyword.lower() in l.get("reply", "").lower()
-        ]
+    if q.strip():
+        where_clauses.append("""
+        (
+            user_question LIKE ?
+            OR ai_reply LIKE ?
+            OR used_sources LIKE ?
+            OR user_ip LIKE ?
+            OR session_id LIKE ?
+        )
+        """)
+        keyword = f"%{q.strip()}%"
+        params.extend([keyword, keyword, keyword, keyword, keyword])
 
-    if user:
-        logs = [l for l in logs if l.get("user") == user]
+    if channel.strip():
+        where_clauses.append("channel = ?")
+        params.append(channel.strip())
+
+    where_sql = ""
+    if where_clauses:
+        where_sql = "WHERE " + " AND ".join(where_clauses)
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
 
     # =========================
-    # SORT
+    # COUNT
     # =========================
-    logs.sort(key=lambda x: x.get("time", ""), reverse=(sort == "desc"))
+    count_sql = f"""
+    SELECT COUNT(*)
+    FROM chat_logs
+    {where_sql}
+    """
+    cur.execute(count_sql, params)
+    total_rows = cur.fetchone()[0]
 
     # =========================
-    # PAGINATION
+    # QUERY
     # =========================
-    total = len(logs)
-    start = (page - 1) * size
-    end = start + size
-    logs_page = logs[start:end]
+    query_sql = f"""
+    SELECT
+        id,
+        session_id,
+        user_question,
+        ai_reply,
+        used_sources,
+        created_at,
+        user_ip,
+        channel,
+        response_time
+    FROM chat_logs
+    {where_sql}
+    ORDER BY {sort_by_sql} {sort_order_sql}
+    LIMIT ? OFFSET ?
+    """
 
-    html = """
-    <html>
+    cur.execute(query_sql, params + [per_page, offset])
+    rows = cur.fetchall()
+
+    conn.close()
+
+    total_pages = max(1, (total_rows + per_page - 1) // per_page)
+
+    # =========================
+    # ROW HTML
+    # =========================
+    html_rows = ""
+
+    for r in rows:
+        row_id = r[0]
+        session_id = r[1] or ""
+        question = r[2] or ""
+        reply = r[3] or ""
+        sources = r[4] or "—"
+        created_at = r[5] or ""
+        user_ip = r[6] or ""
+        row_channel = r[7] or "web"
+        response_time = r[8]
+
+        response_time_text = f"{response_time}s" if response_time is not None else "—"
+
+        question_short = question[:60] + "..." if len(question) > 60 else question
+        reply_short = reply[:120] + "..." if len(reply) > 120 else reply
+
+        html_rows += f"""
+        <tr>
+            <td class="col-id">{row_id}</td>
+            <td class="col-time">{created_at}</td>
+
+            <td class="col-channel">
+                <span class="badge badge-channel">{row_channel}</span>
+            </td>
+
+            <td class="col-question">
+                <div class="question-text">{question_short}</div>
+            </td>
+
+            <td class="col-reply">
+                <div class="reply-text">{reply_short}</div>
+            </td>
+
+            <td class="col-response-time">
+                {response_time_text}
+            </td>
+
+            <td class="col-source">
+                <div class="source-text">{sources}</div>
+            </td>
+
+            <td class="col-ip">{user_ip}</td>
+
+            <td class="col-action">
+                <details class="detail-box">
+                    <summary>展開</summary>
+
+                    <div class="detail-content">
+
+                        <div class="detail-block">
+                            <div class="detail-label">Session ID</div>
+                            <div class="detail-value">{session_id}</div>
+                        </div>
+
+                        <div class="detail-block">
+                            <div class="detail-label">完整問題</div>
+                            <div class="detail-value">{question}</div>
+                        </div>
+
+                        <div class="detail-block">
+                            <div class="detail-label">完整回覆</div>
+                            <div class="detail-value">{reply}</div>
+                        </div>
+
+                        <div class="detail-grid">
+                            <div class="detail-block">
+                                <div class="detail-label">平台</div>
+                                <div class="detail-value">{row_channel}</div>
+                            </div>
+
+                            <div class="detail-block">
+                                <div class="detail-label">回應時間</div>
+                                <div class="detail-value">{response_time_text}</div>
+                            </div>
+                        </div>
+
+                    </div>
+                </details>
+            </td>
+        </tr>
+        """
+
+    # =========================
+    # HTML
+    # =========================
+    html = f"""
+    <!doctype html>
+    <html lang="zh-Hant">
     <head>
-    <meta charset="utf-8"/>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Logs</title>
 
-    <style>
-        body{
-            margin:0;
-            font-family: Arial;
-            background:#f7f9fc;
-            color:#1f2937;
-        }
+      <style>
+        body {{
+          margin: 0;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+          background: #f5f7fb;
+          color: #111827;
+          padding: 24px;
+        }}
 
-        .wrap{
-            width:100%;
-            padding:20px;
-            box-sizing:border-box;
-        }
+        h1 {{
+          margin: 0 0 16px 0;
+          font-size: 28px;
+        }}
 
-        h1{
-            font-size:20px;
-            margin-bottom:15px;
-        }
+        .card {{
+          background: white;
+          border-radius: 16px;
+          padding: 16px;
+          box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+          margin-bottom: 16px;
+        }}
 
-        /* FILTER */
-        .filters{
-            display:flex;
-            flex-wrap:wrap;
-            gap:10px;
-            background:white;
-            padding:15px;
-            border-radius:14px;
-            box-shadow:0 5px 15px rgba(0,0,0,0.05);
-            margin-bottom:15px;
-        }
+        input, select {{
+          padding: 10px 12px;
+          border-radius: 999px;
+          border: 1px solid #e5e7eb;
+          background: #f9fafb;
+          margin-right: 8px;
+        }}
 
-        input, select{
-            padding:10px 14px;
-            border-radius:999px;
-            border:1px solid #e5e7eb;
-            background:#f9fafb;
-        }
+        .btn {{
+          padding: 10px 16px;
+          border-radius: 999px;
+          border: none;
+          background: linear-gradient(135deg,#60a5fa,#a78bfa);
+          color: white;
+          cursor: pointer;
+        }}
 
-        /* BUTTON */
-        .btn{
-            padding:10px 16px;
-            border-radius:999px;
-            border:none;
-            background:linear-gradient(135deg,#60a5fa,#a78bfa);
-            color:white;
-            cursor:pointer;
-        }
+        table {{
+          width: 100%;
+          border-collapse: collapse;
+          background: white;
+          border-radius: 16px;
+          overflow: hidden;
+        }}
 
-        /* TABLE */
-        table{
-            width:100%;
-            border-collapse:collapse;
-            background:white;
-            border-radius:14px;
-            overflow:hidden;
-            box-shadow:0 5px 15px rgba(0,0,0,0.05);
-        }
+        th {{
+          text-align: left;
+          background: #f3f4f6;
+          padding: 12px;
+          font-size: 13px;
+        }}
 
-        th{
-            text-align:left;
-            padding:12px;
-            background:#f3f4f6;
-            font-size:13px;
-        }
+        td {{
+          padding: 12px;
+          border-top: 1px solid #eee;
+          font-size: 13px;
+          vertical-align: top;
+        }}
 
-        td{
-            padding:12px;
-            border-top:1px solid #eee;
-            font-size:13px;
-            vertical-align:top;
-        }
+        .badge {{
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: #e0f2fe;
+          font-size: 12px;
+        }}
 
-        tr:hover{
-            background:#f9fafb;
-            cursor:pointer;
-        }
+        .badge-channel {{
+          background: #dcfce7;
+        }}
 
-        .badge{
-            padding:4px 10px;
-            border-radius:999px;
-            background:linear-gradient(135deg,#93c5fd,#c4b5fd);
-            display:inline-block;
-        }
+        .col-response-time {{
+          font-weight: 700;
+          color: #16a34a;
+        }}
 
-        .small{
-            font-size:12px;
-            color:#6b7280;
-        }
+        .question-text {{
+          font-weight: 600;
+        }}
 
-        .expand{
-            display:none;
-            background:#fafafa;
-        }
+        .reply-text {{
+          color: #374151;
+        }}
 
-        .pill{
-            padding:4px 10px;
-            border-radius:999px;
-            background:#e0f2fe;
-            font-size:12px;
-        }
+        .detail-box summary {{
+          cursor: pointer;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: #2563eb;
+          color: white;
+          font-size: 12px;
+        }}
 
-        .latency{
-            color:#16a34a;
-            font-weight:bold;
-        }
+        .detail-content {{
+          margin-top: 10px;
+          background: #f9fafb;
+          padding: 12px;
+          border-radius: 12px;
+        }}
 
-        .pagination{
-            margin-top:15px;
-        }
+        .detail-label {{
+          font-size: 12px;
+          color: #6b7280;
+          margin-top: 8px;
+        }}
 
-        .page{
-            padding:6px 12px;
-            border-radius:999px;
-            background:white;
-            margin-right:6px;
-            text-decoration:none;
-            border:1px solid #e5e7eb;
-        }
-    </style>
+        .detail-value {{
+          margin-bottom: 8px;
+        }}
 
-    <script>
-        function toggle(id){
-            var el = document.getElementById(id);
-            el.style.display = (el.style.display === "table-row") ? "none" : "table-row";
-        }
-    </script>
-
+      </style>
     </head>
 
     <body>
-    <div class="wrap">
 
-    <h1>LOGS 系統</h1>
+    <h1>Logs Dashboard</h1>
 
-    <form class="filters" method="get">
-        <input name="keyword" placeholder="關鍵字">
-        <input name="user" placeholder="使用者ID">
+    <form method="get" class="card">
+        <input name="q" placeholder="關鍵字搜尋" value="{q}">
+        <input name="channel" placeholder="平台 (LINE/Web/FB)" value="{channel}">
 
-        <select name="size">
-            <option value="10">10筆</option>
-            <option value="20">20筆</option>
-            <option value="50">50筆</option>
-        </select>
-
-        <select name="sort">
+        <select name="sort_order">
             <option value="desc">最新</option>
             <option value="asc">最舊</option>
         </select>
@@ -233,57 +330,24 @@ def logs_ui(
         <button class="btn">搜尋</button>
     </form>
 
+    <div class="card">
     <table>
         <tr>
+            <th>ID</th>
             <th>時間</th>
-            <th>使用者</th>
-            <th>訊息</th>
+            <th>平台</th>
+            <th>問題</th>
             <th>回覆</th>
-            <th>資訊</th>
-        </tr>
-    """
-
-    for i, l in enumerate(logs_page):
-        row_id = f"r_{i}"
-
-        platform = get_platform(l)
-        latency = get_latency(l)
-
-        html += f"""
-        <tr onclick="toggle('{row_id}')">
-            <td>{l.get('time','')}</td>
-            <td><span class="badge">{l.get('user','')}</span></td>
-            <td>{l.get('message','')[:40]}</td>
-            <td>{l.get('reply','')[:40]}</td>
-            <td class="small">
-                平台：<span class="pill">{platform}</span><br>
-                回應時間：<span class="latency">{latency}s</span>
-            </td>
+            <th>回應時間</th>
+            <th>來源</th>
+            <th>IP</th>
+            <th>操作</th>
         </tr>
 
-        <tr id="{row_id}" class="expand">
-            <td colspan="5">
-                <b>完整訊息：</b><br>{l.get('message','')}<br><br>
-                <b>完整回覆：</b><br>{l.get('reply','')}<br><br>
-            </td>
-        </tr>
-        """
-
-    html += """
+        {html_rows}
     </table>
-
-    <div class="pagination">
-    """
-
-    total_pages = max(1, (total // size) + 1)
-
-    for p in range(1, total_pages + 1):
-        html += f"<a class='page' href='?page={p}&size={size}'>{p}</a>"
-
-    html += """
     </div>
 
-    </div>
     </body>
     </html>
     """
