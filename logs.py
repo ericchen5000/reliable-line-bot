@@ -354,19 +354,15 @@ def logs_ui(
 
     <form class="bar">
         <input name="keyword" placeholder="關鍵字" value="{keyword}">
-        <input name="platform" placeholder="平台" value="{platform}">
-        <input name="source" placeholder="來源 (FAQ / KB / AI)" value="{source}">
 
         <select name="size">
             {size_select}
         </select>
 
         <select name="sort_by">
-            <option value="time">時間</option>
-            <option value="platform">平台</option>
-            <option value="latency">回應時間</option>
-            <option value="source">來源</option>
-            <option value="ip">IP</option>
+            <option value="time">依時間</option>
+            <option value="latency">依回應時間</option>
+            <option value="source">依來源</option>
         </select>
 
         <select name="sort_order">
