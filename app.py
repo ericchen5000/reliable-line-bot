@@ -321,3 +321,43 @@ async def line_webhook(request: Request):
         )
 
     return {"status": "ok"}
+
+# =========================
+# PLATFORM DETECT
+# =========================
+def detect_platform(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "line" in ua:
+        return "LINE"
+    if "facebook" in ua or "fb" in ua:
+        return "FB"
+    return "WEB"
+
+
+# =========================
+# DEVICE DETECT
+# =========================
+def detect_device(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if any(x in ua for x in ["iphone", "android", "mobile"]):
+        return "mobile"
+    return "desktop"
+
+
+# =========================
+# BROWSER DETECT
+# =========================
+def detect_browser(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "chrome" in ua:
+        return "chrome"
+    if "firefox" in ua:
+        return "firefox"
+    if "safari" in ua and "chrome" not in ua:
+        return "safari"
+    if "line" in ua:
+        return "line-app"
+    return "unknown"
