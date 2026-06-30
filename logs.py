@@ -110,7 +110,9 @@ def logs_ui(
             <td><span class="pill">{g(l,'platform','LINE')}</span></td>
 
             <td class="msg">{str(g(l,'message',''))[:45]}</td>
-            <td class="reply">{str(g(l,'reply',''))[:70]}</td>
+
+            <!-- 🔥 限制回覆欄寬（關鍵修正） -->
+            <td class="reply-cell">{str(g(l,'reply',''))[:60]}</td>
 
             <td class="latency">{g(l,'latency','-')}</td>
             <td class="source">{g(l,'source','-')}</td>
@@ -269,8 +271,16 @@ def logs_ui(
         font-weight:700;
     }
 
-    .msg { max-width:160px; color:#111827; }
-    .reply { max-width:240px; color:#374151; }
+    .msg { max-width:160px; }
+
+    /* 🔥 核心修正：回覆欄位縮窄 */
+    .reply-cell {
+        max-width:180px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        color:#374151;
+    }
 
     .source {
         font-weight:600;
@@ -366,10 +376,10 @@ def logs_ui(
         </select>
 
         <select name="sort_order">
-            <option value="desc">DESC</option>
-            <option value="asc">ASC</option>
+            <option value="desc">降序</option>
+            <option value="asc">升序</option>
         </select>
-        
+
         <a href="/logs" style="padding:8px 14px; border-radius:999px; background:#ef4444; color:white; text-decoration:none; font-weight:600;">清空</a>
 
         <button>搜尋</button>
