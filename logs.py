@@ -30,14 +30,12 @@ def g(d, key, default="-"):
 
 
 # =========================
-# SORT KEY MAP
+# SORT MAP
 # =========================
 SORT_MAP = {
     "id": "id",
     "time": "time",
     "platform": "platform",
-    "message": "message",
-    "reply": "reply",
     "latency": "latency",
     "ip": "ip",
 }
@@ -62,26 +60,24 @@ def logs_ui(
     # FILTER
     # =========================
     if keyword:
+        k = keyword.lower()
         logs = [
             l for l in logs
-            if keyword.lower() in str(l.get("message", "")).lower()
-            or keyword.lower() in str(l.get("reply", "")).lower()
+            if k in str(l.get("message", "")).lower()
+            or k in str(l.get("reply", "")).lower()
+            or k in str(l.get("sources", "")).lower()
         ]
 
     if user:
         logs = [l for l in logs if l.get("user") == user]
 
     # =========================
-    # SAFE SORT FIELD
+    # SORT
     # =========================
     sort_key = SORT_MAP.get(sort_by, "time")
     reverse = (sort_order == "desc")
 
-    def sort_func(x):
-        val = x.get(sort_key, "")
-        return val
-
-    logs.sort(key=sort_func, reverse=reverse)
+    logs.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
 
     # =========================
     # PAGINATION
@@ -110,26 +106,41 @@ def logs_ui(
         <tr>
             <td>{g(l,'id', i+1)}</td>
             <td>{g(l,'time')}</td>
-            <td>{g(l,'platform','LINE')}</td>
+            <td><span class="pill">{g(l,'platform','LINE')}</span></td>
 
             <td>{str(g(l,'message'))[:50]}</td>
             <td>{str(g(l,'reply'))[:80]}</td>
 
-            <td>{g(l,'latency','-')}s</td>
+            <td class="latency">{g(l,'latency','-')}s</td>
+
             <td>{g(l,'sources','-')}</td>
+
             <td>{g(l,'ip','-')}</td>
 
             <td>
                 <details>
                     <summary>View</summary>
-                    <div style="padding:10px;background:#f9fafb;border-radius:10px;margin-top:8px">
-                        <b>SESSION</b><br>{g(l,'session_id','-')}<br><br>
 
-                        <b>MODEL</b><br>{meta.get('model','deepseek')}<br>
-                        <b>DEVICE</b><br>{meta.get('device','-')}<br>
-                        <b>BROWSER</b><br>{meta.get('browser','-')}<br><br>
+                    <div class="detail">
 
-                        <b>USER AGENT</b><br>{meta.get('user_agent','-')}<br>
+                        <div><b>來源</b><br>{g(l,'sources','-')}</div>
+                        <hr>
+
+                        <div><b>IP</b><br>{g(l,'ip','-')}</div>
+                        <hr>
+
+                        <div><b>SESSION</b><br>{g(l,'session_id','-')}</div>
+                        <hr>
+
+                        <div><b>DEVICE</b><br>{meta.get('device','-')}</div>
+                        <div><b>BROWSER</b><br>{meta.get('browser','-')}</div>
+                        <div><b>USER AGENT</b><br>{meta.get('user_agent','-')}</div>
+
+                        <hr>
+
+                        <div><b>完整問題</b><br>{g(l,'message','')}</div>
+                        <div><b>完整回覆</b><br>{g(l,'reply','')}</div>
+
                     </div>
                 </details>
             </td>
@@ -137,22 +148,14 @@ def logs_ui(
         """
 
     # =========================
-    # SORT LINKS
-    # =========================
-    def sort_link(col):
-        order = "asc" if sort_order == "desc" else "desc"
-        return f"?sort_by={col}&sort_order={order}&page=1&size={size}"
-
-    # =========================
-    # PAGINATION LINKS
+    # PAGES
     # =========================
     pages = ""
 
     if page > 1:
         pages += f'<a href="?page={page-1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">上一頁</a> '
 
-    for p in range(1, total_pages + 1):
-        pages += f'<a href="?page={p}&size={size}&sort_by={sort_by}&sort_order={sort_order}">{p}</a> '
+    pages += f"<span> 第 {page} / {total_pages} 頁 ｜ 總筆數 {total} ｜ 每頁 {size} 筆 </span> "
 
     if page < total_pages:
         pages += f'<a href="?page={page+1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">下一頁</a>'
@@ -170,39 +173,14 @@ def logs_ui(
             margin:0;
             font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
             background:#f5f7fb;
-        }}
-
-        .wrap {{
             padding:20px;
         }}
 
-        h1 {{
-            margin-bottom:10px;
-        }}
-
-        /* FILTER */
-        .filters {{
-            display:flex;
-            gap:10px;
-            flex-wrap:wrap;
-            background:white;
-            padding:12px;
-            border-radius:12px;
-            margin-bottom:15px;
-        }}
-
-        input, select {{
-            padding:8px;
-            border-radius:999px;
-            border:1px solid #ddd;
-        }}
-
-        /* TABLE */
         table {{
             width:100%;
             border-collapse:collapse;
             background:white;
-            border-radius:12px;
+            border-radius:14px;
             overflow:hidden;
         }}
 
@@ -211,7 +189,6 @@ def logs_ui(
             padding:10px;
             text-align:left;
             cursor:pointer;
-            user-select:none;
         }}
 
         td {{
@@ -220,66 +197,60 @@ def logs_ui(
             font-size:13px;
         }}
 
+        .pill {{
+            padding:4px 10px;
+            border-radius:999px;
+            background:#e0f2fe;
+            font-size:12px;
+        }}
+
+        .latency {{
+            color:#16a34a;
+            font-weight:bold;
+        }}
+
         details summary {{
             cursor:pointer;
             background:#3b82f6;
             color:white;
-            padding:4px 8px;
+            padding:4px 10px;
             border-radius:999px;
             font-size:12px;
         }}
 
-        /* PAGINATION */
-        .pages a {{
-            margin-right:6px;
-            padding:4px 10px;
-            background:white;
-            border:1px solid #ddd;
-            border-radius:999px;
+        .detail {{
+            margin-top:10px;
+            padding:10px;
+            background:#f9fafb;
+            border-radius:10px;
+            font-size:13px;
+        }}
+
+        a {{
+            margin:0 4px;
             text-decoration:none;
         }}
     </style>
     </head>
 
     <body>
-    <div class="wrap">
 
-    <h1>Logs</h1>
+    <h2>Logs</h2>
 
-    <form class="filters">
-        <input name="keyword" placeholder="關鍵字" value="{keyword}">
-        <input name="user" placeholder="User" value="{user}">
-
-        <select name="size">
-            <option value="10">10筆</option>
-            <option value="20">20筆</option>
-            <option value="50">50筆</option>
-        </select>
-
-        <select name="sort_by">
-            <option value="time">時間</option>
-            <option value="platform">平台</option>
-            <option value="latency">回應時間</option>
-        </select>
-
-        <select name="sort_order">
-            <option value="desc">DESC</option>
-            <option value="asc">ASC</option>
-        </select>
-
-        <button>搜尋</button>
-    </form>
+    <div style="margin-bottom:10px">
+        {pages}
+    </div>
 
     <table>
         <tr>
-            <th><a href="{sort_link('id')}">ID</a></th>
-            <th><a href="{sort_link('time')}">時間</a></th>
-            <th><a href="{sort_link('platform')}">平台</a></th>
+            <th>ID</th>
+            <th>時間</th>
+            <th>平台</th>
             <th>問題</th>
             <th>回覆</th>
-            <th><a href="{sort_link('latency')}">回應時間</a></th>
+            <th>回應時間</th>
             <th>來源</th>
-            <th><a href="{sort_link('ip')}">IP</a></th>
+            <th>IP</th>
             <th>Detail</th>
         </tr>
 
@@ -290,7 +261,6 @@ def logs_ui(
         {pages}
     </div>
 
-    </div>
     </body>
     </html>
     """)
