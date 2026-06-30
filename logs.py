@@ -9,12 +9,11 @@ LOG_PATH = "logs/chat_logs.json"
 
 
 # =========================
-# LOAD LOGS
+# LOAD
 # =========================
 def load_logs():
     if not os.path.exists(LOG_PATH):
         return []
-
     try:
         with open(LOG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -22,23 +21,8 @@ def load_logs():
         return []
 
 
-# =========================
-# SAFE GET
-# =========================
-def g(d, key, default="-"):
-    return d.get(key, default) if isinstance(d, dict) else default
-
-
-# =========================
-# SHORT TIME
-# =========================
-def short_time(t):
-    if not t:
-        return "-"
-    try:
-        return str(t)[11:19]
-    except:
-        return str(t)
+def g(d, k, default="-"):
+    return d.get(k, default) if isinstance(d, dict) else default
 
 
 # =========================
@@ -61,10 +45,11 @@ SORT_MAP = {
 def logs_ui(
     page: int = 1,
     size: int = 10,
-    sort_by: str = "time",
-    sort_order: str = "desc",
     keyword: str = "",
-    user: str = ""
+    platform: str = "",
+    source: str = "",
+    sort_by: str = "time",
+    sort_order: str = "desc"
 ):
 
     logs = load_logs()
@@ -81,8 +66,11 @@ def logs_ui(
             or k in str(l.get("source", "")).lower()
         ]
 
-    if user:
-        logs = [l for l in logs if l.get("user") == user]
+    if platform:
+        logs = [l for l in logs if l.get("platform") == platform]
+
+    if source:
+        logs = [l for l in logs if l.get("source") == source]
 
     # =========================
     # SORT
@@ -107,8 +95,9 @@ def logs_ui(
     end = start + size
     logs_page = logs[start:end]
 
+
     # =========================
-    # ROWS (DETAIL BUTTON ONLY)
+    # ROWS
     # =========================
     rows = ""
 
@@ -118,189 +107,182 @@ def logs_ui(
         rows += f"""
         <tr>
             <td>{g(l,'id', i+1)}</td>
-            <td class="time">{short_time(g(l,'time'))}</td>
-            <td><span class="pill">{g(l,'platform','LINE')}</span></td>
+            <td>{g(l,'time')}</td>
+            <td>{g(l,'platform','LINE')}</td>
 
-            <td class="msg">{str(g(l,'message'))[:45]}</td>
-            <td class="reply">{str(g(l,'reply'))[:70]}</td>
+            <td>{str(g(l,'message',''))[:45]}</td>
+            <td>{str(g(l,'reply',''))[:70]}</td>
 
-            <td class="latency">{g(l,'latency','-')}s</td>
+            <td>{g(l,'latency','-')}</td>
             <td>{g(l,'source','-')}</td>
             <td>{g(l,'ip','-')}</td>
 
             <td>
-                <details class="detail-box">
+                <details>
                     <summary>DETAIL</summary>
 
-                    <div class="detail">
+                    <div style="padding:10px;background:#f9fafb;margin-top:8px;border-radius:10px">
 
-                        <div class="grid">
-                            <div><b>來源</b><br>{g(l,'source','-')}</div>
-                            <div><b>IP</b><br>{g(l,'ip','-')}</div>
-                            <div><b>SESSION</b><br>{g(l,'session_id','-')}</div>
-                            <div><b>DEVICE</b><br>{meta.get('device','-')}</div>
-                            <div><b>BROWSER</b><br>{meta.get('browser','-')}</div>
-                            <div><b>USER AGENT</b><br>{meta.get('user_agent','-')}</div>
-                        </div>
+                        <b>來源</b><br>{g(l,'source','-')}<br><br>
 
-                        <div class="block">
-                            <b>完整問題</b><br>{g(l,'message','')}
-                        </div>
+                        <b>IP</b><br>{g(l,'ip','-')}<br><br>
 
-                        <div class="block">
-                            <b>完整回覆</b><br>{g(l,'reply','')}
-                        </div>
+                        <b>DEVICE</b><br>{meta.get('device','-')}<br>
+                        <b>BROWSER</b><br>{meta.get('browser','-')}<br><br>
 
+                        <b>USER AGENT</b><br>{meta.get('user_agent','-')}<br><br>
+
+                        <b>完整問題</b><br>{g(l,'message','')}<br><br>
+
+                        <b>完整回覆</b><br>{g(l,'reply','')}
                     </div>
                 </details>
             </td>
         </tr>
         """
 
+
     # =========================
-    # PAGINATION
+    # OPTIONS
+    # =========================
+    page_opts = [10, 20, 50]
+
+    def link(p):
+        return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&sort_by={sort_by}&sort_order={sort_order}"
+
+
+    # =========================
+    # PAGE BAR
     # =========================
     pages = ""
 
     if page > 1:
-        pages += f'<a href="?page={page-1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">上一頁</a> '
+        pages += f'<a href="{link(page-1)}">上一頁</a> '
 
-    pages += f"<span> 第 {page}/{total_pages} 頁 ｜ 總 {total} 筆 ｜ 每頁 {size} 筆 </span> "
+    pages += f" 第 {page}/{total_pages} 頁 ｜ 總數 {total} ｜ 每頁 {size} "
 
     if page < total_pages:
-        pages += f'<a href="?page={page+1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">下一頁</a>'
+        pages += f' <a href="{link(page+1)}">下一頁</a>'
+
+
+    # =========================
+    # SIZE OPTIONS
+    # =========================
+    size_select = "".join([f'<option value="{s}" {"selected" if s==size else ""}>{s}筆</option>' for s in page_opts])
+
 
     # =========================
     # HTML
     # =========================
     return HTMLResponse(f"""
-    <html>
-    <head>
-    <meta charset="utf-8"/>
+<html>
+<head>
+<meta charset="utf-8"/>
 
-    <style>
-        body {{
-            margin:0;
-            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
-            background:#f4f6fb;
-            padding:18px;
-        }}
+<style>
+body {{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
+    background:#f4f6fb;
+    padding:16px;
+}}
 
-        table {{
-            width:100%;
-            border-collapse:collapse;
-            background:white;
-            border-radius:14px;
-            overflow:hidden;
-        }}
+table {{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+    border-radius:12px;
+    overflow:hidden;
+}}
 
-        th {{
-            background:#eef2ff;
-            padding:10px;
-            text-align:left;
-        }}
+th {{
+    background:#eef2ff;
+    padding:10px;
+    text-align:left;
+    cursor:pointer;
+}}
 
-        td {{
-            padding:10px;
-            border-top:1px solid #eee;
-            font-size:13px;
-            vertical-align:top;
-        }}
+td {{
+    padding:10px;
+    border-top:1px solid #eee;
+    font-size:13px;
+}}
 
-        .pill {{
-            padding:4px 10px;
-            border-radius:999px;
-            background:#dbeafe;
-            font-size:12px;
-        }}
+input, select {{
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid #ddd;
+}}
 
-        .latency {{
-            color:#16a34a;
-            font-weight:bold;
-        }}
+.bar {{
+    background:white;
+    padding:12px;
+    margin-bottom:10px;
+    border-radius:12px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}}
 
-        .msg {{
-            max-width:160px;
-        }}
+a {{
+    margin:0 5px;
+}}
+</style>
+</head>
 
-        .reply {{
-            max-width:220px;
-            color:#374151;
-        }}
+<body>
 
-        .time {{
-            font-size:12px;
-            color:#6b7280;
-        }}
+<h2>LOGS</h2>
 
-        details summary {{
-            cursor:pointer;
-            background:#3b82f6;
-            color:white;
-            padding:5px 10px;
-            border-radius:999px;
-            font-size:12px;
-        }}
+<form class="bar">
 
-        .detail {{
-            margin-top:10px;
-            padding:12px;
-            background:#f9fafb;
-            border-radius:12px;
-            font-size:13px;
-        }}
+<input name="keyword" placeholder="關鍵字" value="{keyword}">
+<input name="platform" placeholder="平台" value="{platform}">
+<input name="source" placeholder="來源 FAQ/KB/AI" value="{source}">
 
-        .grid {{
-            display:grid;
-            grid-template-columns:repeat(3, 1fr);
-            gap:10px;
-            margin-bottom:10px;
-            font-size:12px;
-        }}
+<select name="size">
+    {size_select}
+</select>
 
-        .block {{
-            margin-top:10px;
-        }}
+<select name="sort_by">
+    <option value="time">時間</option>
+    <option value="platform">平台</option>
+    <option value="latency">回應時間</option>
+    <option value="source">來源</option>
+</select>
 
-        a {{
-            margin:0 5px;
-            text-decoration:none;
-        }}
+<select name="sort_order">
+    <option value="desc">DESC</option>
+    <option value="asc">ASC</option>
+</select>
 
-        .topbar {{
-            margin-bottom:10px;
-        }}
-    </style>
-    </head>
+<button>搜尋</button>
+</form>
 
-    <body>
+<div style="margin-bottom:10px">
+{pages}
+</div>
 
-    <h2>LOGS</h2>
+<table>
+<tr>
+<th>ID</th>
+<th>時間</th>
+<th>平台</th>
+<th>問題</th>
+<th>回覆</th>
+<th>延遲</th>
+<th>來源</th>
+<th>IP</th>
+<th>DETAIL</th>
+</tr>
 
-    <div class="topbar">
-        {pages}
-    </div>
+{rows}
+</table>
 
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>時間</th>
-            <th>平台</th>
-            <th>問題</th>
-            <th>回覆</th>
-            <th>延遲</th>
-            <th>來源</th>
-            <th>IP</th>
-            <th>DETAIL</th>
-        </tr>
+<div style="margin-top:10px">
+{pages}
+</div>
 
-        {rows}
-    </table>
-
-    <div class="topbar">
-        {pages}
-    </div>
-
-    </body>
-    </html>
-    """)
+</body>
+</html>
+""")
