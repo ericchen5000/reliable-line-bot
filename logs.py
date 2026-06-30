@@ -407,14 +407,14 @@ def logs_ui(
     <table>
         <tr>
             <th width="3%">ID</th>
-            <th width="15%">時間</th>
-            <th width="10%">平台</th>
-            <th width="10%">問題</th>
-            <th width="10%">回覆</th>
-            <th width="10%">延遲</th>
-            <th width="10%">來源</th>
-            <th width="10%">IP</th>
-            <th width="10%">更多資訊</th>
+            <th width="12%">時間</th>
+            <th width="5%">平台</th>
+            <th width="14%">問題</th>
+            <th width="14%">回覆</th>
+            <th width="5%">延遲</th>
+            <th width="8%">來源</th>
+            <th width="8%">IP</th>
+            <th width="5%">更多資訊</th>
         </tr>
 
         {rows}
