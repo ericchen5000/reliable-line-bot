@@ -111,11 +111,12 @@ def logs_ui(
 
             <td class="msg">{str(g(l,'message',''))[:45]}</td>
 
-            <!-- 🔥 限制回覆欄寬（關鍵修正） -->
             <td class="reply-cell">{str(g(l,'reply',''))[:60]}</td>
 
             <td class="latency">{g(l,'latency','-')}</td>
+
             <td class="source">{g(l,'source','-')}</td>
+
             <td class="ip">{g(l,'ip','-')}</td>
 
             <td>
@@ -155,7 +156,7 @@ def logs_ui(
         return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&sort_by={sort_by}&sort_order={sort_order}"
 
     # =========================
-    # PAGE BAR
+    # PAGE BAR (CENTER)
     # =========================
     pages = ""
 
@@ -175,7 +176,7 @@ def logs_ui(
     )
 
     # =========================
-    # CSS ONLY UPGRADE
+    # CSS (ONLY ADJUST + REFINED)
     # =========================
     css = """
     body {
@@ -191,7 +192,6 @@ def logs_ui(
         font-weight:700;
     }
 
-    /* FILTER BAR */
     .bar {
         background:white;
         padding:14px;
@@ -227,7 +227,6 @@ def logs_ui(
         font-weight:600;
     }
 
-    /* TABLE */
     table {
         width:100%;
         border-collapse:collapse;
@@ -235,6 +234,7 @@ def logs_ui(
         border-radius:16px;
         overflow:hidden;
         box-shadow:0 10px 24px rgba(0,0,0,0.06);
+        table-layout: fixed;
     }
 
     th {
@@ -269,9 +269,8 @@ def logs_ui(
         font-weight:700;
     }
 
-    .msg { max-width:160px; }
+    .msg { max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-    /* 🔥 核心修正：回覆欄位縮窄 */
     .reply-cell {
         max-width:180px;
         overflow:hidden;
@@ -320,20 +319,13 @@ def logs_ui(
         font-size:13px;
     }
 
-    .reply-box {
-        background:white;
-        padding:10px;
-        border-radius:10px;
-        border:1px solid #e5e7eb;
-    }
-
     .pages {
         margin:12px 0;
         display:flex;
+        justify-content:center;
         gap:10px;
         align-items:center;
         flex-wrap:wrap;
-        justify-content:center; /* ← 加這行才會置中 */
     }
 
     .pages a {
@@ -343,7 +335,7 @@ def logs_ui(
         border:1px solid #e5e7eb;
         text-decoration:none;
         color:#374151;
-        font-size: 12px;
+        font-size:12px;
     }
 
     .info {
@@ -380,7 +372,7 @@ def logs_ui(
             <option value="asc">升序</option>
         </select>
 
-        <a href="/logs" style="padding:8px 14px; border-radius:999px; background:#ef4444; color:white; text-decoration:none; font-weight:600;">清空</a>
+        <a href="/logs" style="padding:8px 14px;border-radius:999px;background:#ef4444;color:white;text-decoration:none;font-weight:600;">清空</a>
 
         <button>搜尋</button>
     </form>
