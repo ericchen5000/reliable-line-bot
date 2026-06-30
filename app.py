@@ -135,20 +135,9 @@ def handle_company(user_message):
 
 
 # =========================
-# PRODUCTS
+# PRODUCTS (已停止搶 KB)
 # =========================
 def handle_products(user_message):
-    msg = user_message.lower()
-
-    if "vates" in msg:
-        return "VATES = 虛擬化管理平台（XCP-ng / Xen Orchestra）", "RULE"
-    if "array" in msg:
-        return "Array Networks = APV / SSL VPN / ZTNA", "RULE"
-    if "penguin" in msg:
-        return "Penguin Solutions = 高可用平台", "RULE"
-    if "neverfail" in msg:
-        return "Neverfail = 災難備援", "RULE"
-
     return None, None
 
 
@@ -180,7 +169,6 @@ def search_knowledge(user_message):
     if results:
         text = "\n\n---\n\n".join([r[0] for r in results[:2]])
 
-        # 🔥 FIX HERE
         names = [os.path.splitext(r[1])[0] for r in results[:2]]
         source = "KB-" + ",".join(names)
 
@@ -206,7 +194,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER
+# ROUTER (KB 優先)
 # =========================
 def ai_reply(user_message):
 
@@ -214,17 +202,13 @@ def ai_reply(user_message):
     if faq:
         return faq, "FAQ"
 
-    company, _ = handle_company(user_message)
-    if company:
-        return company, "COMPANY"
-
-    product, _ = handle_products(user_message)
-    if product:
-        return product, "RULE"
-
     kb, src = search_knowledge(user_message)
     if kb:
         return kb, src
+
+    company, _ = handle_company(user_message)
+    if company:
+        return company, "COMPANY"
 
     reply, _ = ai_fallback(user_message)
     return reply, "AI"
