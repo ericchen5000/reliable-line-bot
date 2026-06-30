@@ -51,9 +51,7 @@ def detect_platform(request: Request):
         return "LINE"
     if "facebook" in ua or "fb" in ua:
         return "FB"
-    if "mozilla" in ua:
-        return "WEB"
-    return "unknown"
+    return "WEB"
 
 
 # =========================
@@ -77,7 +75,7 @@ def detect_browser(request: Request):
         return "chrome"
     if "firefox" in ua:
         return "firefox"
-    if "safari" in ua:
+    if "safari" in ua and "chrome" not in ua:
         return "safari"
     if "line" in ua:
         return "line-app"
@@ -85,9 +83,152 @@ def detect_browser(request: Request):
 
 
 # =========================
-# LOG SAVE (FULL META + IP + SESSION + SOURCE)
+# FAQ SOURCE CHECK
 # =========================
-def save_log(user, message, reply, request: Request, platform, latency):
+def search_faq(question):
+    if not FAQ_FILE or not os.path.exists(FAQ_FILE):
+        return None, None
+
+    try:
+        with open(FAQ_FILE, "r", encoding="utf-8") as f:
+            faq = json.load(f)
+    except:
+        return None, None
+
+    q = question.strip().lower()
+
+    for item in faq:
+        faq_q = item.get("question", "").strip().lower()
+        faq_a = item.get("answer", "")
+
+        if faq_q == q or faq_q in q or q in faq_q:
+            return faq_a, "FAQ"
+
+    return None, None
+
+
+# =========================
+# COMPANY SOURCE
+# =========================
+def handle_company(user_message):
+    keywords = ["公司", "電話", "地址", "email", "聯絡", "聯絡方式"]
+
+    msg = user_message.lower()
+
+    if any(k in msg for k in keywords):
+        path = "data/company.json"
+        if not os.path.exists(path):
+            return None, None
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        return (
+            "公司名稱：" + data.get("company_name", "") + "\n" +
+            "電話：" + data.get("phone", "") + "\n" +
+            "Email：" + data.get("email", "") + "\n" +
+            "地址：" + data.get("address", "") + "\n" +
+            "網站：" + data.get("website", "")
+        ), "COMPANY"
+
+    return None, None
+
+
+# =========================
+# PRODUCTS SOURCE
+# =========================
+def handle_products(user_message):
+    msg = user_message.lower()
+
+    if "vates" in msg:
+        return "VATES = 虛擬化管理平台（XCP-ng / Xen Orchestra）", "RULE"
+    if "array" in msg:
+        return "Array Networks = APV / SSL VPN / ZTNA", "RULE"
+    if "penguin" in msg:
+        return "Penguin Solutions = 高可用平台", "RULE"
+    if "neverfail" in msg:
+        return "Neverfail = 災難備援", "RULE"
+
+    return None, None
+
+
+# =========================
+# KB SOURCE
+# =========================
+def search_knowledge(user_message):
+    kb_path = "knowledge"
+
+    if not os.path.exists(kb_path):
+        return None, None
+
+    msg = user_message.lower()
+    results = []
+
+    for root, dirs, files in os.walk(kb_path):
+        for file in files:
+            if not file.endswith(".txt"):
+                continue
+
+            path = os.path.join(root, file)
+
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read().lower()
+
+                if msg in content:
+                    results.append((content[:1000], file))
+
+    if results:
+        text = "\n\n---\n\n".join([r[0] for r in results[:2]])
+        source = "KB:" + ",".join([r[1] for r in results[:2]])
+        return text, source
+
+    return None, None
+
+
+# =========================
+# AI FALLBACK
+# =========================
+def ai_fallback(user_message):
+    prompt = SYSTEM_PROMPT + """
+
+規則：
+1. 不可亂編
+2. 沒資料就回答：目前資料庫中沒有相關資訊
+3. 使用繁體中文
+4. 簡短回答
+"""
+
+    return ask_deepseek(prompt, user_message), "AI"
+
+
+# =========================
+# ROUTER (WITH SOURCE)
+# =========================
+def ai_reply(user_message):
+
+    faq, src = search_faq(user_message)
+    if faq:
+        return faq, src
+
+    company, src = handle_company(user_message)
+    if company:
+        return company, src
+
+    product, src = handle_products(user_message)
+    if product:
+        return product, src
+
+    kb, src = search_knowledge(user_message)
+    if kb:
+        return kb, src
+
+    return ai_fallback(user_message)
+
+
+# =========================
+# LOG SAVE (FULL META)
+# =========================
+def save_log(user, message, reply, request: Request, platform, latency, source):
 
     os.makedirs("logs", exist_ok=True)
 
@@ -107,13 +248,7 @@ def save_log(user, message, reply, request: Request, platform, latency):
     if not ip:
         ip = request.client.host if request.client else "-"
 
-    session_id = (
-        request.headers.get("x-session-id")
-        or request.headers.get("x-line-user-id")
-        or f"sess_{len(logs)+1}"
-    )
-
-    log_entry = {
+    logs.append({
         "id": len(logs) + 1,
         "time": datetime.now().isoformat(),
 
@@ -121,179 +256,21 @@ def save_log(user, message, reply, request: Request, platform, latency):
         "message": message,
         "reply": reply,
 
-        # =========================
-        # CORE FIELDS
-        # =========================
         "platform": platform,
         "latency": latency,
 
         "ip": ip,
-        "session_id": session_id,
+        "source": source,
 
-        # =========================
-        # SOURCE (先保留擴充)
-        # =========================
-        "sources": "-",   # 未來可放 RAG / FAQ / KB 命中來源
-
-        # =========================
-        # META
-        # =========================
         "meta": {
             "user_agent": ua,
             "device": detect_device(request),
-            "browser": detect_browser(request),
-            "platform_detected": detect_platform(request)
+            "browser": detect_browser(request)
         }
-    }
-
-    logs.append(log_entry)
+    })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
-
-
-# =========================
-# FAQ
-# =========================
-def search_faq(question):
-    if not FAQ_FILE or not os.path.exists(FAQ_FILE):
-        return None
-
-    try:
-        with open(FAQ_FILE, "r", encoding="utf-8") as f:
-            faq = json.load(f)
-    except:
-        return None
-
-    q = question.strip().lower()
-
-    for item in faq:
-        faq_q = item.get("question", "").strip().lower()
-        faq_a = item.get("answer", "")
-
-        if faq_q == q:
-            return faq_a
-
-        if faq_q in q or q in faq_q:
-            return faq_a
-
-    return None
-
-
-# =========================
-# COMPANY
-# =========================
-def handle_company(user_message):
-    keywords = ["公司", "電話", "地址", "email", "聯絡", "聯絡方式"]
-
-    msg = user_message.lower()
-
-    if any(k in msg for k in keywords):
-        path = "data/company.json"
-        if not os.path.exists(path):
-            return None
-
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-
-        return (
-            "公司名稱：" + data.get("company_name", "") + "\n" +
-            "電話：" + data.get("phone", "") + "\n" +
-            "Email：" + data.get("email", "") + "\n" +
-            "地址：" + data.get("address", "") + "\n" +
-            "網站：" + data.get("website", "")
-        )
-
-    return None
-
-
-# =========================
-# PRODUCTS
-# =========================
-def handle_products(user_message):
-    msg = user_message.lower()
-
-    if "vates" in msg:
-        return "VATES = 虛擬化管理平台（XCP-ng / Xen Orchestra）"
-    if "array" in msg:
-        return "Array Networks = APV / SSL VPN / ZTNA"
-    if "penguin" in msg:
-        return "Penguin Solutions = 高可用平台"
-    if "neverfail" in msg:
-        return "Neverfail = 災難備援"
-
-    return None
-
-
-# =========================
-# KB
-# =========================
-def search_knowledge(user_message):
-    kb_path = "knowledge"
-
-    if not os.path.exists(kb_path):
-        return None
-
-    msg = user_message.lower()
-    results = []
-
-    for root, dirs, files in os.walk(kb_path):
-        for file in files:
-            if not file.endswith(".txt"):
-                continue
-
-            path = os.path.join(root, file)
-
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read().lower()
-
-                if msg in content:
-                    results.append(content[:1000])
-
-    if results:
-        return "\n\n---\n\n".join(results[:2])
-
-    return None
-
-
-# =========================
-# AI FALLBACK
-# =========================
-def ai_fallback(user_message):
-    prompt = SYSTEM_PROMPT + """
-
-規則：
-1. 不可亂編
-2. 沒資料就回答：目前資料庫中沒有相關資訊
-3. 使用繁體中文
-4. 簡短回答
-"""
-
-    return ask_deepseek(prompt, user_message)
-
-
-# =========================
-# ROUTER
-# =========================
-def ai_reply(user_message):
-
-    faq = search_faq(user_message)
-    if faq:
-        return faq
-
-    company = handle_company(user_message)
-    if company:
-        return company
-
-    product = handle_products(user_message)
-    if product:
-        return product
-
-    kb = search_knowledge(user_message)
-    if kb:
-        return kb
-
-    return ai_fallback(user_message)
 
 
 # =========================
@@ -322,7 +299,7 @@ async def line_webhook(request: Request):
 
         platform = detect_platform(request)
 
-        reply = ai_reply(user_msg)
+        reply, source = ai_reply(user_msg)
 
         latency = round(time.time() - start, 3)
 
@@ -337,7 +314,8 @@ async def line_webhook(request: Request):
             reply,
             request,
             platform,
-            latency
+            latency,
+            source
         )
 
     return {"status": "ok"}
