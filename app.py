@@ -109,7 +109,7 @@ def search_faq(question):
 
 
 # =========================
-# URL SEARCH (FIXED + SCORING)
+# URL SEARCH (STABLE VERSION)
 # =========================
 def search_urls(user_message):
     path = "data/urls.json"
@@ -129,20 +129,20 @@ def search_urls(user_message):
     best_result = None
 
     for item in urls:
-        keywords = item.get("keywords", [])
         url = item.get("url", "")
         title = item.get("title", "")
+        keywords = item.get("keywords", [])
 
-        # 防呆
         if not url:
             continue
 
-        # score match
+        # score matching
         score = 0
         for k in keywords:
             if k.lower() in msg:
                 score += 1
 
+        # update best match
         if score > best_score:
             best_score = score
 
@@ -151,8 +151,8 @@ def search_urls(user_message):
 
             best_result = (f"{title}: {url}", source)
 
-    # 🔥 沒命中就回 None
-    if best_score == 0:
+    # 🔥 IMPORTANT: strict threshold
+    if best_score == 0 or best_result is None:
         return None, None
 
     return best_result
@@ -241,7 +241,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (priority fixed)
+# ROUTER (SAFE ORDER)
 # =========================
 def ai_reply(user_message):
 
@@ -249,9 +249,9 @@ def ai_reply(user_message):
     if faq:
         return faq, "FAQ"
 
-    url, src = search_urls(user_message)
-    if url:
-        return url, src
+    url_result = search_urls(user_message)
+    if url_result and url_result[0]:
+        return url_result
 
     kb, src = search_knowledge(user_message)
     if kb:
