@@ -120,7 +120,7 @@ def logs_ui(
 
             <td>
                 <details>
-                    <summary>DETAIL</summary>
+                    <summary>點擊查看</summary>
 
                     <div class="detail-box">
 
@@ -396,7 +396,7 @@ def logs_ui(
             <th width="5%">回覆時間</th>
             <th width="8%">來源</th>
             <th width="10%">IP</th>
-            <th>DETAIL</th>
+            <th>更多資訊</th>
         </tr>
 
         {rows}
