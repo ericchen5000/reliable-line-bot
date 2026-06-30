@@ -392,11 +392,11 @@ def logs_ui(
             <th width="5%">ID</th>
             <th width="15%">時間</th>
             <th width="5%">平台</th>
-            <th>問題</th>
-            <th>回覆</th>
-            <th>延遲</th>
-            <th>來源</th>
-            <th>IP</th>
+            <th width="15%">問題</th>
+            <th width="15%">回覆</th>
+            <th width="8%">回覆時間</th>
+            <th width="15%">來源</th>
+            <th width="15%">IP</th>
             <th>DETAIL</th>
         </tr>
 
