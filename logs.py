@@ -30,15 +30,30 @@ def g(d, key, default="-"):
 
 
 # =========================
-# MAIN UI
+# SORT KEY MAP
+# =========================
+SORT_MAP = {
+    "id": "id",
+    "time": "time",
+    "platform": "platform",
+    "message": "message",
+    "reply": "reply",
+    "latency": "latency",
+    "ip": "ip",
+}
+
+
+# =========================
+# UI
 # =========================
 @router.get("/logs", response_class=HTMLResponse)
 def logs_ui(
     page: int = 1,
     size: int = 10,
+    sort_by: str = "time",
+    sort_order: str = "desc",
     keyword: str = "",
-    user: str = "",
-    sort: str = "desc"
+    user: str = ""
 ):
 
     logs = load_logs()
@@ -57,9 +72,16 @@ def logs_ui(
         logs = [l for l in logs if l.get("user") == user]
 
     # =========================
-    # SORT
+    # SAFE SORT FIELD
     # =========================
-    logs.sort(key=lambda x: x.get("time", ""), reverse=(sort == "desc"))
+    sort_key = SORT_MAP.get(sort_by, "time")
+    reverse = (sort_order == "desc")
+
+    def sort_func(x):
+        val = x.get(sort_key, "")
+        return val
+
+    logs.sort(key=sort_func, reverse=reverse)
 
     # =========================
     # PAGINATION
@@ -77,11 +99,6 @@ def logs_ui(
     logs_page = logs[start:end]
 
     # =========================
-    # STATS
-    # =========================
-    stats = f"第 {page} / {total_pages} 頁 ｜ 總筆數 {total} ｜ 每頁 {size} 筆"
-
-    # =========================
     # ROWS
     # =========================
     rows = ""
@@ -93,41 +110,26 @@ def logs_ui(
         <tr>
             <td>{g(l,'id', i+1)}</td>
             <td>{g(l,'time')}</td>
-            <td><span class="pill">{g(l,'platform','LINE')}</span></td>
+            <td>{g(l,'platform','LINE')}</td>
 
             <td>{str(g(l,'message'))[:50]}</td>
             <td>{str(g(l,'reply'))[:80]}</td>
 
-            <td class="rt">{g(l,'latency','-')}s</td>
+            <td>{g(l,'latency','-')}s</td>
             <td>{g(l,'sources','-')}</td>
             <td>{g(l,'ip','-')}</td>
 
             <td>
                 <details>
                     <summary>View</summary>
+                    <div style="padding:10px;background:#f9fafb;border-radius:10px;margin-top:8px">
+                        <b>SESSION</b><br>{g(l,'session_id','-')}<br><br>
 
-                    <div class="detail">
+                        <b>MODEL</b><br>{meta.get('model','deepseek')}<br>
+                        <b>DEVICE</b><br>{meta.get('device','-')}<br>
+                        <b>BROWSER</b><br>{meta.get('browser','-')}<br><br>
 
-                        <b>SESSION ID</b><br>
-                        {g(l,'session_id','-')}<br><br>
-
-                        <b>完整問題</b><br>
-                        {g(l,'message','')}<br><br>
-
-                        <b>完整回覆</b><br>
-                        {g(l,'reply','')}<br><br>
-
-                        <div class="grid">
-                            <div><b>平台</b><br>{g(l,'platform','LINE')}</div>
-                            <div><b>回應時間</b><br>{g(l,'latency','-')}s</div>
-                            <div><b>設備</b><br>{meta.get('device','-')}</div>
-                            <div><b>瀏覽器</b><br>{meta.get('browser','-')}</div>
-                        </div>
-
-                        <br>
-                        <b>User Agent</b><br>
-                        {meta.get('user_agent','-')}
-
+                        <b>USER AGENT</b><br>{meta.get('user_agent','-')}<br>
                     </div>
                 </details>
             </td>
@@ -135,18 +137,25 @@ def logs_ui(
         """
 
     # =========================
-    # PAGINATION UI
+    # SORT LINKS
+    # =========================
+    def sort_link(col):
+        order = "asc" if sort_order == "desc" else "desc"
+        return f"?sort_by={col}&sort_order={order}&page=1&size={size}"
+
+    # =========================
+    # PAGINATION LINKS
     # =========================
     pages = ""
 
     if page > 1:
-        pages += f'<a class="page" href="?page={page-1}&size={size}">上一頁</a>'
+        pages += f'<a href="?page={page-1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">上一頁</a> '
 
     for p in range(1, total_pages + 1):
-        pages += f'<a class="page {"active" if p==page else ""}" href="?page={p}&size={size}">{p}</a>'
+        pages += f'<a href="?page={p}&size={size}&sort_by={sort_by}&sort_order={sort_order}">{p}</a> '
 
     if page < total_pages:
-        pages += f'<a class="page" href="?page={page+1}&size={size}">下一頁</a>'
+        pages += f'<a href="?page={page+1}&size={size}&sort_by={sort_by}&sort_order={sort_order}">下一頁</a>'
 
     # =========================
     # HTML
@@ -161,21 +170,14 @@ def logs_ui(
             margin:0;
             font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
             background:#f5f7fb;
-            color:#111827;
         }}
 
         .wrap {{
-            padding:24px;
+            padding:20px;
         }}
 
         h1 {{
-            margin:0 0 8px 0;
-        }}
-
-        .stats {{
-            font-size:13px;
-            color:#6b7280;
-            margin-bottom:15px;
+            margin-bottom:10px;
         }}
 
         /* FILTER */
@@ -184,24 +186,15 @@ def logs_ui(
             gap:10px;
             flex-wrap:wrap;
             background:white;
-            padding:14px;
-            border-radius:16px;
-            box-shadow:0 6px 20px rgba(0,0,0,0.06);
+            padding:12px;
+            border-radius:12px;
             margin-bottom:15px;
         }}
 
-        input {{
-            padding:10px;
+        input, select {{
+            padding:8px;
             border-radius:999px;
-            border:1px solid #e5e7eb;
-        }}
-
-        button {{
-            padding:10px 16px;
-            border-radius:999px;
-            border:none;
-            background:linear-gradient(135deg,#3b82f6,#8b5cf6);
-            color:white;
+            border:1px solid #ddd;
         }}
 
         /* TABLE */
@@ -209,111 +202,91 @@ def logs_ui(
             width:100%;
             border-collapse:collapse;
             background:white;
-            border-radius:16px;
+            border-radius:12px;
             overflow:hidden;
         }}
 
         th {{
             background:#f3f4f6;
+            padding:10px;
             text-align:left;
-            padding:12px;
-            font-size:13px;
+            cursor:pointer;
+            user-select:none;
         }}
 
         td {{
-            padding:12px;
+            padding:10px;
             border-top:1px solid #eee;
             font-size:13px;
-            vertical-align:top;
-        }}
-
-        .pill {{
-            padding:4px 10px;
-            border-radius:999px;
-            background:#dcfce7;
-            font-size:12px;
-        }}
-
-        .rt {{
-            color:#16a34a;
-            font-weight:700;
         }}
 
         details summary {{
             cursor:pointer;
-            padding:4px 10px;
-            border-radius:999px;
             background:#3b82f6;
             color:white;
-            display:inline-block;
-        }}
-
-        .detail {{
-            margin-top:10px;
-            padding:12px;
-            background:#f9fafb;
-            border-radius:12px;
-        }}
-
-        .grid {{
-            display:grid;
-            grid-template-columns:repeat(2,1fr);
-            gap:10px;
-            margin-top:10px;
+            padding:4px 8px;
+            border-radius:999px;
+            font-size:12px;
         }}
 
         /* PAGINATION */
-        .pages {{
-            margin-top:15px;
-        }}
-
-        .page {{
-            display:inline-block;
-            padding:6px 12px;
-            border-radius:999px;
-            background:white;
+        .pages a {{
             margin-right:6px;
-            border:1px solid #e5e7eb;
+            padding:4px 10px;
+            background:white;
+            border:1px solid #ddd;
+            border-radius:999px;
             text-decoration:none;
         }}
-
-        .active {{
-            background:#3b82f6;
-            color:white;
-        }}
     </style>
-
     </head>
 
     <body>
     <div class="wrap">
 
-    <h1>AI Chat Logs</h1>
-    <div class="stats">{stats}</div>
+    <h1>Logs</h1>
 
     <form class="filters">
-        <input name="keyword" placeholder="關鍵字">
-        <input name="user" placeholder="使用者ID">
+        <input name="keyword" placeholder="關鍵字" value="{keyword}">
+        <input name="user" placeholder="User" value="{user}">
+
+        <select name="size">
+            <option value="10">10筆</option>
+            <option value="20">20筆</option>
+            <option value="50">50筆</option>
+        </select>
+
+        <select name="sort_by">
+            <option value="time">時間</option>
+            <option value="platform">平台</option>
+            <option value="latency">回應時間</option>
+        </select>
+
+        <select name="sort_order">
+            <option value="desc">DESC</option>
+            <option value="asc">ASC</option>
+        </select>
+
         <button>搜尋</button>
     </form>
 
     <table>
         <tr>
-            <th>ID</th>
-            <th>時間</th>
-            <th>平台</th>
+            <th><a href="{sort_link('id')}">ID</a></th>
+            <th><a href="{sort_link('time')}">時間</a></th>
+            <th><a href="{sort_link('platform')}">平台</a></th>
             <th>問題</th>
             <th>回覆</th>
-            <th>回應時間</th>
+            <th><a href="{sort_link('latency')}">回應時間</a></th>
             <th>來源</th>
-            <th>IP</th>
+            <th><a href="{sort_link('ip')}">IP</a></th>
             <th>Detail</th>
         </tr>
 
         {rows}
     </table>
 
-    <div class="pages">
+    <div style="margin-top:15px">
         {pages}
     </div>
 
