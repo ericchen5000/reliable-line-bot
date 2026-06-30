@@ -15,15 +15,15 @@ def load_logs():
     if not os.path.exists(LOG_PATH):
         return []
 
-    with open(LOG_PATH, "r", encoding="utf-8") as f:
-        try:
+    try:
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
-        except:
-            return []
+    except:
+        return []
 
 
 # =========================
-# PLATFORM DETECT (fallback-safe)
+# PLATFORM DETECT
 # =========================
 def get_platform(log):
     return log.get("platform", "LINE")
@@ -50,9 +50,6 @@ def logs_ui(
 
     logs = load_logs()
 
-    # =========================
-    # FILTER
-    # =========================
     if keyword:
         logs = [
             l for l in logs
@@ -63,14 +60,8 @@ def logs_ui(
     if user:
         logs = [l for l in logs if l.get("user") == user]
 
-    # =========================
-    # SORT
-    # =========================
     logs.sort(key=lambda x: x.get("time", ""), reverse=(sort == "desc"))
 
-    # =========================
-    # PAGINATION
-    # =========================
     total = len(logs)
     start = (page - 1) * size
     end = start + size
@@ -84,85 +75,116 @@ def logs_ui(
     <style>
         body{
             margin:0;
-            font-family: Arial;
-            background:#f7f9fc;
-            color:#1f2937;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial;
+            background:#f5f7fb;
+            color:#111827;
         }
 
         .wrap{
             width:100%;
-            padding:20px;
+            padding:24px;
             box-sizing:border-box;
         }
 
         h1{
-            font-size:20px;
-            margin-bottom:15px;
+            font-size:26px;
+            font-weight:700;
+            margin-bottom:18px;
+            letter-spacing:0.5px;
         }
 
-        /* FILTER */
+        /* =========================
+           FILTER BAR (soft glass)
+        ========================= */
         .filters{
             display:flex;
             flex-wrap:wrap;
             gap:10px;
-            background:white;
-            padding:15px;
-            border-radius:14px;
-            box-shadow:0 5px 15px rgba(0,0,0,0.05);
-            margin-bottom:15px;
+            background:rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            padding:14px;
+            border-radius:18px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.06);
+            margin-bottom:18px;
         }
 
         input, select{
             padding:10px 14px;
             border-radius:999px;
             border:1px solid #e5e7eb;
-            background:#f9fafb;
+            background:#ffffff;
+            outline:none;
+            transition:0.2s;
         }
 
-        /* BUTTON */
+        input:focus{
+            border-color:#93c5fd;
+            box-shadow:0 0 0 3px rgba(147,197,253,0.3);
+        }
+
+        /* =========================
+           BUTTON (pill gradient)
+        ========================= */
         .btn{
-            padding:10px 16px;
+            padding:10px 18px;
             border-radius:999px;
             border:none;
+            cursor:pointer;
             background:linear-gradient(135deg,#60a5fa,#a78bfa);
             color:white;
-            cursor:pointer;
+            font-weight:600;
+            transition:0.2s;
         }
 
-        /* TABLE */
+        .btn:hover{
+            transform:translateY(-1px);
+            opacity:0.95;
+        }
+
+        /* =========================
+           TABLE (clean modern)
+        ========================= */
         table{
             width:100%;
-            border-collapse:collapse;
+            border-collapse:separate;
+            border-spacing:0;
             background:white;
-            border-radius:14px;
+            border-radius:16px;
             overflow:hidden;
-            box-shadow:0 5px 15px rgba(0,0,0,0.05);
+            box-shadow:0 10px 28px rgba(0,0,0,0.06);
         }
 
         th{
             text-align:left;
-            padding:12px;
-            background:#f3f4f6;
+            padding:14px;
             font-size:13px;
+            background:#f3f4f6;
+            color:#374151;
+            position:sticky;
+            top:0;
         }
 
         td{
-            padding:12px;
-            border-top:1px solid #eee;
+            padding:14px;
+            border-top:1px solid #f1f1f1;
             font-size:13px;
             vertical-align:top;
         }
 
         tr:hover{
             background:#f9fafb;
-            cursor:pointer;
         }
 
+        /* =========================
+           BADGE (soft pill)
+        ========================= */
         .badge{
+            display:inline-block;
             padding:4px 10px;
             border-radius:999px;
             background:linear-gradient(135deg,#93c5fd,#c4b5fd);
-            display:inline-block;
+            color:#1e293b;
+            font-size:12px;
         }
 
         .small{
@@ -170,34 +192,51 @@ def logs_ui(
             color:#6b7280;
         }
 
+        /* =========================
+           METRICS
+        ========================= */
+        .pill{
+            display:inline-block;
+            padding:4px 10px;
+            border-radius:999px;
+            background:#e0f2fe;
+            font-size:12px;
+            margin-top:2px;
+        }
+
+        .latency{
+            color:#16a34a;
+            font-weight:700;
+        }
+
+        /* =========================
+           EXPAND
+        ========================= */
         .expand{
             display:none;
             background:#fafafa;
         }
 
-        .pill{
-            padding:4px 10px;
-            border-radius:999px;
-            background:#e0f2fe;
-            font-size:12px;
-        }
-
-        .latency{
-            color:#16a34a;
-            font-weight:bold;
-        }
-
+        /* =========================
+           PAGINATION
+        ========================= */
         .pagination{
-            margin-top:15px;
+            margin-top:18px;
         }
 
         .page{
+            display:inline-block;
             padding:6px 12px;
             border-radius:999px;
             background:white;
             margin-right:6px;
             text-decoration:none;
             border:1px solid #e5e7eb;
+            transition:0.2s;
+        }
+
+        .page:hover{
+            background:#eef2ff;
         }
     </style>
 
@@ -216,7 +255,7 @@ def logs_ui(
     <h1>LOGS 系統</h1>
 
     <form class="filters" method="get">
-        <input name="keyword" placeholder="關鍵字">
+        <input name="keyword" placeholder="關鍵字搜尋">
         <input name="user" placeholder="使用者ID">
 
         <select name="size">
@@ -245,7 +284,6 @@ def logs_ui(
 
     for i, l in enumerate(logs_page):
         row_id = f"r_{i}"
-
         platform = get_platform(l)
         latency = get_latency(l)
 
@@ -264,7 +302,7 @@ def logs_ui(
         <tr id="{row_id}" class="expand">
             <td colspan="5">
                 <b>完整訊息：</b><br>{l.get('message','')}<br><br>
-                <b>完整回覆：</b><br>{l.get('reply','')}<br><br>
+                <b>完整回覆：</b><br>{l.get('reply','')}
             </td>
         </tr>
         """
