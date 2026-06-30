@@ -398,6 +398,7 @@ def logs_ui(
         </select>
 
         <a href="/logs" style="padding:8px 14px; border-radius:999px; background:#ef4444; color:white; text-decoration:none; font-weight:600;">清空</a>
+        
         <button>搜尋</button>
     </form>
 
