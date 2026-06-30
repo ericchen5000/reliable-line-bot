@@ -1,0 +1,27 @@
+[
+  {
+    "title": "Reliable Information 官方網站",
+    "url": "https://www.reliable.com.tw/",
+    "keywords": ["reliable", "定承", "公司", "首頁", "about"]
+  },
+  {
+    "title": "Penguin Solutions 官方網站",
+    "url": "https://www.penguinsolutions.com/zh-tw",
+    "keywords": ["penguin", "penguinsolutions", "高可用", "ztc", "stratus"]
+  },
+  {
+    "title": "Neverfail 官方網站",
+    "url": "https://neverfail.com/",
+    "keywords": ["neverfail", "備援", "dr", "continuity", "災難備援"]
+  },
+  {
+    "title": "Vates 官方網站",
+    "url": "https://vates.tech/en/",
+    "keywords": ["vates", "xcp-ng", "xen", "xo", "xen orchestra", "虛擬化"]
+  },
+  {
+    "title": "Array Networks 台灣官網",
+    "url": "https://www.arraynetworks.com.tw/",
+    "keywords": ["array", "apv", "ssl vpn", "ztna", "vpn", "負載平衡"]
+  }
+]

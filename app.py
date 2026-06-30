@@ -5,6 +5,7 @@ import json
 import os
 import time
 from datetime import datetime
+from urllib.parse import urlparse
 
 from config import (
     LINE_CHANNEL_ACCESS_TOKEN,
@@ -108,6 +109,36 @@ def search_faq(question):
 
 
 # =========================
+# URL SEARCH (NEW)
+# =========================
+def search_urls(user_message):
+    path = "data/urls.json"
+
+    if not os.path.exists(path):
+        return None, None
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            urls = json.load(f)
+    except:
+        return None, None
+
+    msg = user_message.lower()
+
+    for item in urls:
+        keywords = item.get("keywords", [])
+        url = item.get("url", "")
+        title = item.get("title", "")
+
+        if any(k in msg for k in keywords):
+            domain = urlparse(url).netloc.replace("www.", "")
+            source = "URL-" + domain.split(".")[0]
+            return f"{title}: {url}", source
+
+    return None, None
+
+
+# =========================
 # COMPANY
 # =========================
 def handle_company(user_message):
@@ -142,7 +173,7 @@ def handle_products(user_message):
 
 
 # =========================
-# KB (FIX SOURCE FORMAT)
+# KB
 # =========================
 def search_knowledge(user_message):
     kb_path = "knowledge"
@@ -194,13 +225,17 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (KB 優先)
+# ROUTER (FAQ → URL → KB → COMPANY → AI)
 # =========================
 def ai_reply(user_message):
 
     faq, _ = search_faq(user_message)
     if faq:
         return faq, "FAQ"
+
+    url, src = search_urls(user_message)
+    if url:
+        return url, src
 
     kb, src = search_knowledge(user_message)
     if kb:
