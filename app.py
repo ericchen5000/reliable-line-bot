@@ -303,11 +303,17 @@ async def line_webhook(request: Request):
         reply, source = ai_reply(user_msg)
 
         latency = round(time.time() - start, 3)
+        
+        # =========================
+        # APPEND SOURCE TO MESSAGE
+        # =========================
+
+        final_reply = f"{reply}\n\n資料來源：{source}"
 
         line_bot_api.reply_message(
-            event["replyToken"],
-            TextSendMessage(text=reply[:1000])
-        )
+        event["replyToken"],
+        TextSendMessage(text=final_reply[:1000])
+        )   
 
         save_log(
             user_id,
