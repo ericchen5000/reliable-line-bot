@@ -6,8 +6,6 @@ import os
 import time
 from datetime import datetime
 from urllib.parse import urlparse
-import requests
-from bs4 import BeautifulSoup
 
 from config import (
     LINE_CHANNEL_ACCESS_TOKEN,
@@ -111,44 +109,53 @@ def search_faq(question):
 
 
 # =========================
-# URL SEARCH (REAL CONTENT SEARCH)
+# URL SEARCH (FIXED + SCORING)
 # =========================
-URLS_FILE = "data/urls.json"
-
-def fetch_page_text(url):
-    try:
-        r = requests.get(url, timeout=5)
-        soup = BeautifulSoup(r.text, "html.parser")
-        return soup.get_text(" ", strip=True).lower()
-    except:
-        return ""
-
-
 def search_urls(user_message):
-    if not os.path.exists(URLS_FILE):
+    path = "data/urls.json"
+
+    if not os.path.exists(path):
         return None, None
 
     try:
-        with open(URLS_FILE, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             urls = json.load(f)
     except:
         return None, None
 
     msg = user_message.lower()
 
+    best_score = 0
+    best_result = None
+
     for item in urls:
+        keywords = item.get("keywords", [])
         url = item.get("url", "")
         title = item.get("title", "")
 
-        page_text = fetch_page_text(url)
+        # 防呆
+        if not url:
+            continue
 
-        # 🔥 真正內容比對
-        if msg in page_text:
+        # score match
+        score = 0
+        for k in keywords:
+            if k.lower() in msg:
+                score += 1
+
+        if score > best_score:
+            best_score = score
+
             domain = urlparse(url).netloc.replace("www.", "")
             source = "URL-" + domain.split(".")[0]
-            return f"{title}: {url}", source
 
-    return None, None
+            best_result = (f"{title}: {url}", source)
+
+    # 🔥 沒命中就回 None
+    if best_score == 0:
+        return None, None
+
+    return best_result
 
 
 # =========================
@@ -234,7 +241,7 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (ORDER FIXED)
+# ROUTER (priority fixed)
 # =========================
 def ai_reply(user_message):
 
