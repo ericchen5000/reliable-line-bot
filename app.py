@@ -83,7 +83,7 @@ def detect_browser(request: Request):
 
 
 # =========================
-# FAQ SOURCE CHECK
+# FAQ
 # =========================
 def search_faq(question):
     if not FAQ_FILE or not os.path.exists(FAQ_FILE):
@@ -108,7 +108,7 @@ def search_faq(question):
 
 
 # =========================
-# COMPANY SOURCE
+# COMPANY
 # =========================
 def handle_company(user_message):
     keywords = ["公司", "電話", "地址", "email", "聯絡", "聯絡方式"]
@@ -135,7 +135,7 @@ def handle_company(user_message):
 
 
 # =========================
-# PRODUCTS SOURCE
+# PRODUCTS
 # =========================
 def handle_products(user_message):
     msg = user_message.lower()
@@ -153,7 +153,7 @@ def handle_products(user_message):
 
 
 # =========================
-# KB SOURCE
+# KB (FIX SOURCE FORMAT)
 # =========================
 def search_knowledge(user_message):
     kb_path = "knowledge"
@@ -179,7 +179,11 @@ def search_knowledge(user_message):
 
     if results:
         text = "\n\n---\n\n".join([r[0] for r in results[:2]])
-        source = "KB:" + ",".join([r[1] for r in results[:2]])
+
+        # 🔥 FIX HERE
+        names = [os.path.splitext(r[1])[0] for r in results[:2]]
+        source = "KB-" + ",".join(names)
+
         return text, source
 
     return None, None
@@ -202,19 +206,19 @@ def ai_fallback(user_message):
 
 
 # =========================
-# ROUTER (FIX SOURCE FINAL)
+# ROUTER
 # =========================
 def ai_reply(user_message):
 
-    faq, src = search_faq(user_message)
+    faq, _ = search_faq(user_message)
     if faq:
         return faq, "FAQ"
 
-    company, src = handle_company(user_message)
+    company, _ = handle_company(user_message)
     if company:
         return company, "COMPANY"
 
-    product, src = handle_products(user_message)
+    product, _ = handle_products(user_message)
     if product:
         return product, "RULE"
 
@@ -222,12 +226,12 @@ def ai_reply(user_message):
     if kb:
         return kb, src
 
-    reply, src = ai_fallback(user_message)
+    reply, _ = ai_fallback(user_message)
     return reply, "AI"
 
 
 # =========================
-# LOG SAVE (NO CHANGE)
+# LOG SAVE
 # =========================
 def save_log(user, message, reply, request: Request, platform, latency, source):
 
@@ -261,7 +265,7 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
         "latency": latency,
 
         "ip": ip,
-        "source": source,   # ✅ FAQ / KB:xxx.txt / AI
+        "source": source,
 
         "meta": {
             "user_agent": ua,
@@ -303,17 +307,13 @@ async def line_webhook(request: Request):
         reply, source = ai_reply(user_msg)
 
         latency = round(time.time() - start, 3)
-        
-        # =========================
-        # APPEND SOURCE TO MESSAGE
-        # =========================
 
         final_reply = f"{reply}\n\n資料來源：{source}"
 
         line_bot_api.reply_message(
-        event["replyToken"],
-        TextSendMessage(text=final_reply[:1000])
-        )   
+            event["replyToken"],
+            TextSendMessage(text=final_reply[:1000])
+        )
 
         save_log(
             user_id,
