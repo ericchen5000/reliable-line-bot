@@ -136,23 +136,39 @@ def search_urls(user_message):
         if not url:
             continue
 
-        # score matching
+        # =========================
+        # 🔥 FIX 1: title 也加入匹配
+        # =========================
+        text_pool = " ".join(keywords + [title]).lower()
+
         score = 0
         for k in keywords:
             if k.lower() in msg:
-                score += 1
+                score += 2  # keywords weight higher
 
-        # update best match
+        if title.lower() in msg:
+            score += 3
+
+        # fallback domain match
+        domain = urlparse(url).netloc.lower()
+        if domain in msg:
+            score += 2
+
+        # =========================
+        # keep best
+        # =========================
         if score > best_score:
             best_score = score
 
-            domain = urlparse(url).netloc.replace("www.", "")
-            source = "URL-" + domain.split(".")[0]
+            clean_domain = domain.replace("www.", "")
+            source = "URL-" + clean_domain.split(".")[0]
 
             best_result = (f"{title}: {url}", source)
 
-    # 🔥 IMPORTANT: strict threshold
-    if best_score == 0 or best_result is None:
+    # =========================
+    # 🔥 FIX 2: threshold 降低
+    # =========================
+    if best_score < 1:
         return None, None
 
     return best_result
