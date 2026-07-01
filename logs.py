@@ -135,20 +135,22 @@ def logs_ui(
                 <div class="detail-box">
 
                     <div class="grid">
+                        <!-- 
                         <div><span class="pill-more"><b>DEVICE</b></span><br>{meta.get('device','-')}</div>
-                        <div><b>BROWSER</b><br>{meta.get('browser','-')}</div>
-                        <div><b>USER AGENT</b><br>{meta.get('user_agent','-')}</div>
-                        <div><b>來源</b><br>{g(l,'source','-')}</div>
-                        <div><b>IP</b><br>{g(l,'ip','-')}</div>
+                        <div><span class="pill-more"><b>BROWSER</b></span><br>{meta.get('browser','-')}</div>
+                        <div><span class="pill-more"><b>USER AGENT</b></span><br>{meta.get('user_agent','-')}</div>
+                        -->
+                        <div><span class="pill-more"><b>來源</b></span><br>{g(l,'source','-')}</div>
+                        <div><span class="pill-more"><b>IP</b></span><br>{g(l,'ip','-')}</div>
                     </div>
 
                     <div class="block">
-                        <b>問題</b>
+                        <span class="pill-more"><b>問題</b></span>
                         <div>{g(l,'message','')}</div>
                     </div>
 
                     <div class="block">
-                        <b>回覆</b>
+                        <span class="pill-more"><b>回覆</b></span>
                         <div>{g(l,'reply','')}</div>
                     </div>
 
