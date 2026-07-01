@@ -355,7 +355,7 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
 
     logs.append({
         "id": len(logs) + 1,
-        "time": datetime.now().isoformat(),
+        "time": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         "user": user,
         "message": message,
         "reply": reply,
