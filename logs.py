@@ -139,19 +139,19 @@ def logs_ui(
                         <div><span class="pill-more"><b>DEVICE</b></span><br>{meta.get('device','-')}</div>
                         <div><span class="pill-more"><b>BROWSER</b></span><br>{meta.get('browser','-')}</div>
                         <div><span class="pill-more"><b>USER AGENT</b></span><br>{meta.get('user_agent','-')}</div>
-                        -->
                         <div><span class="pill-more"><b>來源</b></span><br>{g(l,'source','-')}</div>
                         <div><span class="pill-more"><b>IP</b></span><br>{g(l,'ip','-')}</div>
+                        -->
                     </div>
 
                     <div class="block">
                         <span class="pill-more"><b>問題</b></span>
-                        <div>{g(l,'message','')}</div>
+                        <div style="margin: 15px 0 0 10px;">{g(l,'message','')}</div>
                     </div>
 
                     <div class="block">
                         <span class="pill-more"><b>回覆</b></span>
-                        <div>{g(l,'reply','')}</div>
+                        <div style="margin: 15px 0 0 10px;">{g(l,'reply','')}</div>
                     </div>
 
                 </div>
