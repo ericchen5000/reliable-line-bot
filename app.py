@@ -190,7 +190,7 @@ def search_urls(user_message):
 
         if any(k.lower() in msg for k in keywords):
             domain = urlparse(url).netloc
-            source = "URL-" + domain.split(".")[0]
+            source = "網站：" + domain.split(".")[0]
             return url, title, source
 
     return None
