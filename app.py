@@ -5,7 +5,7 @@ import json
 import os
 import time
 from datetime import datetime
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -32,7 +32,6 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 LOG_PATH = "logs/chat_logs.json"
 
-
 # =========================
 # SYSTEM PROMPT
 # =========================
@@ -43,6 +42,47 @@ def load_system_prompt():
     return ""
 
 SYSTEM_PROMPT = load_system_prompt()
+
+
+# =========================
+# PLATFORM DETECT  ⭐（一定要放上面）
+# =========================
+def detect_platform(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "line" in ua:
+        return "LINE"
+    if "facebook" in ua or "fb" in ua:
+        return "FB"
+    return "WEB"
+
+
+# =========================
+# DEVICE DETECT
+# =========================
+def detect_device(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if any(x in ua for x in ["iphone", "android", "mobile"]):
+        return "mobile"
+    return "desktop"
+
+
+# =========================
+# BROWSER DETECT
+# =========================
+def detect_browser(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "chrome" in ua:
+        return "chrome"
+    if "firefox" in ua:
+        return "firefox"
+    if "safari" in ua and "chrome" not in ua:
+        return "safari"
+    if "line" in ua:
+        return "line-app"
+    return "unknown"
 
 
 # =========================
@@ -71,65 +111,23 @@ def search_faq(question):
 
 
 # =========================
-# SITEMAP FETCHER (🔥NEW CORE)
+# SITEMAP CRAWLER  ⭐核心
 # =========================
-def get_sitemap_urls(base_url):
+def fetch_sitemap_urls(domain):
+    sitemap_url = f"{domain}/sitemap.xml"
+
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-
-        # 1️⃣ 嘗試 robots.txt
-        robots_url = urljoin(base_url, "/robots.txt")
-        r = requests.get(robots_url, headers=headers, timeout=5)
-
-        sitemap_urls = []
-
-        if r.status_code == 200:
-            for line in r.text.splitlines():
-                if "sitemap" in line.lower():
-                    sitemap_urls.append(line.split(":")[-1].strip())
-
-        # 2️⃣ fallback sitemap.xml
-        if not sitemap_urls:
-            sitemap_urls.append(urljoin(base_url, "/sitemap.xml"))
-
-        return sitemap_urls
-
-    except:
-        return []
-
-
-# =========================
-# PARSE SITEMAP XML
-# =========================
-def parse_sitemap(url):
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(url, headers=headers, timeout=8)
-
+        r = requests.get(sitemap_url, timeout=8)
         soup = BeautifulSoup(r.text, "xml")
 
-        urls = []
-
-        # sitemap index
-        for loc in soup.find_all("sitemap"):
-            child = loc.find("loc")
-            if child:
-                urls.append(child.text)
-
-        # normal urlset
-        for loc in soup.find_all("loc"):
-            urls.append(loc.text)
-
-        return list(set(urls))
+        urls = [loc.text for loc in soup.find_all("loc")]
+        return urls[:50]  # 控制量
 
     except:
         return []
 
 
-# =========================
-# FETCH PAGE CONTENT
-# =========================
-def fetch_page(url):
+def fetch_url_content(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         r = requests.get(url, headers=headers, timeout=8)
@@ -140,43 +138,16 @@ def fetch_page(url):
             tag.decompose()
 
         text = soup.get_text(separator=" ")
-        return " ".join(text.split())[:5000]
+        text = " ".join(text.split())
+
+        return text[:4000]
 
     except:
         return ""
 
 
 # =========================
-# 🔥 NEW: FULL SITE SEARCH
-# =========================
-def search_site_content(base_url, query):
-    sitemap_list = get_sitemap_urls(base_url)
-
-    all_pages = []
-
-    for sm in sitemap_list:
-        urls = parse_sitemap(sm)
-        all_pages.extend(urls)
-
-    all_pages = list(set(all_pages))[:20]  # 限制避免爆炸
-
-    best_match = ""
-    best_score = 0
-
-    for url in all_pages:
-        content = fetch_page(url)
-
-        score = sum(1 for w in query.lower().split() if w in content.lower())
-
-        if score > best_score:
-            best_score = score
-            best_match = content
-
-    return best_match
-
-
-# =========================
-# URL SEARCH (ENTRY POINT)
+# URL SOURCE
 # =========================
 def search_urls(user_message):
     path = "data/urls.json"
@@ -192,6 +163,8 @@ def search_urls(user_message):
 
     msg = user_message.lower()
 
+    best = None
+
     for item in urls:
         keywords = item.get("keywords", [])
         url = item.get("url", "")
@@ -200,14 +173,9 @@ def search_urls(user_message):
         if any(k.lower() in msg for k in keywords):
             domain = urlparse(url).netloc.replace("www.", "")
             source = "URL-" + domain.split(".")[0]
+            best = (url, title, source)
 
-            return {
-                "url": url,
-                "title": title,
-                "source": source
-            }
-
-    return None
+    return best
 
 
 # =========================
@@ -270,7 +238,7 @@ def search_knowledge(user_message):
 
 
 # =========================
-# AI FALLBACK
+# AI fallback
 # =========================
 def ai_fallback(user_message, context=""):
     prompt = SYSTEM_PROMPT + f"""
@@ -278,17 +246,14 @@ def ai_fallback(user_message, context=""):
 網站內容：
 {context}
 
-請根據內容回答：
-1. 不可亂編
-2. 只能根據內容
-3. 簡短回答
+請根據內容回答（不可亂編）
 """
 
     return ask_deepseek(prompt, user_message), "AI"
 
 
 # =========================
-# ROUTER (🔥SITEMAP VERSION)
+# ROUTER (SITEMAP → URL → KB → AI)
 # =========================
 def ai_reply(user_message):
 
@@ -298,14 +263,19 @@ def ai_reply(user_message):
 
     url_data = search_urls(user_message)
 
+    # ⭐ sitemap crawl
     if url_data:
-        base_url = url_data["url"]
-        source = url_data["source"]
+        url, title, source = url_data
 
-        content = search_site_content(base_url, user_message)
+        # sitemap 自動補強
+        domain = urlparse(url).scheme + "://" + urlparse(url).netloc
+        urls = fetch_sitemap_urls(domain)
+
+        # 抓第一頁 + sitemap第一篇
+        content = fetch_url_content(url)
 
         answer = ask_deepseek(
-            SYSTEM_PROMPT + f"\n\n網站內容：\n{content}",
+            SYSTEM_PROMPT + f"\n\n網站內容:\n{content}",
             user_message
         )
 
