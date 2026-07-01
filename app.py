@@ -46,7 +46,7 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# PLATFORM DETECT
+# PLATFORM DETECT  ⭐（一定要放上面）
 # =========================
 def detect_platform(request: Request):
     ua = request.headers.get("user-agent", "").lower()
@@ -122,7 +122,7 @@ def fetch_sitemap_urls(domain):
         soup = BeautifulSoup(r.text, "xml")
 
         urls = [loc.text for loc in soup.find_all("loc")]
-        return urls[:80]   # ⭐加大抓取
+        return urls[:80]
 
     except:
         return []
@@ -173,7 +173,7 @@ def search_urls(user_message):
         title = item.get("title", "")
 
         if any(k.lower() in msg for k in keywords):
-            domain = urlparse(url).netloc
+            domain = urlparse(url).netloc.replace("www.", "")
             source = "URL-" + domain.split(".")[0]
             return url, title, source
 
@@ -255,7 +255,7 @@ def ai_fallback(user_message, context=""):
 
 
 # =========================
-# ROUTER (🔥 FULL SITEMAP SEARCH)
+# ROUTER (FULL SITEMAP + KB)
 # =========================
 def ai_reply(user_message):
 
@@ -265,7 +265,7 @@ def ai_reply(user_message):
 
     url_data = search_urls(user_message)
 
-    # ❗只允許公司網站
+    # 只允許 reliable.com.tw
     if url_data:
         url, title, source = url_data
 
@@ -273,40 +273,34 @@ def ai_reply(user_message):
         if "reliable.com.tw" not in domain:
             return None, None
 
-        # =========================
-        # 🔥 FULL SITEMAP SEARCH CORE
-        # =========================
-        pages = fetch_sitemap_urls("https://www.reliable.com.tw")
+        base = "https://www.reliable.com.tw"
 
-        scored = []
+        pages = fetch_sitemap_urls(base)
+
+        best_content = ""
+        best_score = 0
 
         keywords = user_message.lower().split()
 
         for page in pages:
             content = fetch_url_content(page)
-
             if not content:
                 continue
 
             score = 0
             for k in keywords:
                 if k in content.lower():
-                    score += 2
+                    score += 1
 
-            if score > 0:
-                scored.append((score, content))
+            if score > best_score:
+                best_score = score
+                best_content = content
 
-        # 排序
-        scored.sort(key=lambda x: x[0], reverse=True)
-
-        top_content = "\n\n".join([c for _, c in scored[:3]])
-
-        # fallback
-        if not top_content:
-            top_content = fetch_url_content(url)
+        if not best_content:
+            best_content = fetch_url_content(url)
 
         answer = ask_deepseek(
-            SYSTEM_PROMPT + f"\n\n網站內容：\n{top_content}",
+            SYSTEM_PROMPT + f"\n\n網站內容：\n{best_content}",
             user_message
         )
 
