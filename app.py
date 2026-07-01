@@ -32,6 +32,7 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 LOG_PATH = "logs/chat_logs.json"
 
+
 # =========================
 # SYSTEM PROMPT
 # =========================
@@ -42,47 +43,6 @@ def load_system_prompt():
     return ""
 
 SYSTEM_PROMPT = load_system_prompt()
-
-
-# =========================
-# PLATFORM DETECT  ⭐（一定要放上面）
-# =========================
-def detect_platform(request: Request):
-    ua = request.headers.get("user-agent", "").lower()
-
-    if "line" in ua:
-        return "LINE"
-    if "facebook" in ua or "fb" in ua:
-        return "FB"
-    return "WEB"
-
-
-# =========================
-# DEVICE DETECT
-# =========================
-def detect_device(request: Request):
-    ua = request.headers.get("user-agent", "").lower()
-
-    if any(x in ua for x in ["iphone", "android", "mobile"]):
-        return "mobile"
-    return "desktop"
-
-
-# =========================
-# BROWSER DETECT
-# =========================
-def detect_browser(request: Request):
-    ua = request.headers.get("user-agent", "").lower()
-
-    if "chrome" in ua:
-        return "chrome"
-    if "firefox" in ua:
-        return "firefox"
-    if "safari" in ua and "chrome" not in ua:
-        return "safari"
-    if "line" in ua:
-        return "line-app"
-    return "unknown"
 
 
 # =========================
@@ -108,42 +68,6 @@ def search_faq(question):
             return faq_a, "FAQ"
 
     return None, None
-
-
-# =========================
-# SITEMAP CRAWLER  ⭐核心
-# =========================
-def fetch_sitemap_urls(domain):
-    sitemap_url = f"{domain}/sitemap.xml"
-
-    try:
-        r = requests.get(sitemap_url, timeout=8)
-        soup = BeautifulSoup(r.text, "xml")
-
-        urls = [loc.text for loc in soup.find_all("loc")]
-        return urls[:50]  # 控制量
-
-    except:
-        return []
-
-
-def fetch_url_content(url):
-    try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(url, headers=headers, timeout=8)
-
-        soup = BeautifulSoup(r.text, "html.parser")
-
-        for tag in soup(["script", "style", "noscript"]):
-            tag.decompose()
-
-        text = soup.get_text(separator=" ")
-        text = " ".join(text.split())
-
-        return text[:4000]
-
-    except:
-        return ""
 
 
 # =========================
@@ -176,6 +100,58 @@ def search_urls(user_message):
             best = (url, title, source)
 
     return best
+
+
+# =========================
+# SITEMAP + CRAWLER (核心升級)
+# =========================
+def fetch_sitemap_urls(domain):
+    sitemap_url = domain.rstrip("/") + "/sitemap.xml"
+
+    try:
+        r = requests.get(sitemap_url, timeout=10)
+        soup = BeautifulSoup(r.text, "xml")
+        return [loc.text for loc in soup.find_all("loc")][:30]
+    except:
+        return []
+
+
+def fetch_url_content(url):
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, headers=headers, timeout=10)
+
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+
+        text = soup.get_text(separator=" ")
+        text = " ".join(text.split())
+
+        return text[:6000]
+    except:
+        return ""
+
+
+def crawl_site(domain, main_url):
+    """
+    sitemap優先 + fallback主頁
+    """
+    urls = fetch_sitemap_urls(domain)
+
+    if not urls:
+        return fetch_url_content(main_url)
+
+    # 抓 sitemap 前幾頁 + 主頁
+    contents = []
+
+    contents.append(fetch_url_content(main_url))
+
+    for u in urls[:3]:
+        contents.append(fetch_url_content(u))
+
+    return "\n".join(contents)
 
 
 # =========================
@@ -246,14 +222,14 @@ def ai_fallback(user_message, context=""):
 網站內容：
 {context}
 
-請根據內容回答（不可亂編）
+請根據內容回答（不可亂編、需依據資料）
 """
 
     return ask_deepseek(prompt, user_message), "AI"
 
 
 # =========================
-# ROUTER (SITEMAP → URL → KB → AI)
+# ROUTER (SITEMAP → FULL CRAWL → KB → AI)
 # =========================
 def ai_reply(user_message):
 
@@ -263,19 +239,16 @@ def ai_reply(user_message):
 
     url_data = search_urls(user_message)
 
-    # ⭐ sitemap crawl
     if url_data:
         url, title, source = url_data
 
-        # sitemap 自動補強
         domain = urlparse(url).scheme + "://" + urlparse(url).netloc
-        urls = fetch_sitemap_urls(domain)
 
-        # 抓第一頁 + sitemap第一篇
-        content = fetch_url_content(url)
+        # 🔥 sitemap + 全站抓取
+        site_content = crawl_site(domain, url)
 
         answer = ask_deepseek(
-            SYSTEM_PROMPT + f"\n\n網站內容:\n{content}",
+            SYSTEM_PROMPT + f"\n\n網站內容：\n{site_content}",
             user_message
         )
 
@@ -375,3 +348,44 @@ async def line_webhook(request: Request):
         )
 
     return {"status": "ok"}
+
+
+# =========================
+# PLATFORM DETECT
+# =========================
+def detect_platform(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "line" in ua:
+        return "LINE"
+    if "facebook" in ua or "fb" in ua:
+        return "FB"
+    return "WEB"
+
+
+# =========================
+# DEVICE DETECT
+# =========================
+def detect_device(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if any(x in ua for x in ["iphone", "android", "mobile"]):
+        return "mobile"
+    return "desktop"
+
+
+# =========================
+# BROWSER DETECT
+# =========================
+def detect_browser(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "chrome" in ua:
+        return "chrome"
+    if "firefox" in ua:
+        return "firefox"
+    if "safari" in ua and "chrome" not in ua:
+        return "safari"
+    if "line" in ua:
+        return "line-app"
+    return "unknown"
