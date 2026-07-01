@@ -32,6 +32,7 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 LOG_PATH = "logs/chat_logs.json"
 
+
 # =========================
 # SYSTEM PROMPT
 # =========================
@@ -45,7 +46,7 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# PLATFORM DETECT  ⭐（一定要放上面）
+# PLATFORM DETECT
 # =========================
 def detect_platform(request: Request):
     ua = request.headers.get("user-agent", "").lower()
@@ -111,7 +112,7 @@ def search_faq(question):
 
 
 # =========================
-# SITEMAP CRAWLER  ⭐核心
+# SITEMAP CRAWLER
 # =========================
 def fetch_sitemap_urls(domain):
     sitemap_url = f"{domain}/sitemap.xml"
@@ -121,12 +122,15 @@ def fetch_sitemap_urls(domain):
         soup = BeautifulSoup(r.text, "xml")
 
         urls = [loc.text for loc in soup.find_all("loc")]
-        return urls[:50]  # 控制量
+        return urls[:80]   # ⭐加大抓取
 
     except:
         return []
 
 
+# =========================
+# FETCH CONTENT
+# =========================
 def fetch_url_content(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
@@ -140,14 +144,14 @@ def fetch_url_content(url):
         text = soup.get_text(separator=" ")
         text = " ".join(text.split())
 
-        return text[:4000]
+        return text[:5000]
 
     except:
         return ""
 
 
 # =========================
-# URL SOURCE
+# URL SEARCH
 # =========================
 def search_urls(user_message):
     path = "data/urls.json"
@@ -163,19 +167,17 @@ def search_urls(user_message):
 
     msg = user_message.lower()
 
-    best = None
-
     for item in urls:
         keywords = item.get("keywords", [])
         url = item.get("url", "")
         title = item.get("title", "")
 
         if any(k.lower() in msg for k in keywords):
-            domain = urlparse(url).netloc.replace("www.", "")
+            domain = urlparse(url).netloc
             source = "URL-" + domain.split(".")[0]
-            best = (url, title, source)
+            return url, title, source
 
-    return best
+    return None
 
 
 # =========================
@@ -238,7 +240,7 @@ def search_knowledge(user_message):
 
 
 # =========================
-# AI fallback
+# AI FALLBACK
 # =========================
 def ai_fallback(user_message, context=""):
     prompt = SYSTEM_PROMPT + f"""
@@ -253,7 +255,7 @@ def ai_fallback(user_message, context=""):
 
 
 # =========================
-# ROUTER (SITEMAP → URL → KB → AI)
+# ROUTER (🔥 FULL SITEMAP SEARCH)
 # =========================
 def ai_reply(user_message):
 
@@ -263,40 +265,48 @@ def ai_reply(user_message):
 
     url_data = search_urls(user_message)
 
-    # ❗只允許 reliable.com.tw（避免抓錯網站）
+    # ❗只允許公司網站
     if url_data:
         url, title, source = url_data
 
         domain = urlparse(url).netloc
-
-        # 🔥強制限制只抓自己公司網站
         if "reliable.com.tw" not in domain:
             return None, None
 
-        # sitemap
+        # =========================
+        # 🔥 FULL SITEMAP SEARCH CORE
+        # =========================
         pages = fetch_sitemap_urls("https://www.reliable.com.tw")
 
-        best_content = ""
-        best_score = 0
+        scored = []
+
+        keywords = user_message.lower().split()
 
         for page in pages:
             content = fetch_url_content(page)
 
-            score = sum(
-                1 for w in user_message.lower().split()
-                if w in content.lower()
-            )
+            if not content:
+                continue
 
-            if score > best_score:
-                best_score = score
-                best_content = content
+            score = 0
+            for k in keywords:
+                if k in content.lower():
+                    score += 2
 
-        # fallback（至少抓首頁）
-        if not best_content:
-            best_content = fetch_url_content(url)
+            if score > 0:
+                scored.append((score, content))
+
+        # 排序
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        top_content = "\n\n".join([c for _, c in scored[:3]])
+
+        # fallback
+        if not top_content:
+            top_content = fetch_url_content(url)
 
         answer = ask_deepseek(
-            SYSTEM_PROMPT + f"\n\n網站內容：\n{best_content}",
+            SYSTEM_PROMPT + f"\n\n網站內容：\n{top_content}",
             user_message
         )
 
