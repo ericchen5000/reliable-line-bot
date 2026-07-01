@@ -339,7 +339,7 @@ def ai_reply(user_message):
         return company, "COMPANY"
 
     reply, _ = ai_fallback(user_message)
-    return reply, "AI"
+    return reply, "AI客服"
 
 
 # =========================
