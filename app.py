@@ -112,7 +112,7 @@ def search_faq(question):
 
 
 # =========================
-# 🔥 SITEMAP（升級版：支援 sitemapindex）
+# SITEMAP
 # =========================
 def fetch_sitemap_urls(domain):
     sitemap_url = f"{domain}/sitemap.xml"
@@ -121,25 +121,7 @@ def fetch_sitemap_urls(domain):
         r = requests.get(sitemap_url, timeout=10)
         soup = BeautifulSoup(r.text, "xml")
 
-        urls = []
-
-        # 🔥 case1: normal sitemap
-        locs = soup.find_all("loc")
-        for loc in locs:
-            urls.append(loc.text)
-
-        # 🔥 case2: sitemapindex（子 sitemap）
-        if len(urls) == 0:
-            sitemaps = soup.find_all("sitemap")
-            for sm in sitemaps:
-                sm_url = sm.find("loc").text
-                try:
-                    r2 = requests.get(sm_url, timeout=10)
-                    soup2 = BeautifulSoup(r2.text, "xml")
-                    urls += [loc.text for loc in soup2.find_all("loc")]
-                except:
-                    continue
-
+        urls = [loc.text for loc in soup.find_all("loc")]
         return urls[:80]
 
     except:
@@ -147,7 +129,7 @@ def fetch_sitemap_urls(domain):
 
 
 # =========================
-# FETCH CONTENT
+# FETCH PAGE
 # =========================
 def fetch_url_content(url):
     try:
@@ -249,7 +231,7 @@ def search_knowledge(user_message):
     if results:
         text = "\n\n---\n\n".join([r[0] for r in results[:2]])
         names = [os.path.splitext(r[1])[0] for r in results[:2]]
-        source = "知識庫文件-" + ",".join(names)
+        source = "KB-" + ",".join(names)
         return text, source
 
     return None, None
@@ -271,7 +253,7 @@ def ai_fallback(user_message, context=""):
 
 
 # =========================
-# ROUTER（🔥 改良核心：真正 sitemap ranking）
+# ROUTER (FINAL STABLE VERSION)
 # =========================
 def ai_reply(user_message):
 
@@ -289,36 +271,46 @@ def ai_reply(user_message):
             return None, None
 
         base = "https://www.reliable.com.tw"
-
         pages = fetch_sitemap_urls(base)
 
-        keywords = set(user_message.lower().split())
+        keywords = user_message.lower().split()
 
         scored_pages = []
 
         for page in pages:
             content = fetch_url_content(page)
 
-            if not content:
+            if not content or len(content) < 200:
                 continue
 
             content_lower = content.lower()
 
-            # 🔥 強化 scoring（命中次數）
-            score = sum(1 for k in keywords if k in content_lower)
+            score = 0
 
-            # bonus：標題/slug命中
+            # content match
+            for k in keywords:
+                if k in content_lower:
+                    score += 3
+
+            # url match
             for k in keywords:
                 if k in page.lower():
-                    score += 2
+                    score += 5
+
+            # section bonus
+            if "/pr/" in page:
+                score += 3
+            if "/news/" in page:
+                score += 2
+            if "/product/" in page:
+                score += 2
 
             if score > 0:
-                scored_pages.append((score, content))
+                scored_pages.append((score, page, content))
 
-        # 🔥 排序
         scored_pages.sort(key=lambda x: x[0], reverse=True)
 
-        top_content = "\n".join([c for _, c in scored_pages[:3]])
+        top_content = "\n\n".join([c for _, _, c in scored_pages[:3]])
 
         if not top_content:
             top_content = fetch_url_content(url)
