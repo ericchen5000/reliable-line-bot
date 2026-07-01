@@ -46,6 +46,47 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
+# PLATFORM DETECT
+# =========================
+def detect_platform(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "line" in ua:
+        return "LINE"
+    if "facebook" in ua or "fb" in ua:
+        return "FB"
+    return "WEB"
+
+
+# =========================
+# DEVICE DETECT
+# =========================
+def detect_device(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if any(x in ua for x in ["iphone", "android", "mobile"]):
+        return "mobile"
+    return "desktop"
+
+
+# =========================
+# BROWSER DETECT
+# =========================
+def detect_browser(request: Request):
+    ua = request.headers.get("user-agent", "").lower()
+
+    if "chrome" in ua:
+        return "chrome"
+    if "firefox" in ua:
+        return "firefox"
+    if "safari" in ua and "chrome" not in ua:
+        return "safari"
+    if "line" in ua:
+        return "line-app"
+    return "unknown"
+
+
+# =========================
 # FAQ
 # =========================
 def search_faq(question):
@@ -71,7 +112,7 @@ def search_faq(question):
 
 
 # =========================
-# URL LIST SEARCH
+# URL LIST SEARCH (FIXED)
 # =========================
 def search_urls(user_message):
     path = "data/urls.json"
@@ -87,30 +128,31 @@ def search_urls(user_message):
 
     msg = user_message.lower()
 
-    best = None
+    best_score = 0
+    best_result = None
 
     for item in urls:
         keywords = item.get("keywords", [])
         url = item.get("url", "")
         title = item.get("title", "")
 
-        if any(k.lower() in msg for k in keywords):
+        score = sum(1 for k in keywords if k.lower() in msg)
+
+        if score > best_score and url:
+            best_score = score
             domain = urlparse(url).netloc.replace("www.", "")
             source = "URL-" + domain.split(".")[0]
-            best = (url, title, source)
+            best_result = (url, title, source)
 
-    return best
+    return best_result if best_score > 0 else None
 
 
 # =========================
-# FETCH WEBSITE CONTENT (SITEMAP/HTML)
+# FETCH WEBSITE CONTENT
 # =========================
 def fetch_url_content(url):
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-
+        headers = {"User-Agent": "Mozilla/5.0"}
         r = requests.get(url, headers=headers, timeout=10)
 
         soup = BeautifulSoup(r.text, "html.parser")
@@ -187,18 +229,18 @@ def search_knowledge(user_message):
 
 
 # =========================
-# AI FALLBACK (with website context)
+# AI FALLBACK
 # =========================
 def ai_fallback(user_message, context=""):
     prompt = SYSTEM_PROMPT + f"""
 
-以下是網站/文件內容：
+以下為網站/文件內容：
 
 {context}
 
-請根據內容回答：
+規則：
 1. 不可亂編
-2. 只能根據資料回答
+2. 僅依據內容回答
 3. 使用繁體中文
 4. 簡短回答
 """
@@ -221,7 +263,6 @@ def ai_reply(user_message):
 
         content = fetch_url_content(url)
 
-        # 🔥 用網站內容丟給 AI 分析
         answer = ask_deepseek(
             SYSTEM_PROMPT + f"\n\n網站內容：\n{content}",
             user_message
