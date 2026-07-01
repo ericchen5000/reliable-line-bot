@@ -147,9 +147,6 @@ def logs_ui(
                     <div class="block">
                         <span class="pill-more"><b>問題</b></span>
                         <div style="margin: 15px 0 0 10px;">{g(l,'message','')}</div>
-                    </div>
-
-                    <div class="block">
                         <span class="pill-more"><b>回覆</b></span>
                         <div style="margin: 15px 0 0 10px;">{g(l,'reply','')}</div>
                     </div>
