@@ -249,7 +249,7 @@ def search_knowledge(user_message):
     if results:
         text = "\n\n---\n\n".join([r[0] for r in results[:2]])
         names = [os.path.splitext(r[1])[0] for r in results[:2]]
-        source = "KB-" + ",".join(names)
+        source = "知識庫文件-" + ",".join(names)
         return text, source
 
     return None, None
