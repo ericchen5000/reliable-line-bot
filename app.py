@@ -46,7 +46,7 @@ SYSTEM_PROMPT = load_system_prompt()
 
 
 # =========================
-# PLATFORM DETECT  ⭐（一定要放上面）
+# PLATFORM DETECT
 # =========================
 def detect_platform(request: Request):
     ua = request.headers.get("user-agent", "").lower()
@@ -112,16 +112,34 @@ def search_faq(question):
 
 
 # =========================
-# SITEMAP CRAWLER
+# 🔥 SITEMAP（升級版：支援 sitemapindex）
 # =========================
 def fetch_sitemap_urls(domain):
     sitemap_url = f"{domain}/sitemap.xml"
 
     try:
-        r = requests.get(sitemap_url, timeout=8)
+        r = requests.get(sitemap_url, timeout=10)
         soup = BeautifulSoup(r.text, "xml")
 
-        urls = [loc.text for loc in soup.find_all("loc")]
+        urls = []
+
+        # 🔥 case1: normal sitemap
+        locs = soup.find_all("loc")
+        for loc in locs:
+            urls.append(loc.text)
+
+        # 🔥 case2: sitemapindex（子 sitemap）
+        if len(urls) == 0:
+            sitemaps = soup.find_all("sitemap")
+            for sm in sitemaps:
+                sm_url = sm.find("loc").text
+                try:
+                    r2 = requests.get(sm_url, timeout=10)
+                    soup2 = BeautifulSoup(r2.text, "xml")
+                    urls += [loc.text for loc in soup2.find_all("loc")]
+                except:
+                    continue
+
         return urls[:80]
 
     except:
@@ -142,9 +160,7 @@ def fetch_url_content(url):
             tag.decompose()
 
         text = soup.get_text(separator=" ")
-        text = " ".join(text.split())
-
-        return text[:5000]
+        return " ".join(text.split())[:5000]
 
     except:
         return ""
@@ -173,7 +189,7 @@ def search_urls(user_message):
         title = item.get("title", "")
 
         if any(k.lower() in msg for k in keywords):
-            domain = urlparse(url).netloc.replace("www.", "")
+            domain = urlparse(url).netloc
             source = "URL-" + domain.split(".")[0]
             return url, title, source
 
@@ -240,7 +256,7 @@ def search_knowledge(user_message):
 
 
 # =========================
-# AI FALLBACK
+# AI fallback
 # =========================
 def ai_fallback(user_message, context=""):
     prompt = SYSTEM_PROMPT + f"""
@@ -255,7 +271,7 @@ def ai_fallback(user_message, context=""):
 
 
 # =========================
-# ROUTER (FULL SITEMAP + KB)
+# ROUTER（🔥 改良核心：真正 sitemap ranking）
 # =========================
 def ai_reply(user_message):
 
@@ -265,7 +281,6 @@ def ai_reply(user_message):
 
     url_data = search_urls(user_message)
 
-    # 只允許 reliable.com.tw
     if url_data:
         url, title, source = url_data
 
@@ -277,30 +292,39 @@ def ai_reply(user_message):
 
         pages = fetch_sitemap_urls(base)
 
-        best_content = ""
-        best_score = 0
+        keywords = set(user_message.lower().split())
 
-        keywords = user_message.lower().split()
+        scored_pages = []
 
         for page in pages:
             content = fetch_url_content(page)
+
             if not content:
                 continue
 
-            score = 0
+            content_lower = content.lower()
+
+            # 🔥 強化 scoring（命中次數）
+            score = sum(1 for k in keywords if k in content_lower)
+
+            # bonus：標題/slug命中
             for k in keywords:
-                if k in content.lower():
-                    score += 1
+                if k in page.lower():
+                    score += 2
 
-            if score > best_score:
-                best_score = score
-                best_content = content
+            if score > 0:
+                scored_pages.append((score, content))
 
-        if not best_content:
-            best_content = fetch_url_content(url)
+        # 🔥 排序
+        scored_pages.sort(key=lambda x: x[0], reverse=True)
+
+        top_content = "\n".join([c for _, c in scored_pages[:3]])
+
+        if not top_content:
+            top_content = fetch_url_content(url)
 
         answer = ask_deepseek(
-            SYSTEM_PROMPT + f"\n\n網站內容：\n{best_content}",
+            SYSTEM_PROMPT + f"\n\n網站內容：\n{top_content}",
             user_message
         )
 
