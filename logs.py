@@ -135,7 +135,7 @@ def logs_ui(
                 <div class="detail-box">
 
                     <div class="grid">
-                        <div><b>DEVICE</b><br>{meta.get('device','-')}</div>
+                        <div><b style="pill-more">DEVICE</b><br>{meta.get('device','-')}</div>
                         <div><b>BROWSER</b><br>{meta.get('browser','-')}</div>
                         <div><b>USER AGENT</b><br>{meta.get('user_agent','-')}</div>
                         <div><b>來源</b><br>{g(l,'source','-')}</div>
@@ -281,6 +281,12 @@ def logs_ui(
         background:linear-gradient(135deg,#dbeafe,#e0e7ff);
         font-size:12px;
     }
+    
+    .pill-more {
+        padding:4px 10px;
+        border-radius:999px;
+        border: 1px solid #333;
+    }
 
     .latency {
         color:#16a34a;
@@ -289,7 +295,6 @@ def logs_ui(
 
     .msg { max-width:160px; }
 
-    /* 🔥 核心修正：回覆欄位縮窄 */
     .reply-cell {
         max-width:180px;
         overflow:hidden;
