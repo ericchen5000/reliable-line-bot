@@ -103,26 +103,28 @@ def search_urls(user_message):
 
 
 # =========================
-# 🔥 NEW：抓網頁內容
+# FETCH WEBSITE CONTENT (SITEMAP/HTML)
 # =========================
 def fetch_url_content(url):
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(url, headers=headers, timeout=8)
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        r = requests.get(url, headers=headers, timeout=10)
 
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # 清掉 script/style
-        for tag in soup(["script", "style"]):
+        for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
 
         text = soup.get_text(separator=" ")
         text = " ".join(text.split())
 
-        return text[:4000]  # 控制長度避免爆 token
+        return text[:6000]
 
-    except Exception as e:
-        return "無法取得網頁內容"
+    except Exception:
+        return ""
 
 
 # =========================
@@ -185,19 +187,18 @@ def search_knowledge(user_message):
 
 
 # =========================
-# AI（升級：可吃網頁內容）
+# AI FALLBACK (with website context)
 # =========================
 def ai_fallback(user_message, context=""):
     prompt = SYSTEM_PROMPT + f"""
 
-請根據以下資料回答：
+以下是網站/文件內容：
 
-[網站內容]
 {context}
 
-規則：
+請根據內容回答：
 1. 不可亂編
-2. 用網站內容回答
+2. 只能根據資料回答
 3. 使用繁體中文
 4. 簡短回答
 """
@@ -206,7 +207,7 @@ def ai_fallback(user_message, context=""):
 
 
 # =========================
-# ROUTER（重點升級）
+# ROUTER (FAQ → URL → KB → COMPANY → AI)
 # =========================
 def ai_reply(user_message):
 
@@ -220,8 +221,9 @@ def ai_reply(user_message):
 
         content = fetch_url_content(url)
 
+        # 🔥 用網站內容丟給 AI 分析
         answer = ask_deepseek(
-            SYSTEM_PROMPT + f"\n\n網站內容如下：\n{content}",
+            SYSTEM_PROMPT + f"\n\n網站內容：\n{content}",
             user_message
         )
 
@@ -321,6 +323,7 @@ async def line_webhook(request: Request):
         )
 
     return {"status": "ok"}
+
 
 # =========================
 # PLATFORM DETECT
