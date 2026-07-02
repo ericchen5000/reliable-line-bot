@@ -79,6 +79,9 @@ def base_css():
         text-decoration:none;
         font-size:13px;
         font-weight:700;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
     }
     .nav-link.active { color:white; background:var(--button-bg); border:none; }
     .card {

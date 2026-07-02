@@ -190,6 +190,9 @@ def faq_page(edit_id: int = None, q: str = ""):
             text-decoration:none;
             font-size:13px;
             font-weight:700;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
         }}
 
         .nav-link.active {{

@@ -122,16 +122,18 @@ def dashboard():
         .subtitle {{ margin:8px 0 0; color:var(--muted); font-size:13px; }}
         .nav {{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 18px; }}
         .nav-link {{
-            min-height:40px;
-            padding:8px 14px;
+            min-height:36px;
+            padding:8px 12px;
             border-radius:8px;
             color:var(--text);
             background:var(--panel);
             border:1px solid var(--border);
             text-decoration:none;
+            font-size:13px;
             font-weight:700;
             display:inline-flex;
             align-items:center;
+            justify-content:center;
         }}
         .nav-link.active {{
             color:white;
