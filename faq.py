@@ -444,7 +444,7 @@ def faq_page(edit_id: int = None, q: str = ""):
 
         .btn-edit, .btn-del, .cancel-link, .export-link {{
             min-height:32px;
-            padding:7px 10px;
+            padding:7px 30px;
             color:white;
             border-radius:8px;
             text-decoration:none;
