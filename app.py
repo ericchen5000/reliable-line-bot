@@ -379,6 +379,17 @@ def search_site_index(user_message):
 """
 
     answer = ask_deepseek(prompt, user_message)
+
+    no_answer_markers = [
+        "目前網站索引沒有相關資訊",
+        "網站索引沒有相關資訊",
+        "沒有相關資訊",
+        "索引內容沒有答案",
+    ]
+
+    if any(marker in answer for marker in no_answer_markers):
+        return None, None
+
     return answer, f"網站索引 - {first_url}"
 
 
