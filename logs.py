@@ -384,7 +384,7 @@ def logs_ui(
 
     <body>
 
-    <h2>LOGS DASHBOARD</h2>
+    <h2>LOGS管理介面</h2>
 
     <form class="bar">
         <input name="keyword" value="{keyword}" placeholder="關鍵字">
