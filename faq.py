@@ -658,10 +658,11 @@ def faq_page(edit_id: int = None, q: str = ""):
     </form>
 
     <div class="card tool-row">
-        <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
+        
         <form method="post" action="/faq/import" enctype="multipart/form-data">
             <input type="file" name="file" accept=".csv" required>
             <button>匯入 FAQ CSV</button>
+            <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
         </form>
     </div>
 
