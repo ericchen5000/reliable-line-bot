@@ -1,8 +1,12 @@
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
+import csv
 import html
+import io
 import json
 import os
+from datetime import datetime
+from urllib.parse import urlencode
 
 router = APIRouter()
 
@@ -43,25 +47,7 @@ SORT_MAP = {
 }
 
 
-# =========================
-# UI
-# =========================
-@router.get("/logs", response_class=HTMLResponse)
-def logs_ui(
-    page: int = 1,
-    size: int = 10,
-    keyword: str = "",
-    platform: str = "",
-    source: str = "",
-    sort_by: str = "time",
-    sort_order: str = "desc"
-):
-
-    logs = load_logs()
-
-    # =========================
-    # FILTER
-    # =========================
+def filter_logs(logs, keyword="", platform="", source="", sort_by="time", sort_order="desc"):
     if keyword:
         k = keyword.lower()
         logs = [
@@ -77,13 +63,78 @@ def logs_ui(
     if source:
         logs = [l for l in logs if l.get("source") == source]
 
-    # =========================
-    # SORT
-    # =========================
     sort_key = SORT_MAP.get(sort_by, "time")
     reverse = (sort_order == "desc")
 
     logs.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+    return logs
+
+
+def export_link(keyword="", platform="", source="", sort_by="time", sort_order="desc"):
+    params = {
+        "keyword": keyword,
+        "platform": platform,
+        "source": source,
+        "sort_by": sort_by,
+        "sort_order": sort_order,
+    }
+    query = urlencode({k: v for k, v in params.items() if v})
+    return "/logs/export" + (f"?{query}" if query else "")
+
+
+@router.get("/logs/export")
+def export_logs(
+    keyword: str = "",
+    platform: str = "",
+    source: str = "",
+    sort_by: str = "time",
+    sort_order: str = "desc"
+):
+    logs = filter_logs(load_logs(), keyword, platform, source, sort_by, sort_order)
+
+    output = io.StringIO()
+    output.write("\ufeff")
+    writer = csv.writer(output)
+    writer.writerow(["ID", "時間", "平台", "問題", "回覆", "延遲", "來源", "IP"])
+
+    for i, item in enumerate(logs):
+        writer.writerow([
+            g(item, "id", i + 1),
+            g(item, "time"),
+            g(item, "platform", "LINE"),
+            g(item, "message", ""),
+            g(item, "reply", ""),
+            g(item, "latency", "-"),
+            g(item, "source", "-"),
+            g(item, "ip", "-"),
+        ])
+
+    filename = f"chat_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
+# =========================
+# UI
+# =========================
+@router.get("/logs", response_class=HTMLResponse)
+def logs_ui(
+    page: int = 1,
+    size: int = 10,
+    keyword: str = "",
+    platform: str = "",
+    source: str = "",
+    sort_by: str = "time",
+    sort_order: str = "desc"
+):
+
+    logs = filter_logs(load_logs(), keyword, platform, source, sort_by, sort_order)
 
     # =========================
     # PAGINATION
@@ -185,6 +236,7 @@ def logs_ui(
     size_select = "".join(
         [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
     )
+    download_url = export_link(keyword, platform, source, sort_by, sort_order)
 
     # =========================
     # JS（只新增，不動架構）
@@ -199,18 +251,17 @@ def logs_ui(
     })();
 
     document.addEventListener("DOMContentLoaded", function(){
-        const btn = document.getElementById("theme-toggle");
-        if(btn){
-            btn.textContent = document.body.classList.contains("dark") ? "淺色模式" : "深夜模式";
+        const toggle = document.getElementById("theme-toggle");
+        if(toggle){
+            toggle.checked = document.body.classList.contains("dark");
         }
     });
 
     function toggleTheme(){
-        document.body.classList.toggle("dark");
-        const isDark = document.body.classList.contains("dark");
+        const toggle = document.getElementById("theme-toggle");
+        const isDark = toggle ? toggle.checked : !document.body.classList.contains("dark");
+        document.body.classList.toggle("dark", isDark);
         localStorage.setItem("logs-theme", isDark ? "dark" : "light");
-        const btn = document.getElementById("theme-toggle");
-        if(btn) btn.textContent = isDark ? "淺色模式" : "深夜模式";
     }
 
     function toggleDetail(i){
@@ -299,12 +350,70 @@ def logs_ui(
         font-size:13px;
     }
 
-    .theme-btn {
+    .theme-control {
         flex:0 0 auto;
-        background:var(--panel);
-        color:var(--text);
+        display:flex;
+        align-items:center;
+        gap:10px;
+        padding:8px 10px 8px 14px;
+        border-radius:999px;
         border:1px solid var(--border);
-        box-shadow:none;
+        background:var(--panel);
+        box-shadow:var(--shadow);
+        color:var(--muted);
+        font-size:13px;
+        font-weight:700;
+        cursor:pointer;
+        user-select:none;
+    }
+
+    .switch {
+        position:relative;
+        width:52px;
+        height:30px;
+        flex:0 0 auto;
+    }
+
+    .switch input {
+        position:absolute;
+        opacity:0;
+        width:0;
+        height:0;
+    }
+
+    .slider {
+        position:absolute;
+        inset:0;
+        border-radius:999px;
+        background:#cbd5e1;
+        transition:background 0.2s ease;
+        box-shadow:inset 0 1px 3px rgba(15,23,42,0.18);
+    }
+
+    .slider::before {
+        content:"";
+        position:absolute;
+        width:26px;
+        height:26px;
+        left:2px;
+        top:2px;
+        border-radius:50%;
+        background:#ffffff;
+        box-shadow:0 2px 8px rgba(15,23,42,0.25);
+        transition:transform 0.2s ease;
+    }
+
+    .switch input:checked + .slider {
+        background:linear-gradient(135deg,#60a5fa,#a78bfa);
+    }
+
+    .switch input:checked + .slider::before {
+        transform:translateX(22px);
+    }
+
+    .switch input:focus-visible + .slider {
+        outline:3px solid rgba(96,165,250,0.35);
+        outline-offset:2px;
     }
 
     /* FILTER BAR */
@@ -342,7 +451,7 @@ def logs_ui(
         background:var(--panel);
     }
 
-    button, .clear-link {
+    button, .clear-link, .export-link {
         min-height:40px;
         padding:8px 14px;
         border-radius:8px;
@@ -359,13 +468,23 @@ def logs_ui(
         transition: transform 0.15s ease, background 0.15s ease;
     }
 
-    button:hover, .clear-link:hover {
+    button:hover, .clear-link:hover, .export-link:hover {
         transform: translateY(-1px);
         background:var(--button-bg-hover);
     }
 
     .clear-link {
         background:var(--danger);
+    }
+
+    .export-link {
+        color:var(--accent);
+        background:var(--accent-soft);
+        border:1px solid rgba(96,165,250,0.35);
+    }
+
+    .export-link:hover {
+        color:white;
     }
 
     /* TABLE */
@@ -521,8 +640,9 @@ def logs_ui(
             font-size:24px;
         }
 
-        .theme-btn {
+        .theme-control {
             width:100%;
+            justify-content:space-between;
         }
 
         .bar {
@@ -530,7 +650,7 @@ def logs_ui(
             grid-template-columns:1fr;
         }
 
-        input, select, button, .clear-link {
+        input, select, button, .clear-link, .export-link {
             width:100%;
             min-width:0;
         }
@@ -620,7 +740,13 @@ def logs_ui(
             <h2>LOGS管理介面</h2>
             <p class="subtitle">LINE 對話紀錄、來源與回應時間</p>
         </div>
-        <button id="theme-toggle" class="theme-btn" type="button" onclick="toggleTheme()">深夜模式</button>
+        <label class="theme-control">
+            <span>深夜模式</span>
+            <span class="switch">
+                <input id="theme-toggle" type="checkbox" onchange="toggleTheme()">
+                <span class="slider"></span>
+            </span>
+        </label>
     </header>
 
     <form class="bar">
@@ -642,6 +768,7 @@ def logs_ui(
         </select>
 
         <a href="/logs" class="clear-link">清空</a>
+        <a href="{e(download_url)}" class="export-link">匯出 CSV</a>
         
         <button>搜尋</button>
     </form>
