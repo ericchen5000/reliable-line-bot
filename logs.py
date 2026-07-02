@@ -21,16 +21,18 @@ def load_logs():
     if not os.path.exists(LOG_PATH):
         return []
 
+    try:
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except:
+        return []
+
 
 def save_logs(data):
     os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
     with open(LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    try:
-        with open(LOG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return []
 
 
 def g(d, k, default="-"):
@@ -116,6 +118,9 @@ def filter_logs(
     sort_by="time",
     sort_order="desc"
 ):
+    if not isinstance(logs, list):
+        logs = []
+
     if keyword:
         k = keyword.lower()
         logs = [

@@ -21,7 +21,8 @@ def load_faq():
         return []
     try:
         with open(FAQ_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            return data if isinstance(data, list) else []
     except:
         return []
 
