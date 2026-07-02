@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, File, Form, Request, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+import csv
 import html
+import io
 import json
 import os
+from datetime import datetime
 from urllib.parse import urlencode
 
 router = APIRouter()
@@ -34,6 +37,23 @@ def save_faq(data):
 
 def e(value):
     return html.escape(str(value))
+
+
+def nav_html(active=""):
+    items = [
+        ("/", "Dashboard"),
+        ("/logs", "LOGS"),
+        ("/faq", "FAQ"),
+        ("/site-index", "網站索引"),
+        ("/unanswered", "未回答"),
+        ("/faq-suggestions", "建議 FAQ"),
+        ("/test-chat", "測試"),
+        ("/health", "健康檢查"),
+    ]
+    return "".join(
+        f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
+        for href, label in items
+    )
 
 
 def normalize_question(value):
@@ -71,7 +91,7 @@ def faq_page(edit_id: int = None, q: str = ""):
 
             <td data-label="操作" class="actions">
                 <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
-                <a href="/faq/delete/{i}" class="btn-del">刪除</a>
+                <a href="/faq/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這筆 FAQ 嗎？')">刪除</a>
             </td>
         </tr>
         """
@@ -151,6 +171,31 @@ def faq_page(edit_id: int = None, q: str = ""):
         .page {{
             max-width:1280px;
             margin:0 auto;
+        }}
+
+        .nav {{
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+            margin:0 0 18px;
+        }}
+
+        .nav-link {{
+            min-height:36px;
+            padding:8px 12px;
+            border-radius:8px;
+            background:var(--panel);
+            border:1px solid var(--border);
+            color:var(--text);
+            text-decoration:none;
+            font-size:13px;
+            font-weight:700;
+        }}
+
+        .nav-link.active {{
+            color:white;
+            background:var(--button-bg);
+            border:none;
         }}
 
         .topbar {{
@@ -254,6 +299,21 @@ def faq_page(edit_id: int = None, q: str = ""):
             margin-bottom:16px;
             display:flex;
             gap:10px;
+            align-items:center;
+        }}
+
+        .tool-row {{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-bottom:16px;
+            align-items:center;
+        }}
+
+        .tool-row form {{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
             align-items:center;
         }}
 
@@ -364,7 +424,7 @@ def faq_page(edit_id: int = None, q: str = ""):
             white-space:nowrap;
         }}
 
-        .btn-edit, .btn-del, .cancel-link {{
+        .btn-edit, .btn-del, .cancel-link, .export-link {{
             min-height:32px;
             padding:7px 10px;
             color:white;
@@ -390,6 +450,12 @@ def faq_page(edit_id: int = None, q: str = ""):
             color:var(--text);
             background:var(--panel-soft);
             border:1px solid var(--border);
+        }}
+
+        .export-link {{
+            background:var(--accent-soft);
+            color:var(--accent);
+            border:1px solid rgba(96,165,250,0.35);
         }}
 
         .top-title {{
@@ -429,6 +495,12 @@ def faq_page(edit_id: int = None, q: str = ""):
             }}
 
             .search-card {{
+                display:grid;
+                grid-template-columns:1fr;
+            }}
+
+            .tool-row,
+            .tool-row form {{
                 display:grid;
                 grid-template-columns:1fr;
             }}
@@ -552,11 +624,21 @@ def faq_page(edit_id: int = None, q: str = ""):
         </label>
     </header>
 
+    <nav class="nav">{nav_html("FAQ")}</nav>
+
     <form class="card search-card" method="get" action="/faq">
         <input name="q" value="{e(q)}" placeholder="搜尋 FAQ 問題或答案">
         <button>搜尋</button>
         <a href="/faq" class="cancel-link">清空</a>
     </form>
+
+    <div class="card tool-row">
+        <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
+        <form method="post" action="/faq/import" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv" required>
+            <button>匯入 FAQ CSV</button>
+        </form>
+    </div>
 
     <div class="layout">
 
@@ -628,6 +710,56 @@ def add(
         return_to = "/faq"
 
     return RedirectResponse(return_to, status_code=302)
+
+
+@router.get("/faq/export")
+def export_faq():
+    faq = load_faq()
+    output = io.StringIO()
+    output.write("\ufeff")
+    writer = csv.writer(output)
+    writer.writerow(["question", "answer"])
+
+    for item in faq:
+        writer.writerow([item.get("question", ""), item.get("answer", "")])
+
+    filename = f"faq_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@router.post("/faq/import")
+async def import_faq(file: UploadFile = File(...)):
+    content = await file.read()
+    text = content.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    faq = load_faq()
+    questions = {normalize_question(item.get("question", "")) for item in faq}
+
+    if reader.fieldnames and {"question", "answer"}.issubset(set(reader.fieldnames)):
+        rows = [(row.get("question", ""), row.get("answer", "")) for row in reader]
+    else:
+        raw_rows = csv.reader(io.StringIO(text))
+        rows = []
+        for row in raw_rows:
+            if len(row) >= 2:
+                rows.append((row[0], row[1]))
+
+    for question, answer in rows:
+        question = str(question).strip()
+        answer = str(answer).strip()
+
+        if not question or normalize_question(question) in questions:
+            continue
+
+        faq.append({"question": question, "answer": answer})
+        questions.add(normalize_question(question))
+
+    save_faq(faq)
+    return RedirectResponse("/faq", status_code=302)
 
 
 # =========================

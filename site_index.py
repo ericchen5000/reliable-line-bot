@@ -13,6 +13,23 @@ def e(value):
     return html.escape(str(value))
 
 
+def nav_html(active=""):
+    items = [
+        ("/", "Dashboard"),
+        ("/logs", "LOGS"),
+        ("/faq", "FAQ"),
+        ("/site-index", "網站索引"),
+        ("/unanswered", "未回答"),
+        ("/faq-suggestions", "建議 FAQ"),
+        ("/test-chat", "測試"),
+        ("/health", "健康檢查"),
+    ]
+    return "".join(
+        f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
+        for href, label in items
+    )
+
+
 def index_count():
     if not os.path.exists(INDEX_FILE):
         return 0
@@ -51,23 +68,56 @@ def site_index_page():
     <head>
     <meta charset="utf-8"/>
     <style>
+        :root {{
+            --bg:#f6f7fb;
+            --panel:#ffffff;
+            --panel-soft:#f1f5f9;
+            --text:#172033;
+            --muted:#64748b;
+            --border:#e2e8f0;
+            --button-bg:linear-gradient(135deg,#60a5fa,#a78bfa);
+            --shadow:0 16px 40px rgba(15,23,42,0.08);
+        }}
+        * {{ box-sizing:border-box; }}
         body {{
             margin:0;
             font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
-            background:#f6f7fb;
+            background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg);
             padding:24px;
-            color:#172033;
+            color:var(--text);
         }}
         .page {{
             max-width:960px;
             margin:0 auto;
         }}
-        .card {{
-            background:white;
-            padding:16px;
-            border:1px solid #e2e8f0;
+        .nav {{
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+            margin:0 0 18px;
+        }}
+        .nav-link {{
+            min-height:36px;
+            padding:8px 12px;
             border-radius:8px;
-            box-shadow:0 16px 40px rgba(15,23,42,0.08);
+            background:var(--panel);
+            border:1px solid var(--border);
+            color:var(--text);
+            text-decoration:none;
+            font-size:13px;
+            font-weight:700;
+        }}
+        .nav-link.active {{
+            color:white;
+            background:var(--button-bg);
+            border:none;
+        }}
+        .card {{
+            background:var(--panel);
+            padding:16px;
+            border:1px solid var(--border);
+            border-radius:8px;
+            box-shadow:var(--shadow);
             margin-bottom:16px;
         }}
         h2 {{
@@ -83,7 +133,7 @@ def site_index_page():
             border-radius:8px;
             border:none;
             color:white;
-            background:linear-gradient(135deg,#60a5fa,#a78bfa);
+            background:var(--button-bg);
             text-decoration:none;
             font-weight:700;
             cursor:pointer;
@@ -96,18 +146,27 @@ def site_index_page():
         }}
         th, td {{
             padding:12px;
-            border-top:1px solid #e2e8f0;
+            border-top:1px solid var(--border);
             text-align:left;
             vertical-align:top;
         }}
         th {{
-            color:#64748b;
-            background:#f1f5f9;
+            color:var(--muted);
+            background:var(--panel-soft);
+        }}
+        @media (max-width:860px) {{
+            body {{ padding:14px; }}
+            h2 {{ font-size:24px; }}
+            table, tbody, tr, td {{ display:block; width:100%; }}
+            tr {{ border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); }}
+            tr:first-child {{ display:none; }}
+            td {{ border-top:1px solid var(--border); }}
         }}
     </style>
     </head>
     <body>
     <main class="page">
+        <nav class="nav">{nav_html("網站索引")}</nav>
         <div class="card">
             <h2>網站索引管理</h2>
             <p class="muted">索引會依照 data/urls.json 的網站清單建立。排程預設每 24 小時重建一次。</p>

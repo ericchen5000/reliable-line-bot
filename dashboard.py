@@ -17,6 +17,23 @@ def e(value):
     return html.escape(str(value))
 
 
+def nav_html(active=""):
+    items = [
+        ("/", "Dashboard"),
+        ("/logs", "LOGS"),
+        ("/faq", "FAQ"),
+        ("/site-index", "網站索引"),
+        ("/unanswered", "未回答"),
+        ("/faq-suggestions", "建議 FAQ"),
+        ("/test-chat", "測試"),
+        ("/health", "健康檢查"),
+    ]
+    return "".join(
+        f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
+        for href, label in items
+    )
+
+
 def load_json(path, default):
     if not os.path.exists(path):
         return default
@@ -105,16 +122,22 @@ def dashboard():
         h2 {{ margin:0; font-size:28px; }}
         .subtitle {{ margin:8px 0 0; color:var(--muted); font-size:13px; }}
         .nav {{ display:flex; gap:8px; flex-wrap:wrap; }}
-        .nav a {{
+        .nav-link {{
             min-height:40px;
             padding:8px 14px;
             border-radius:8px;
-            color:white;
-            background:var(--button-bg);
+            color:var(--text);
+            background:var(--panel);
+            border:1px solid var(--border);
             text-decoration:none;
             font-weight:700;
             display:inline-flex;
             align-items:center;
+        }}
+        .nav-link.active {{
+            color:white;
+            background:var(--button-bg);
+            border:none;
         }}
         .grid {{
             display:grid;
@@ -155,11 +178,7 @@ def dashboard():
                 <h2>AI 客服 Dashboard</h2>
                 <p class="subtitle">LINE 客服、FAQ、網站索引與回應品質總覽</p>
             </div>
-            <nav class="nav">
-                <a href="/logs">LOGS</a>
-                <a href="/faq">FAQ</a>
-                <a href="/site-index">網站索引</a>
-            </nav>
+            <nav class="nav">{nav_html("Dashboard")}</nav>
         </header>
 
         <section class="grid">

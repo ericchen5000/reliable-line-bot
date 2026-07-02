@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse, Response
+from fastapi import APIRouter, Form
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 import csv
 import html
 import io
@@ -20,6 +20,12 @@ FAQ_PATH = "data/faq.json"
 def load_logs():
     if not os.path.exists(LOG_PATH):
         return []
+
+
+def save_logs(data):
+    os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+    with open(LOG_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
     try:
         with open(LOG_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -33,6 +39,23 @@ def g(d, k, default="-"):
 
 def e(value):
     return html.escape(str(value))
+
+
+def nav_html(active=""):
+    items = [
+        ("/", "Dashboard"),
+        ("/logs", "LOGS"),
+        ("/faq", "FAQ"),
+        ("/site-index", "網站索引"),
+        ("/unanswered", "未回答"),
+        ("/faq-suggestions", "建議 FAQ"),
+        ("/test-chat", "測試"),
+        ("/health", "健康檢查"),
+    ]
+    return "".join(
+        f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
+        for href, label in items
+    )
 
 
 def load_faq_questions():
@@ -199,6 +222,28 @@ def export_logs(
     )
 
 
+@router.post("/logs/quality/{log_id}")
+def mark_quality(
+    log_id: int,
+    quality: str = Form(...),
+    return_to: str = Form("/logs")
+):
+    allowed = {"good", "fix", "wrong"}
+    logs = load_logs()
+
+    if quality in allowed:
+        for item in logs:
+            if item.get("id") == log_id:
+                item["quality"] = quality
+                break
+        save_logs(logs)
+
+    if not return_to.startswith("/"):
+        return_to = "/logs"
+
+    return RedirectResponse(return_to, status_code=302)
+
+
 # =========================
 # UI
 # =========================
@@ -254,6 +299,13 @@ def logs_ui(
         meta = l.get("meta", {}) if isinstance(l.get("meta"), dict) else {}
         message = g(l, "message", "")
         reply = g(l, "reply", "")
+        log_id = g(l, "id", i + 1)
+        quality = g(l, "quality", "")
+        quality_text = {
+            "good": "良好",
+            "fix": "待修",
+            "wrong": "錯誤",
+        }.get(quality, "未標記")
         is_faq = str(message).strip().lower() in faq_questions
         transfer_html = '<span class="faq-added-pill">已轉 FAQ</span>' if is_faq else f"""
                 <form class="inline-form" method="post" action="/faq/add">
@@ -269,7 +321,7 @@ def logs_ui(
         # =========================
         rows += f"""
         <tr>
-            <td data-label="ID">{e(g(l,'id', i+1))}</td>
+            <td data-label="ID">{e(log_id)}</td>
             <td data-label="時間" class="time">{e(g(l,'time'))}</td>
             <td data-label="平台"><span class="pill">{e(g(l,'platform','LINE'))}</span></td>
 
@@ -294,7 +346,7 @@ def logs_ui(
         rows += f"""
         <tr id="detail-{i}" class="detail-row" style="display:none;">
             <td colspan="9">
-                <div class="detail-box">
+                <div class="detail-box" id="detail-content-{i}">
 
                     <div class="grid">
                         <!-- 
@@ -314,6 +366,19 @@ def logs_ui(
                     <div class="block">
                         <span class="pill-more"><b>回覆</b></span>
                         <div class="detail-text">{e(reply)}</div>
+                    </div>
+
+                    <div class="block">
+                        <span class="pill-more"><b>品質</b></span>
+                        <div class="quality-row">
+                            <span class="quality-pill">{e(quality_text)}</span>
+                            <form method="post" action="/logs/quality/{e(log_id)}">
+                                <input type="hidden" name="return_to" value="{e(current_return_to)}">
+                                <button name="quality" value="good">良好</button>
+                                <button name="quality" value="fix" class="quality-warn">待修</button>
+                                <button name="quality" value="wrong" class="quality-danger">錯誤</button>
+                            </form>
+                        </div>
                     </div>
 
                 </div>
@@ -371,9 +436,17 @@ def logs_ui(
     }
 
     function toggleDetail(i){
-        const el = document.getElementById("detail-" + i);
-        if(!el) return;
-        el.style.display = (el.style.display === "none") ? "" : "none";
+        const content = document.getElementById("detail-content-" + i);
+        const modal = document.getElementById("detail-modal");
+        const body = document.getElementById("detail-modal-body");
+        if(!content || !modal || !body) return;
+        body.innerHTML = content.innerHTML;
+        modal.style.display = "flex";
+    }
+
+    function closeModal(){
+        const modal = document.getElementById("detail-modal");
+        if(modal) modal.style.display = "none";
     }
     </script>
     """
@@ -432,6 +505,31 @@ def logs_ui(
     .page {
         max-width: 1280px;
         margin: 0 auto;
+    }
+
+    .nav {
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin:0 0 18px;
+    }
+
+    .nav-link {
+        min-height:36px;
+        padding:8px 12px;
+        border-radius:8px;
+        background:var(--panel);
+        border:1px solid var(--border);
+        color:var(--text);
+        text-decoration:none;
+        font-size:13px;
+        font-weight:700;
+    }
+
+    .nav-link.active {
+        color:white;
+        background:var(--button-bg);
+        border:none;
     }
 
     .topbar {
@@ -769,6 +867,79 @@ def logs_ui(
         white-space:pre-wrap;
     }
 
+    .quality-row {
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        align-items:center;
+        margin-top:12px;
+    }
+
+    .quality-row form {
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+    }
+
+    .quality-row button {
+        min-height:34px;
+        padding:7px 10px;
+    }
+
+    .quality-pill {
+        min-height:34px;
+        padding:7px 10px;
+        border-radius:8px;
+        display:inline-flex;
+        align-items:center;
+        background:var(--panel);
+        border:1px solid var(--border);
+        color:var(--muted);
+        font-weight:700;
+    }
+
+    .quality-warn {
+        background:#f59e0b;
+    }
+
+    .quality-danger {
+        background:var(--danger);
+    }
+
+    .modal {
+        position:fixed;
+        inset:0;
+        z-index:50;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        padding:18px;
+        background:rgba(15,23,42,0.55);
+    }
+
+    .modal-panel {
+        width:min(760px, 100%);
+        max-height:88vh;
+        overflow:auto;
+        background:var(--panel);
+        border:1px solid var(--border);
+        border-radius:8px;
+        box-shadow:var(--shadow);
+        padding:16px;
+    }
+
+    .modal-head {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        margin-bottom:12px;
+    }
+
+    .modal-head h3 {
+        margin:0;
+    }
+
     .pages {
         margin:14px 0;
         display:flex;
@@ -941,6 +1112,8 @@ def logs_ui(
         </label>
     </header>
 
+    <nav class="nav">{nav_html("LOGS")}</nav>
+
     <form class="bar">
         <input name="keyword" value="{e(keyword)}" placeholder="關鍵字">
         <input type="date" name="date_from" value="{e(date_from)}" title="開始日期">
@@ -989,6 +1162,16 @@ def logs_ui(
 
     <div class="pages">{pages}</div>
     </main>
+
+    <div class="modal" id="detail-modal" onclick="if(event.target.id === 'detail-modal') closeModal()">
+        <div class="modal-panel">
+            <div class="modal-head">
+                <h3>對話詳情</h3>
+                <button type="button" onclick="closeModal()">關閉</button>
+            </div>
+            <div id="detail-modal-body"></div>
+        </div>
+    </div>
 
     {js}
 

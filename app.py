@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
 import asyncio
@@ -26,12 +27,14 @@ from logs import router as logs_router
 from faq import router as faq_router
 from site_index import router as site_index_router
 from dashboard import router as dashboard_router
+from insights import router as insights_router
 from services.search_index import build_all_indexes
 
 app.include_router(dashboard_router)
 app.include_router(logs_router)
 app.include_router(faq_router)
 app.include_router(site_index_router)
+app.include_router(insights_router)
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
@@ -387,6 +390,109 @@ def ai_reply(user_message):
 
     reply, _ = ai_fallback(user_message)
     return reply, "AI客服"
+
+
+def admin_nav(active=""):
+    items = [
+        ("/", "Dashboard"),
+        ("/logs", "LOGS"),
+        ("/faq", "FAQ"),
+        ("/site-index", "網站索引"),
+        ("/unanswered", "未回答"),
+        ("/faq-suggestions", "建議 FAQ"),
+        ("/test-chat", "測試"),
+        ("/health", "健康檢查"),
+    ]
+    return "".join(
+        f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
+        for href, label in items
+    )
+
+
+def admin_css():
+    return """
+    :root { --bg:#f6f7fb; --panel:#fff; --panel-soft:#f1f5f9; --text:#172033; --muted:#64748b; --border:#e2e8f0; --button-bg:linear-gradient(135deg,#60a5fa,#a78bfa); --danger:#dc2626; --shadow:0 16px 40px rgba(15,23,42,0.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg); color:var(--text); padding:24px; }
+    .page { max-width:960px; margin:0 auto; }
+    h2 { margin:0; font-size:28px; }
+    .subtitle { color:var(--muted); font-size:13px; margin:8px 0 0; }
+    .nav { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0; }
+    .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; }
+    .nav-link.active { color:white; background:var(--button-bg); border:none; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+    textarea, input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
+    textarea { min-height:120px; resize:vertical; }
+    button { min-height:40px; padding:8px 14px; border:none; border-radius:8px; color:white; background:var(--button-bg); font-weight:700; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; }
+    td, th { padding:12px; border-top:1px solid var(--border); text-align:left; }
+    th { background:var(--panel-soft); color:var(--muted); }
+    .ok { color:#16a34a; font-weight:800; }
+    .bad { color:var(--danger); font-weight:800; }
+    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } }
+    """
+
+
+@app.get("/test-chat", response_class=HTMLResponse)
+def test_chat_page(message: str = ""):
+    answer = ""
+    source = ""
+
+    if message:
+        answer, source = ai_reply(message)
+
+    result_html = ""
+    if answer:
+        result_html = f"""
+        <div class="card">
+            <h3>測試結果</h3>
+            <p><b>資料來源：</b>{html_escape(source)}</p>
+            <div style="white-space:pre-wrap; line-height:1.7;">{html_escape(answer)}</div>
+        </div>
+        """
+
+    return HTMLResponse(f"""
+    <html><head><meta charset="utf-8"/><style>{admin_css()}</style></head>
+    <body><main class="page">
+    <h2>LINE 問答測試</h2><p class="subtitle">不用打開 LINE，直接測目前 AI 客服回答流程</p>
+    <nav class="nav">{admin_nav("測試")}</nav>
+    <form class="card" method="get" action="/test-chat">
+        <textarea name="message" placeholder="輸入測試問題">{html_escape(message)}</textarea>
+        <button>送出測試</button>
+    </form>
+    {result_html}
+    </main></body></html>
+    """)
+
+
+def html_escape(value):
+    import html
+    return html.escape(str(value))
+
+
+@app.get("/health", response_class=HTMLResponse)
+def health_page():
+    checks = [
+        ("LINE_CHANNEL_ACCESS_TOKEN", bool(LINE_CHANNEL_ACCESS_TOKEN)),
+        ("LINE_CHANNEL_SECRET", bool(LINE_CHANNEL_SECRET)),
+        ("DEEPSEEK_API_KEY", bool(os.getenv("DEEPSEEK_API_KEY"))),
+        ("FAQ 檔案", os.path.exists("data/faq.json")),
+        ("URLS 檔案", os.path.exists("data/urls.json")),
+        ("LOGS 目錄", os.path.exists("logs")),
+        ("網站索引檔案", os.path.exists("data/site_index.json")),
+    ]
+    rows = "".join(
+        f"<tr><td>{html_escape(name)}</td><td class='{'ok' if ok else 'bad'}'>{'OK' if ok else '缺少'}</td></tr>"
+        for name, ok in checks
+    )
+    return HTMLResponse(f"""
+    <html><head><meta charset="utf-8"/><style>{admin_css()}</style></head>
+    <body><main class="page">
+    <h2>健康檢查</h2><p class="subtitle">確認服務設定與必要資料檔是否存在</p>
+    <nav class="nav">{admin_nav("健康檢查")}</nav>
+    <div class="card"><table><tr><th>項目</th><th>狀態</th></tr>{rows}</table></div>
+    </main></body></html>
+    """)
 
 
 # =========================
