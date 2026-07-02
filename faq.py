@@ -257,6 +257,21 @@ def faq_page(edit_id: int = None, q: str = ""):
             align-items:center;
         }}
 
+        .search-card input {{
+            flex:1 1 auto;
+            min-width:220px;
+            margin-bottom:0;
+        }}
+
+        .search-card button,
+        .search-card .cancel-link {{
+            flex:0 0 auto;
+            min-width:86px;
+            min-height:40px;
+            padding:8px 16px;
+            white-space:nowrap;
+        }}
+
         input, textarea {{
             width:100%;
             padding:10px 12px;
@@ -416,6 +431,13 @@ def faq_page(edit_id: int = None, q: str = ""):
             .search-card {{
                 display:grid;
                 grid-template-columns:1fr;
+            }}
+
+            .search-card input,
+            .search-card button,
+            .search-card .cancel-link {{
+                width:100%;
+                min-width:0;
             }}
 
             .table-wrap {{
