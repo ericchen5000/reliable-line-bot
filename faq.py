@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 import html
 import json
 import os
+from urllib.parse import urlencode
 
 router = APIRouter()
 
@@ -35,13 +36,18 @@ def e(value):
     return html.escape(str(value))
 
 
+def normalize_question(value):
+    return str(value).strip().lower()
+
+
 # =========================
 # MAIN PAGE (ALL IN ONE)
 # =========================
 @router.get("/faq", response_class=HTMLResponse)
-def faq_page(edit_id: int = None):
+def faq_page(edit_id: int = None, q: str = ""):
 
     faq = load_faq()
+    search_text = q.strip().lower()
 
     edit_item = None
     if edit_id is not None and 0 <= edit_id < len(faq):
@@ -50,6 +56,13 @@ def faq_page(edit_id: int = None):
     rows = ""
 
     for i, item in enumerate(faq):
+        if search_text:
+            haystack = f"{item.get('question','')} {item.get('answer','')}".lower()
+            if search_text not in haystack:
+                continue
+
+        edit_query = urlencode({"edit_id": i, "q": q}) if q else urlencode({"edit_id": i})
+
         rows += f"""
         <tr>
             <td data-label="ID">{i+1}</td>
@@ -57,7 +70,7 @@ def faq_page(edit_id: int = None):
             <td data-label="答案" class="answer-cell">{e(item.get('answer',''))}</td>
 
             <td data-label="操作" class="actions">
-                <a href="/faq?edit_id={i}" class="btn-edit">編輯</a>
+                <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
                 <a href="/faq/delete/{i}" class="btn-del">刪除</a>
             </td>
         </tr>
@@ -237,6 +250,13 @@ def faq_page(edit_id: int = None):
             box-shadow:var(--shadow);
         }}
 
+        .search-card {{
+            margin-bottom:16px;
+            display:flex;
+            gap:10px;
+            align-items:center;
+        }}
+
         input, textarea {{
             width:100%;
             padding:10px 12px;
@@ -393,6 +413,11 @@ def faq_page(edit_id: int = None):
                 grid-template-columns:1fr;
             }}
 
+            .search-card {{
+                display:grid;
+                grid-template-columns:1fr;
+            }}
+
             .table-wrap {{
                 overflow:visible;
                 background:transparent;
@@ -505,6 +530,12 @@ def faq_page(edit_id: int = None):
         </label>
     </header>
 
+    <form class="card search-card" method="get" action="/faq">
+        <input name="q" value="{e(q)}" placeholder="搜尋 FAQ 問題或答案">
+        <button>搜尋</button>
+        <a href="/faq" class="cancel-link">清空</a>
+    </form>
+
     <div class="layout">
 
         <!-- LEFT: FORM -->
@@ -558,12 +589,18 @@ def add(
 
     faq = load_faq()
 
-    faq.append({
-        "question": question,
-        "answer": answer
-    })
+    exists = any(
+        normalize_question(item.get("question", "")) == normalize_question(question)
+        for item in faq
+    )
 
-    save_faq(faq)
+    if not exists:
+        faq.append({
+            "question": question,
+            "answer": answer
+        })
+
+        save_faq(faq)
 
     if not return_to.startswith("/"):
         return_to = "/faq"

@@ -5,12 +5,13 @@ import html
 import io
 import json
 import os
-from datetime import datetime
+from datetime import datetime, time
 from urllib.parse import urlencode
 
 router = APIRouter()
 
 LOG_PATH = "logs/chat_logs.json"
+FAQ_PATH = "data/faq.json"
 
 
 # =========================
@@ -34,6 +35,23 @@ def e(value):
     return html.escape(str(value))
 
 
+def load_faq_questions():
+    if not os.path.exists(FAQ_PATH):
+        return set()
+
+    try:
+        with open(FAQ_PATH, "r", encoding="utf-8") as f:
+            faq = json.load(f)
+    except:
+        return set()
+
+    return {
+        str(item.get("question", "")).strip().lower()
+        for item in faq
+        if item.get("question")
+    }
+
+
 # =========================
 # SORT MAP
 # =========================
@@ -47,7 +65,34 @@ SORT_MAP = {
 }
 
 
-def filter_logs(logs, keyword="", platform="", source="", sort_by="time", sort_order="desc"):
+def parse_log_time(value):
+    try:
+        return datetime.strptime(str(value), "%Y/%m/%d %H:%M:%S")
+    except:
+        return None
+
+
+def parse_date(value, end_of_day=False):
+    if not value:
+        return None
+
+    try:
+        date_value = datetime.strptime(value, "%Y-%m-%d").date()
+        return datetime.combine(date_value, time.max if end_of_day else time.min)
+    except:
+        return None
+
+
+def filter_logs(
+    logs,
+    keyword="",
+    platform="",
+    source="",
+    date_from="",
+    date_to="",
+    sort_by="time",
+    sort_order="desc"
+):
     if keyword:
         k = keyword.lower()
         logs = [
@@ -63,6 +108,28 @@ def filter_logs(logs, keyword="", platform="", source="", sort_by="time", sort_o
     if source:
         logs = [l for l in logs if l.get("source") == source]
 
+    start_at = parse_date(date_from)
+    end_at = parse_date(date_to, end_of_day=True)
+
+    if start_at or end_at:
+        filtered = []
+
+        for item in logs:
+            log_time = parse_log_time(item.get("time", ""))
+
+            if not log_time:
+                continue
+
+            if start_at and log_time < start_at:
+                continue
+
+            if end_at and log_time > end_at:
+                continue
+
+            filtered.append(item)
+
+        logs = filtered
+
     sort_key = SORT_MAP.get(sort_by, "time")
     reverse = (sort_order == "desc")
 
@@ -70,11 +137,21 @@ def filter_logs(logs, keyword="", platform="", source="", sort_by="time", sort_o
     return logs
 
 
-def export_link(keyword="", platform="", source="", sort_by="time", sort_order="desc"):
+def export_link(
+    keyword="",
+    platform="",
+    source="",
+    date_from="",
+    date_to="",
+    sort_by="time",
+    sort_order="desc"
+):
     params = {
         "keyword": keyword,
         "platform": platform,
         "source": source,
+        "date_from": date_from,
+        "date_to": date_to,
         "sort_by": sort_by,
         "sort_order": sort_order,
     }
@@ -87,10 +164,12 @@ def export_logs(
     keyword: str = "",
     platform: str = "",
     source: str = "",
+    date_from: str = "",
+    date_to: str = "",
     sort_by: str = "time",
     sort_order: str = "desc"
 ):
-    logs = filter_logs(load_logs(), keyword, platform, source, sort_by, sort_order)
+    logs = filter_logs(load_logs(), keyword, platform, source, date_from, date_to, sort_by, sort_order)
 
     output = io.StringIO()
     output.write("\ufeff")
@@ -130,11 +209,13 @@ def logs_ui(
     keyword: str = "",
     platform: str = "",
     source: str = "",
+    date_from: str = "",
+    date_to: str = "",
     sort_by: str = "time",
     sort_order: str = "desc"
 ):
 
-    logs = filter_logs(load_logs(), keyword, platform, source, sort_by, sort_order)
+    logs = filter_logs(load_logs(), keyword, platform, source, date_from, date_to, sort_by, sort_order)
 
     # =========================
     # PAGINATION
@@ -150,14 +231,38 @@ def logs_ui(
     start = (page - 1) * size
     end = start + size
     logs_page = logs[start:end]
+    current_query = urlencode({
+        "page": page,
+        "size": size,
+        "keyword": keyword,
+        "platform": platform,
+        "source": source,
+        "date_from": date_from,
+        "date_to": date_to,
+        "sort_by": sort_by,
+        "sort_order": sort_order,
+    })
+    current_return_to = "/logs" + (f"?{current_query}" if current_query else "")
 
     # =========================
     # ROWS
     # =========================
     rows = ""
+    faq_questions = load_faq_questions()
 
     for i, l in enumerate(logs_page):
         meta = l.get("meta", {}) if isinstance(l.get("meta"), dict) else {}
+        message = g(l, "message", "")
+        reply = g(l, "reply", "")
+        is_faq = str(message).strip().lower() in faq_questions
+        transfer_html = '<span class="faq-added-pill">已轉 FAQ</span>' if is_faq else f"""
+                <form class="inline-form" method="post" action="/faq/add">
+                    <input type="hidden" name="question" value="{e(message)}">
+                    <input type="hidden" name="answer" value="{e(reply)}">
+                    <input type="hidden" name="return_to" value="{e(current_return_to)}">
+                    <button type="submit" class="faq-transfer-btn">轉 FAQ</button>
+                </form>
+        """
 
         # =========================
         # MAIN ROW
@@ -168,8 +273,8 @@ def logs_ui(
             <td data-label="時間" class="time">{e(g(l,'time'))}</td>
             <td data-label="平台"><span class="pill">{e(g(l,'platform','LINE'))}</span></td>
 
-            <td data-label="問題" class="msg">{e(str(g(l,'message',''))[:45])}</td>
-            <td data-label="回覆" class="reply-cell">{e(str(g(l,'reply',''))[:60])}</td>
+            <td data-label="問題" class="msg">{e(str(message)[:45])}</td>
+            <td data-label="回覆" class="reply-cell">{e(str(reply)[:60])}</td>
 
             <td data-label="延遲" class="latency">{e(g(l,'latency','-'))}</td>
             <td data-label="來源" class="source">{e(g(l,'source','-'))}</td>
@@ -177,12 +282,7 @@ def logs_ui(
 
             <td data-label="更多資訊" class="log-actions">
                 <button onclick="toggleDetail({i})">點擊查看</button>
-                <form class="inline-form" method="post" action="/faq/add">
-                    <input type="hidden" name="question" value="{e(g(l,'message',''))}">
-                    <input type="hidden" name="answer" value="{e(g(l,'reply',''))}">
-                    <input type="hidden" name="return_to" value="/logs">
-                    <button type="submit" class="faq-transfer-btn">轉 FAQ</button>
-                </form>
+                {transfer_html}
             </td>
         </tr>
 
@@ -208,12 +308,12 @@ def logs_ui(
 
                     <div class="block">
                         <span class="pill-more"><b>問題</b></span>
-                        <div class="detail-text">{e(g(l,'message',''))}</div>
+                        <div class="detail-text">{e(message)}</div>
                     </div>
 
                     <div class="block">
                         <span class="pill-more"><b>回覆</b></span>
-                        <div class="detail-text">{e(g(l,'reply',''))}</div>
+                        <div class="detail-text">{e(reply)}</div>
                     </div>
 
                 </div>
@@ -227,7 +327,7 @@ def logs_ui(
     page_opts = [10, 20, 50]
 
     def link(p):
-        return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&sort_by={sort_by}&sort_order={sort_order}"
+        return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&date_from={date_from}&date_to={date_to}&sort_by={sort_by}&sort_order={sort_order}"
 
     pages = ""
 
@@ -242,7 +342,7 @@ def logs_ui(
     size_select = "".join(
         [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
     )
-    download_url = export_link(keyword, platform, source, sort_by, sort_order)
+    download_url = export_link(keyword, platform, source, date_from, date_to, sort_by, sort_order)
 
     # =========================
     # JS（只新增，不動架構）
@@ -452,6 +552,11 @@ def logs_ui(
         flex:1 1 260px;
     }
 
+    input[type="date"] {
+        min-width:150px;
+        flex:0 1 170px;
+    }
+
     input:focus, select:focus {
         border-color:var(--accent);
         background:var(--panel);
@@ -513,6 +618,21 @@ def logs_ui(
         background:var(--button-bg-hover);
     }
 
+    .faq-added-pill {
+        min-height:36px;
+        padding:7px 10px;
+        border-radius:8px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        color:var(--accent-strong);
+        background:var(--accent-soft);
+        border:1px solid rgba(96,165,250,0.35);
+        font-size:13px;
+        font-weight:700;
+        white-space:nowrap;
+    }
+
     .log-actions {
         min-width:190px;
         display:flex;
@@ -526,7 +646,8 @@ def logs_ui(
     }
 
     .log-actions > button,
-    .log-actions .inline-form button {
+    .log-actions .inline-form button,
+    .log-actions .faq-added-pill {
         min-width:82px;
         min-height:36px;
         padding:7px 10px;
@@ -769,7 +890,8 @@ def logs_ui(
 
         .log-actions > button,
         .log-actions .inline-form,
-        .log-actions .inline-form button {
+        .log-actions .inline-form button,
+        .log-actions .faq-added-pill {
             width:100%;
             min-width:0;
         }
@@ -821,6 +943,8 @@ def logs_ui(
 
     <form class="bar">
         <input name="keyword" value="{e(keyword)}" placeholder="關鍵字">
+        <input type="date" name="date_from" value="{e(date_from)}" title="開始日期">
+        <input type="date" name="date_to" value="{e(date_to)}" title="結束日期">
 
         <select name="size">
             {size_select}

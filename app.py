@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
+import asyncio
 import json
 import os
 import time
@@ -23,15 +24,32 @@ app = FastAPI(title="AI Assistant")
 
 from logs import router as logs_router
 from faq import router as faq_router
+from site_index import router as site_index_router
+from dashboard import router as dashboard_router
+from services.search_index import build_all_indexes
 
+app.include_router(dashboard_router)
 app.include_router(logs_router)
 app.include_router(faq_router)
+app.include_router(site_index_router)
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 LOG_PATH = "logs/chat_logs.json"
 URLS_FILE = "data/urls.json"
+SITE_INDEX_INTERVAL_HOURS = int(os.getenv("SITE_INDEX_INTERVAL_HOURS", "24"))
+
+
+async def site_index_scheduler():
+    while True:
+        await asyncio.sleep(SITE_INDEX_INTERVAL_HOURS * 60 * 60)
+        await asyncio.to_thread(build_all_indexes)
+
+
+@app.on_event("startup")
+async def start_site_index_scheduler():
+    asyncio.create_task(site_index_scheduler())
 
 
 # =========================
