@@ -514,12 +514,22 @@ def logs_ui(
     }
 
     .log-actions {
-        min-width:150px;
+        min-width:190px;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        white-space:nowrap;
+    }
+
+    .log-actions .inline-form {
+        margin:0;
     }
 
     .log-actions > button,
     .log-actions .inline-form button {
-        min-width:86px;
+        min-width:82px;
+        min-height:36px;
+        padding:7px 10px;
         white-space:nowrap;
     }
 
