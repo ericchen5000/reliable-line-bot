@@ -7,6 +7,7 @@ import json
 import os
 from datetime import datetime, time
 from urllib.parse import urlencode
+from deepseek import ask_deepseek
 
 router = APIRouter()
 
@@ -49,6 +50,9 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
+        ("/weekly-report", "週報"),
+        ("/knowledge-gaps", "知識缺口"),
+        ("/brand-heat", "品牌熱度"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -382,6 +386,10 @@ def logs_ui(
                                 <button name="quality" value="wrong" class="quality-danger">錯誤</button>
                             </form>
                         </div>
+                    </div>
+
+                    <div class="block">
+                        <a class="export-link" href="/logs/summary/{e(log_id)}" target="_blank">產生 AI 摘要</a>
                     </div>
 
                 </div>
@@ -1186,4 +1194,59 @@ def logs_ui(
 
     </body>
     </html>
+    """)
+
+
+@router.get("/logs/summary/{log_id}", response_class=HTMLResponse)
+def log_summary(log_id: int):
+    target = None
+
+    for item in load_logs():
+        if item.get("id") == log_id:
+            target = item
+            break
+
+    if not target:
+        return HTMLResponse("<h2>找不到這筆 LOG</h2>", status_code=404)
+
+    prompt = """
+你是客服主管，請根據以下單筆客服 LOG 產生繁體中文摘要。
+請輸出：
+1. 使用者意圖
+2. 回答是否足夠
+3. 建議補充的 FAQ 或知識庫方向
+4. 建議下一步
+請簡潔、條列、不要誇大。
+"""
+    user_message = f"""
+問題：
+{target.get("message", "")}
+
+回答：
+{target.get("reply", "")}
+
+來源：
+{target.get("source", "")}
+"""
+
+    try:
+        summary = ask_deepseek(prompt, user_message)
+    except Exception as exc:
+        summary = f"摘要產生失敗：{exc}"
+
+    return HTMLResponse(f"""
+    <html>
+    <head>
+    <meta charset="utf-8"/>
+    <style>
+    body {{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:#f6f7fb; color:#172033; padding:24px; }}
+    .page {{ max-width:900px; margin:0 auto; }}
+    .card {{ background:white; border:1px solid #e2e8f0; border-radius:8px; padding:16px; box-shadow:0 16px 40px rgba(15,23,42,0.08); margin-bottom:14px; }}
+    .text {{ white-space:pre-wrap; line-height:1.7; }}
+    </style>
+    </head>
+    <body><main class="page">
+    <div class="card"><h2>LOG #{e(log_id)} AI 摘要</h2></div>
+    <div class="card"><div class="text">{e(summary)}</div></div>
+    </main></body></html>
     """)

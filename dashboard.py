@@ -23,6 +23,9 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
+        ("/weekly-report", "週報"),
+        ("/knowledge-gaps", "知識缺口"),
+        ("/brand-heat", "品牌熱度"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -160,13 +163,28 @@ def dashboard():
             grid-template-columns:1fr 1fr;
             gap:14px;
         }}
+        .feature-grid {{
+            display:grid;
+            grid-template-columns:repeat(3, minmax(0, 1fr));
+            gap:14px;
+            margin-bottom:14px;
+        }}
+        .feature-card {{
+            text-decoration:none;
+            color:var(--text);
+            display:block;
+        }}
+        .feature-card b {{
+            display:block;
+            margin-bottom:8px;
+        }}
         table {{ width:100%; border-collapse:collapse; }}
         th, td {{ padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; }}
         th {{ color:var(--muted); background:var(--panel-soft); }}
         @media (max-width: 860px) {{
             body {{ padding:14px; }}
             .topbar {{ flex-direction:column; align-items:stretch; }}
-            .grid, .wide {{ grid-template-columns:1fr; }}
+            .grid, .wide, .feature-grid {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
             .nav-link {{ width:100%; justify-content:center; }}
         }}
@@ -200,6 +218,12 @@ def dashboard():
                 <div class="label">平均延遲</div>
                 <div class="value">{e(avg_latency)}</div>
             </div>
+        </section>
+
+        <section class="feature-grid">
+            <a class="card feature-card" href="/weekly-report"><b>AI 客服週報</b><span class="subtitle">整理 7 天客服狀態與常見問題</span></a>
+            <a class="card feature-card" href="/knowledge-gaps"><b>知識缺口分析</b><span class="subtitle">找出 AI 沒答好的問題</span></a>
+            <a class="card feature-card" href="/brand-heat"><b>產品 / 品牌熱度</b><span class="subtitle">統計客戶關注品牌</span></a>
         </section>
 
         <section class="wide">

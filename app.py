@@ -28,6 +28,7 @@ from faq import router as faq_router
 from site_index import router as site_index_router
 from dashboard import router as dashboard_router
 from insights import router as insights_router
+from analytics import router as analytics_router
 from services.search_index import build_all_indexes
 from services.retriever import retrieve
 
@@ -36,6 +37,7 @@ app.include_router(logs_router)
 app.include_router(faq_router)
 app.include_router(site_index_router)
 app.include_router(insights_router)
+app.include_router(analytics_router)
 
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
@@ -446,6 +448,9 @@ def admin_nav(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
+        ("/weekly-report", "週報"),
+        ("/knowledge-gaps", "知識缺口"),
+        ("/brand-heat", "品牌熱度"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -475,21 +480,62 @@ def admin_css():
     th { background:var(--panel-soft); color:var(--muted); }
     .ok { color:#16a34a; font-weight:800; }
     .bad { color:var(--danger); font-weight:800; }
+    .step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
+    .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
+    .hit { background:#dcfce7; color:#15803d; }
+    .miss { background:#fee2e2; color:#b91c1c; }
     @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } }
     """
+
+
+def trace_reply_flow(message):
+    steps = []
+
+    faq, _ = search_faq(message)
+    steps.append(("FAQ", bool(faq), "命中 FAQ" if faq else "未命中"))
+
+    kb, kb_source = search_knowledge(message)
+    steps.append(("KB", bool(kb), kb_source if kb else "未命中"))
+
+    indexed_answer, indexed_source = search_site_index(message)
+    steps.append(("網站索引", bool(indexed_answer), indexed_source if indexed_answer else "未命中或低信心"))
+
+    url_data = search_urls(message)
+    steps.append(("即時網站搜尋", bool(url_data), url_data.get("title", "命中") if url_data else "未命中 urls.json keywords"))
+
+    company, _ = handle_company(message)
+    steps.append(("公司資料", bool(company), "命中 company.json" if company else "未命中"))
+
+    return steps
 
 
 @app.get("/test-chat", response_class=HTMLResponse)
 def test_chat_page(message: str = ""):
     answer = ""
     source = ""
+    trace_html = ""
 
     if message:
+        steps = trace_reply_flow(message)
         answer, source = ai_reply(message)
+        trace_html = "".join(
+            f"""
+            <div class="step">
+                <span class="badge {'hit' if hit else 'miss'}">{'命中' if hit else '略過'}</span>
+                <b>{html_escape(name)}</b>
+                <span>{html_escape(detail)}</span>
+            </div>
+            """
+            for name, hit, detail in steps
+        )
 
     result_html = ""
     if answer:
         result_html = f"""
+        <div class="card">
+            <h3>命中流程</h3>
+            {trace_html}
+        </div>
         <div class="card">
             <h3>測試結果</h3>
             <p><b>資料來源：</b>{html_escape(source)}</p>
