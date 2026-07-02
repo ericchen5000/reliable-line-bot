@@ -535,7 +535,11 @@ def faq_page(edit_id: int = None):
 # ADD
 # =========================
 @router.post("/faq/add")
-def add(question: str = Form(...), answer: str = Form(...)):
+def add(
+    question: str = Form(...),
+    answer: str = Form(...),
+    return_to: str = Form("/faq")
+):
 
     faq = load_faq()
 
@@ -546,7 +550,10 @@ def add(question: str = Form(...), answer: str = Form(...)):
 
     save_faq(faq)
 
-    return RedirectResponse("/faq", status_code=302)
+    if not return_to.startswith("/"):
+        return_to = "/faq"
+
+    return RedirectResponse(return_to, status_code=302)
 
 
 # =========================

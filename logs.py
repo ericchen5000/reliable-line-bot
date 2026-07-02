@@ -177,6 +177,12 @@ def logs_ui(
 
             <td data-label="更多資訊">
                 <button onclick="toggleDetail({i})">點擊查看</button>
+                <form class="inline-form" method="post" action="/faq/add">
+                    <input type="hidden" name="question" value="{e(g(l,'message',''))}">
+                    <input type="hidden" name="answer" value="{e(g(l,'reply',''))}">
+                    <input type="hidden" name="return_to" value="/logs">
+                    <button type="submit" class="faq-transfer-btn">轉 FAQ</button>
+                </form>
             </td>
         </tr>
 
@@ -487,6 +493,26 @@ def logs_ui(
         color:white;
     }
 
+    .inline-form {
+        display:inline-flex;
+        margin:0 0 0 6px;
+    }
+
+    .inline-form input {
+        display:none;
+    }
+
+    .faq-transfer-btn {
+        background:var(--accent-soft);
+        color:var(--accent);
+        border:1px solid rgba(96,165,250,0.35);
+    }
+
+    .faq-transfer-btn:hover {
+        color:white;
+        background:var(--button-bg-hover);
+    }
+
     /* TABLE */
     .table-wrap {
         overflow-x:auto;
@@ -653,6 +679,12 @@ def logs_ui(
         input, select, button, .clear-link, .export-link {
             width:100%;
             min-width:0;
+        }
+
+        .inline-form {
+            display:flex;
+            width:100%;
+            margin:8px 0 0;
         }
 
         .table-wrap {
