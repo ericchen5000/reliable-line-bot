@@ -232,9 +232,11 @@ def logs_ui(
         --text: #172033;
         --muted: #64748b;
         --border: #e2e8f0;
-        --accent: #0f766e;
-        --accent-strong: #115e59;
-        --accent-soft: #ccfbf1;
+        --accent: #4f46e5;
+        --accent-strong: #3730a3;
+        --accent-soft: #e0e7ff;
+        --button-bg: linear-gradient(135deg,#60a5fa,#a78bfa);
+        --button-bg-hover: linear-gradient(135deg,#3b82f6,#8b5cf6);
         --danger: #dc2626;
         --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
     }
@@ -261,9 +263,11 @@ def logs_ui(
         --text: #e5edf7;
         --muted: #94a3b8;
         --border: #334155;
-        --accent: #2dd4bf;
-        --accent-strong: #5eead4;
-        --accent-soft: rgba(45,212,191,0.16);
+        --accent: #93c5fd;
+        --accent-strong: #c4b5fd;
+        --accent-soft: rgba(96,165,250,0.18);
+        --button-bg: linear-gradient(135deg,#60a5fa,#a78bfa);
+        --button-bg-hover: linear-gradient(135deg,#3b82f6,#8b5cf6);
         --danger: #fb7185;
         --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
     }
@@ -343,7 +347,7 @@ def logs_ui(
         padding:8px 14px;
         border-radius:8px;
         border:none;
-        background:var(--accent);
+        background:var(--button-bg);
         color:white;
         cursor:pointer;
         font-weight:600;
@@ -357,7 +361,7 @@ def logs_ui(
 
     button:hover, .clear-link:hover {
         transform: translateY(-1px);
-        background:var(--accent-strong);
+        background:var(--button-bg-hover);
     }
 
     .clear-link {
