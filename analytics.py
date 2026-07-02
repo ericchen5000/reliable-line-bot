@@ -86,6 +86,8 @@ def base_css():
     .nav { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 18px; }
     .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
     .nav-link.active { color:white; background:var(--button-bg); border:none; }
+    .report-top { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
+    .primary-action, .report-box button { min-height:40px; padding:8px 14px; border-radius:8px; border:none; background:var(--button-bg); color:white; cursor:pointer; font-weight:700; font-size:13px; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
     .grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:14px; }
     .wide { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
@@ -95,7 +97,18 @@ def base_css():
     th, td { padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; line-height:1.6; }
     th { color:var(--muted); background:var(--panel-soft); }
     .pill { display:inline-flex; min-height:30px; align-items:center; padding:5px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-size:13px; font-weight:800; }
-    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } .grid,.wide { grid-template-columns:1fr; } .nav-link { width:100%; } table,tbody,tr,td { display:block; width:100%; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:90px 1fr; gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
+    .bar-chart { display:grid; gap:12px; }
+    .bar-row { display:grid; grid-template-columns:120px 1fr 42px; gap:10px; align-items:center; }
+    .bar-name { color:var(--text); font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .bar-track { height:12px; border-radius:999px; background:var(--panel-soft); overflow:hidden; border:1px solid var(--border); }
+    .bar-fill { height:100%; border-radius:999px; background:var(--button-bg); min-width:8px; }
+    .bar-count { color:var(--accent); font-weight:800; font-size:13px; text-align:right; }
+    .empty-chart { color:var(--muted); padding:12px; border:1px dashed var(--border); border-radius:8px; background:var(--panel-soft); }
+    .report-box { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+    .report-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .report-head h3 { margin:0; }
+    .report-text { padding:14px; border-radius:8px; background:var(--panel-soft); border:1px solid var(--border); white-space:pre-wrap; line-height:1.8; }
+    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } .report-top,.report-head { align-items:stretch; flex-direction:column; } .primary-action,.report-box button { width:100%; } .grid,.wide { grid-template-columns:1fr; } .nav-link { width:100%; } .bar-row { grid-template-columns:1fr 64px; } .bar-name { grid-column:1 / -1; white-space:normal; } table,tbody,tr,td { display:block; width:100%; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:90px 1fr; gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
     """
 
 
@@ -136,8 +149,50 @@ def brand_counter(logs):
     return counts
 
 
+def bar_chart(items, empty_text="尚無資料"):
+    items = list(items)
+
+    if not items:
+        return f"<div class='empty-chart'>{empty_text}</div>"
+
+    max_count = max(count for _, count in items) or 1
+    rows = []
+
+    for label, count in items:
+        width = round(count / max_count * 100, 1)
+        rows.append(f"""
+        <div class="bar-row">
+            <div class="bar-name">{e(label)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:{width}%"></div></div>
+            <div class="bar-count">{count}</div>
+        </div>
+        """)
+
+    return "".join(rows)
+
+
+def weekly_report_text(total, unanswered_count, faq_count, chunks, sources, brands, repeats):
+    top_source = sources.most_common(1)[0] if sources else ("尚無", 0)
+    top_brand = brands.most_common(1)[0] if brands else ("尚無", 0)
+    top_repeat = repeats[0] if repeats else ("尚無明顯重複問題", 0)
+    action = "優先補強知識庫缺口，並把重複問題轉成 FAQ。"
+
+    if total and unanswered_count / total < 0.15:
+        action = "整體回答穩定，可持續補充高頻品牌與產品資料。"
+
+    return f"""
+本週 AI 客服共處理 {total} 筆對話，其中未回答或待修 {unanswered_count} 筆。
+
+主要回答來源為「{top_source[0]}」，共 {top_source[1]} 筆。最常被提到的品牌/產品是「{top_brand[0]}」，共 {top_brand[1]} 次。
+
+目前 FAQ 共 {faq_count} 筆，網站索引段落共 {chunks} 段。重複問題最高的是「{top_repeat[0]}」，出現 {top_repeat[1]} 次。
+
+建議下一步：{action}
+"""
+
+
 @router.get("/weekly-report", response_class=HTMLResponse)
-def weekly_report():
+def weekly_report(generate: int = 0):
     logs = recent_logs(7)
     faq = load_json(FAQ_PATH, [])
     index_status = load_json(INDEX_STATUS_PATH, {})
@@ -158,12 +213,39 @@ def weekly_report():
         f"<tr><td data-label='問題'>{e(question)}</td><td data-label='次數'>{count}</td></tr>"
         for question, count in repeats[:8]
     ) or "<tr><td colspan='2'>尚無重複問題</td></tr>"
+    source_chart = bar_chart(sources.most_common(8))
+    brand_chart = bar_chart(brands.most_common(8), "尚無品牌資料")
+    report_text = weekly_report_text(
+        len(logs),
+        len(unanswered),
+        len(faq),
+        index_status.get("total_chunks", 0),
+        sources,
+        brands,
+        repeats,
+    )
+    report_html = f"""
+    <section class="report-box" id="generated-report">
+        <div class="report-head">
+            <div>
+                <h3>本週 AI 客服摘要</h3>
+                <p class="subtitle">系統依最近 7 天 LOGS 自動整理</p>
+            </div>
+            <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('report-text').innerText)">複製週報</button>
+        </div>
+        <div class="report-text" id="report-text">{e(report_text)}</div>
+    </section>
+    """ if generate else ""
 
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><style>{base_css()}</style></head>
     <body><main class="page">
-    <header class="topbar"><h2>AI 客服週報</h2><p class="subtitle">最近 7 天客服營運摘要</p></header>
+    <header class="topbar report-top">
+        <div><h2>AI 客服週報</h2><p class="subtitle">最近 7 天客服營運摘要</p></div>
+        <a class="primary-action" href="/weekly-report?generate=1">一鍵產生週報</a>
+    </header>
     <nav class="nav">{nav_html("週報")}</nav>
+    {report_html}
     <section class="grid">
         <div class="card"><div class="label">7 天對話</div><div class="value">{len(logs)}</div></div>
         <div class="card"><div class="label">未回答 / 待修</div><div class="value">{len(unanswered)}</div></div>
@@ -171,9 +253,18 @@ def weekly_report():
         <div class="card"><div class="label">索引段落</div><div class="value">{e(index_status.get("total_chunks", 0))}</div></div>
     </section>
     <section class="wide">
+        <div class="card"><h3>資料來源圖表</h3><div class="bar-chart">{source_chart}</div></div>
+        <div class="card"><h3>品牌/產品圖表</h3><div class="bar-chart">{brand_chart}</div></div>
+    </section>
+    <section class="wide">
         <div class="card"><h3>資料來源分布</h3><table><tr><th>來源</th><th>次數</th></tr>{source_rows}</table></div>
         <div class="card"><h3>品牌/產品熱度</h3><table><tr><th>品牌</th><th>提及次數</th></tr>{brand_rows}</table></div>
     </section>
+    <script>
+    if (window.location.search.includes("generate=1")) {{
+        setTimeout(() => document.getElementById("generated-report")?.scrollIntoView({{behavior:"smooth", block:"start"}}), 120);
+    }}
+    </script>
     <div class="card"><h3>重複問題</h3><table><tr><th>問題</th><th>次數</th></tr>{repeat_rows}</table></div>
     </main></body></html>
     """)

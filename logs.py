@@ -14,6 +14,14 @@ router = APIRouter()
 LOG_PATH = "logs/chat_logs.json"
 FAQ_PATH = "data/faq.json"
 
+NO_INFO_MARKERS = [
+    "沒有相關資訊",
+    "目前知識庫沒有",
+    "目前網站索引沒有",
+    "資料庫中沒有",
+    "無法根據",
+]
+
 
 # =========================
 # LOAD
@@ -110,11 +118,23 @@ def parse_date(value, end_of_day=False):
         return None
 
 
+def is_unanswered_log(item):
+    reply = str(item.get("reply", ""))
+    source = str(item.get("source", ""))
+    quality = str(item.get("quality", ""))
+    return (
+        source == "AI客服"
+        or quality in {"fix", "wrong"}
+        or any(marker in reply for marker in NO_INFO_MARKERS)
+    )
+
+
 def filter_logs(
     logs,
     keyword="",
     platform="",
     source="",
+    quick="",
     date_from="",
     date_to="",
     sort_by="time",
@@ -137,6 +157,30 @@ def filter_logs(
 
     if source:
         logs = [l for l in logs if l.get("source") == source]
+
+    if quick:
+        faq_questions = load_faq_questions()
+
+        if quick == "unanswered":
+            logs = [l for l in logs if is_unanswered_log(l)]
+        elif quick == "ai":
+            logs = [l for l in logs if str(l.get("source", "")) in {"AI客服", "AI"}]
+        elif quick == "faq":
+            logs = [l for l in logs if str(l.get("source", "")) == "FAQ"]
+        elif quick == "site-index":
+            logs = [
+                l for l in logs
+                if "網站索引" in str(l.get("source", ""))
+                or str(l.get("source", "")).startswith("http")
+                or str(l.get("source", "")).startswith("URL-")
+            ]
+        elif quick == "transferred":
+            logs = [
+                l for l in logs
+                if str(l.get("message", "")).strip().lower() in faq_questions
+            ]
+        elif quick == "needs-review":
+            logs = [l for l in logs if str(l.get("quality", "")) in {"fix", "wrong"}]
 
     start_at = parse_date(date_from)
     end_at = parse_date(date_to, end_of_day=True)
@@ -171,6 +215,7 @@ def export_link(
     keyword="",
     platform="",
     source="",
+    quick="",
     date_from="",
     date_to="",
     sort_by="time",
@@ -180,6 +225,7 @@ def export_link(
         "keyword": keyword,
         "platform": platform,
         "source": source,
+        "quick": quick,
         "date_from": date_from,
         "date_to": date_to,
         "sort_by": sort_by,
@@ -194,12 +240,13 @@ def export_logs(
     keyword: str = "",
     platform: str = "",
     source: str = "",
+    quick: str = "",
     date_from: str = "",
     date_to: str = "",
     sort_by: str = "time",
     sort_order: str = "desc"
 ):
-    logs = filter_logs(load_logs(), keyword, platform, source, date_from, date_to, sort_by, sort_order)
+    logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
 
     output = io.StringIO()
     output.write("\ufeff")
@@ -261,13 +308,14 @@ def logs_ui(
     keyword: str = "",
     platform: str = "",
     source: str = "",
+    quick: str = "",
     date_from: str = "",
     date_to: str = "",
     sort_by: str = "time",
     sort_order: str = "desc"
 ):
 
-    logs = filter_logs(load_logs(), keyword, platform, source, date_from, date_to, sort_by, sort_order)
+    logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
 
     # =========================
     # PAGINATION
@@ -289,6 +337,7 @@ def logs_ui(
         "keyword": keyword,
         "platform": platform,
         "source": source,
+        "quick": quick,
         "date_from": date_from,
         "date_to": date_to,
         "sort_by": sort_by,
@@ -403,7 +452,19 @@ def logs_ui(
     page_opts = [10, 20, 50]
 
     def link(p):
-        return f"?page={p}&size={size}&keyword={keyword}&platform={platform}&source={source}&date_from={date_from}&date_to={date_to}&sort_by={sort_by}&sort_order={sort_order}"
+        query = urlencode({
+            "page": p,
+            "size": size,
+            "keyword": keyword,
+            "platform": platform,
+            "source": source,
+            "quick": quick,
+            "date_from": date_from,
+            "date_to": date_to,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+        })
+        return f"?{query}"
 
     pages = ""
 
@@ -418,7 +479,36 @@ def logs_ui(
     size_select = "".join(
         [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
     )
-    download_url = export_link(keyword, platform, source, date_from, date_to, sort_by, sort_order)
+    download_url = export_link(keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
+    quick_items = [
+        ("", "全部"),
+        ("unanswered", "未回答"),
+        ("ai", "AI 客服"),
+        ("faq", "FAQ"),
+        ("site-index", "網站索引"),
+        ("transferred", "已轉 FAQ"),
+        ("needs-review", "待修 / 錯誤"),
+    ]
+
+    def quick_link(value):
+        query = urlencode({
+            "page": 1,
+            "size": size,
+            "keyword": keyword,
+            "platform": platform,
+            "source": source,
+            "quick": value,
+            "date_from": date_from,
+            "date_to": date_to,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+        })
+        return "/logs" + (f"?{query}" if query else "")
+
+    quick_buttons = "".join(
+        f'<a class="quick-chip {"active" if quick == value else ""}" href="{e(quick_link(value))}">{label}</a>'
+        for value, label in quick_items
+    )
 
     # =========================
     # JS（只新增，不動架構）
@@ -646,6 +736,35 @@ def logs_ui(
         flex-wrap:wrap;
         box-shadow:var(--shadow);
         border:1px solid var(--border);
+    }
+
+    .quick-filters {
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin:0 0 16px;
+    }
+
+    .quick-chip {
+        min-height:36px;
+        padding:8px 12px;
+        border-radius:999px;
+        border:1px solid var(--border);
+        background:var(--panel);
+        color:var(--text);
+        text-decoration:none;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        font-size:13px;
+        font-weight:700;
+        box-shadow:0 8px 24px rgba(15,23,42,0.05);
+    }
+
+    .quick-chip.active {
+        color:white;
+        background:var(--button-bg);
+        border-color:transparent;
     }
 
     input, select {
@@ -1003,6 +1122,15 @@ def logs_ui(
             grid-template-columns:1fr;
         }
 
+        .quick-filters {
+            display:grid;
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+        }
+
+        .quick-chip {
+            width:100%;
+        }
+
         input, select, button, .clear-link, .export-link {
             width:100%;
             min-width:0;
@@ -1129,7 +1257,12 @@ def logs_ui(
 
     <nav class="nav">{nav_html("LOGS")}</nav>
 
+    <div class="quick-filters">
+        {quick_buttons}
+    </div>
+
     <form class="bar">
+        <input type="hidden" name="quick" value="{e(quick)}">
         <input name="keyword" value="{e(keyword)}" placeholder="關鍵字">
         <input type="date" name="date_from" value="{e(date_from)}" title="開始日期">
         <input type="date" name="date_to" value="{e(date_to)}" title="結束日期">
