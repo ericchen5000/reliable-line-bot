@@ -18,10 +18,8 @@ def nav_html(active=""):
         ("/", "Dashboard"),
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
-        ("/site-index", "網站索引"),
         ("/weekly-report", "週報"),
         ("/knowledge-gaps", "知識缺口"),
-        ("/brand-heat", "品牌熱度"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]

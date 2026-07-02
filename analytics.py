@@ -1,7 +1,7 @@
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 import html
 import json
 import os
@@ -61,10 +61,8 @@ def nav_html(active=""):
         ("/", "Dashboard"),
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
-        ("/site-index", "網站索引"),
         ("/weekly-report", "週報"),
         ("/knowledge-gaps", "知識缺口"),
-        ("/brand-heat", "品牌熱度"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -303,19 +301,4 @@ def knowledge_gaps():
 
 @router.get("/brand-heat", response_class=HTMLResponse)
 def brand_heat():
-    logs = load_json(LOG_PATH, [])
-    counts = brand_counter(logs)
-    total = sum(counts.values()) or 1
-    rows = "".join(
-        f"<tr><td data-label='品牌'>{e(brand)}</td><td data-label='提及次數'>{count}</td><td data-label='占比'>{round(count / total * 100, 1)}%</td></tr>"
-        for brand, count in counts.most_common()
-    ) or "<tr><td colspan='3'>尚無品牌熱度資料</td></tr>"
-
-    return HTMLResponse(f"""
-    <html><head><meta charset="utf-8"/><style>{base_css()}</style></head>
-    <body><main class="page">
-    <header class="topbar"><h2>產品 / 品牌熱度排行</h2><p class="subtitle">依 LOGS 自動統計客戶關注品牌</p></header>
-    <nav class="nav">{nav_html("品牌熱度")}</nav>
-    <div class="card"><table><tr><th>品牌</th><th>提及次數</th><th>占比</th></tr>{rows}</table></div>
-    </main></body></html>
-    """)
+    return RedirectResponse("/weekly-report", status_code=302)

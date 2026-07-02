@@ -1,10 +1,12 @@
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse
 import html
 import json
 import os
 from collections import Counter
 from datetime import datetime
+
+from services.search_index import INDEX_FILE, build_all_indexes, load_status
 
 router = APIRouter()
 
@@ -22,10 +24,8 @@ def nav_html(active=""):
         ("/", "Dashboard"),
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
-        ("/site-index", "網站索引"),
         ("/weekly-report", "週報"),
         ("/knowledge-gaps", "知識缺口"),
-        ("/brand-heat", "品牌熱度"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -53,11 +53,23 @@ def parse_log_time(value):
         return None
 
 
+def index_count():
+    if not os.path.exists(INDEX_FILE):
+        return 0
+
+    try:
+        with open(INDEX_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return len(data) if isinstance(data, list) else 0
+    except:
+        return 0
+
+
 @router.get("/", response_class=HTMLResponse)
 def dashboard():
     logs = load_json(LOG_PATH, [])
     faq = load_json(FAQ_PATH, [])
-    index_status = load_json(INDEX_STATUS_PATH, {})
+    index_status = load_status() or load_json(INDEX_STATUS_PATH, {})
     today = datetime.now().date()
 
     today_logs = [
@@ -87,6 +99,19 @@ def dashboard():
 
     if not source_rows:
         source_rows = "<tr><td colspan='2'>尚無資料</td></tr>"
+
+    site_rows = ""
+    for site in index_status.get("sites", []):
+        site_rows += f"""
+        <tr>
+            <td>{e(site.get("title", "-"))}</td>
+            <td>{e(site.get("url", "-"))}</td>
+            <td>{e(site.get("chunks", 0))}</td>
+        </tr>
+        """
+
+    if not site_rows:
+        site_rows = "<tr><td colspan='3'>尚未建立索引</td></tr>"
 
     return HTMLResponse(f"""
     <html>
@@ -178,12 +203,42 @@ def dashboard():
             display:block;
             margin-bottom:8px;
         }}
+        .index-head {{
+            display:flex;
+            align-items:flex-start;
+            justify-content:space-between;
+            gap:14px;
+            margin-bottom:12px;
+        }}
+        .index-actions {{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            align-items:center;
+        }}
+        button {{
+            min-height:40px;
+            padding:8px 14px;
+            border-radius:8px;
+            border:none;
+            background:var(--button-bg);
+            color:white;
+            font-size:13px;
+            font-weight:700;
+            cursor:pointer;
+            text-decoration:none;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+        }}
         table {{ width:100%; border-collapse:collapse; }}
         th, td {{ padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; }}
         th {{ color:var(--muted); background:var(--panel-soft); }}
         @media (max-width: 860px) {{
             body {{ padding:14px; }}
             .topbar {{ flex-direction:column; align-items:stretch; }}
+            .index-head {{ flex-direction:column; }}
+            button {{ width:100%; }}
             .grid, .wide, .feature-grid {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
             .nav-link {{ width:100%; justify-content:center; }}
@@ -223,7 +278,7 @@ def dashboard():
         <section class="feature-grid">
             <a class="card feature-card" href="/weekly-report"><b>AI 客服週報</b><span class="subtitle">整理 7 天客服狀態與常見問題</span></a>
             <a class="card feature-card" href="/knowledge-gaps"><b>知識缺口分析</b><span class="subtitle">找出 AI 沒答好的問題</span></a>
-            <a class="card feature-card" href="/brand-heat"><b>產品 / 品牌熱度</b><span class="subtitle">統計客戶關注品牌</span></a>
+            <a class="card feature-card" href="/logs"><b>LOGS 智慧搜尋</b><span class="subtitle">快速篩選來源、未回答與待修紀錄</span></a>
         </section>
 
         <section class="wide">
@@ -237,11 +292,35 @@ def dashboard():
             <div class="card">
                 <div class="label">網站索引狀態</div>
                 <p>最後更新：{e(index_status.get("last_run", "尚未建立"))}</p>
-                <p>索引段落數：{e(index_status.get("total_chunks", 0))}</p>
-                <p class="subtitle">索引排程預設每 24 小時重建一次，可在網站索引頁手動重建。</p>
+                <p>索引段落數：{e(index_status.get("total_chunks", index_count()))}</p>
+                <p class="subtitle">索引排程預設每 24 小時重建一次，也可以在下方立即建立。</p>
             </div>
+        </section>
+
+        <section class="card" style="margin-top:14px;">
+            <div class="index-head">
+                <div>
+                    <div class="label">網站索引管理</div>
+                    <p class="subtitle">依照 data/urls.json 的網站清單建立本地搜尋索引。</p>
+                </div>
+                <div class="index-actions">
+                    <form method="post" action="/dashboard/site-index/rebuild">
+                        <button>立即建立索引</button>
+                    </form>
+                </div>
+            </div>
+            <table>
+                <tr><th>網站</th><th>網址</th><th>索引段落</th></tr>
+                {site_rows}
+            </table>
         </section>
     </main>
     </body>
     </html>
     """)
+
+
+@router.post("/dashboard/site-index/rebuild")
+def rebuild_site_index_from_dashboard(background_tasks: BackgroundTasks):
+    background_tasks.add_task(build_all_indexes)
+    return RedirectResponse("/", status_code=302)
