@@ -5,7 +5,7 @@ import json
 import os
 import time
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -31,6 +31,7 @@ line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 LOG_PATH = "logs/chat_logs.json"
+URLS_FILE = "data/urls.json"
 
 
 # =========================
@@ -114,14 +115,24 @@ def search_faq(question):
 # =========================
 # SITEMAP
 # =========================
-def fetch_sitemap_urls(domain):
-    sitemap_url = f"{domain}/sitemap.xml"
+def normalize_site_base(url):
+    parsed = urlparse(url)
+
+    if not parsed.scheme or not parsed.netloc:
+        return None
+
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def fetch_sitemap_urls(site_base):
+    sitemap_url = urljoin(site_base, "/sitemap.xml")
 
     try:
         r = requests.get(sitemap_url, timeout=10)
+        r.raise_for_status()
         soup = BeautifulSoup(r.text, "xml")
 
-        urls = [loc.text for loc in soup.find_all("loc")]
+        urls = [loc.text.strip() for loc in soup.find_all("loc") if loc.text]
         return urls[:80]
 
     except:
@@ -135,6 +146,7 @@ def fetch_url_content(url):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         r = requests.get(url, headers=headers, timeout=8)
+        r.raise_for_status()
 
         soup = BeautifulSoup(r.text, "html.parser")
 
@@ -149,33 +161,112 @@ def fetch_url_content(url):
 
 
 # =========================
-# URL SEARCH
+# URL CONFIG
 # =========================
 def search_urls(user_message):
-    path = "data/urls.json"
-
-    if not os.path.exists(path):
-        return None, None
+    if not os.path.exists(URLS_FILE):
+        return None
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(URLS_FILE, "r", encoding="utf-8") as f:
             urls = json.load(f)
     except:
-        return None, None
+        return None
 
     msg = user_message.lower()
 
     for item in urls:
         keywords = item.get("keywords", [])
         url = item.get("url", "")
-        title = item.get("title", "")
 
-        if any(k.lower() in msg for k in keywords):
-            domain = urlparse(url).netloc
-            source = url
-            return url, title, source
+        if url and any(k.lower() in msg for k in keywords):
+            return item
 
     return None
+
+
+def search_website_content(user_message, site):
+    url = site.get("url", "")
+    title = site.get("title") or url
+    site_base = normalize_site_base(url)
+
+    if not site_base:
+        return None, None
+
+    pages = fetch_sitemap_urls(site_base)
+
+    if url not in pages:
+        pages.insert(0, url)
+
+    keywords = [
+        word.strip().lower()
+        for word in user_message.split()
+        if word.strip()
+    ]
+
+    scored_pages = []
+
+    for page in pages:
+        page_base = normalize_site_base(page)
+
+        if page_base != site_base:
+            continue
+
+        content = fetch_url_content(page)
+
+        if not content or len(content) < 80:
+            continue
+
+        content_lower = content.lower()
+        page_lower = page.lower()
+        score = 0
+
+        for keyword in keywords:
+            if keyword in content_lower:
+                score += 3
+            if keyword in page_lower:
+                score += 5
+
+        if "/pr/" in page_lower:
+            score += 3
+        if "/news/" in page_lower:
+            score += 2
+        if "/product/" in page_lower:
+            score += 2
+
+        if score > 0:
+            scored_pages.append((score, page, content))
+
+    scored_pages.sort(key=lambda x: x[0], reverse=True)
+
+    top_content = "\n\n".join(
+        f"頁面：{page}\n內容：{content}"
+        for _, page, content in scored_pages[:3]
+    )
+
+    if not top_content:
+        top_content = fetch_url_content(url)
+
+    if not top_content:
+        return None, None
+
+    prompt = SYSTEM_PROMPT + f"""
+
+網站名稱：
+{title}
+
+網站來源：
+{site_base}
+
+網站內容：
+{top_content}
+
+請只根據以上網站內容回答使用者問題。
+如果網站內容沒有答案，請回答「目前網站內容沒有相關資訊」。
+"""
+
+    answer = ask_deepseek(prompt, user_message)
+    return answer, site_base
 
 
 # =========================
@@ -264,63 +355,9 @@ def ai_reply(user_message):
     url_data = search_urls(user_message)
 
     if url_data:
-        url, title, source = url_data
-
-        domain = urlparse(url).netloc
-        if "reliable.com.tw" not in domain:
-            return None, None
-
-        base = "https://www.reliable.com.tw"
-        pages = fetch_sitemap_urls(base)
-
-        keywords = user_message.lower().split()
-
-        scored_pages = []
-
-        for page in pages:
-            content = fetch_url_content(page)
-
-            if not content or len(content) < 200:
-                continue
-
-            content_lower = content.lower()
-
-            score = 0
-
-            # content match
-            for k in keywords:
-                if k in content_lower:
-                    score += 3
-
-            # url match
-            for k in keywords:
-                if k in page.lower():
-                    score += 5
-
-            # section bonus
-            if "/pr/" in page:
-                score += 3
-            if "/news/" in page:
-                score += 2
-            if "/product/" in page:
-                score += 2
-
-            if score > 0:
-                scored_pages.append((score, page, content))
-
-        scored_pages.sort(key=lambda x: x[0], reverse=True)
-
-        top_content = "\n\n".join([c for _, _, c in scored_pages[:3]])
-
-        if not top_content:
-            top_content = fetch_url_content(url)
-
-        answer = ask_deepseek(
-            SYSTEM_PROMPT + f"\n\n網站內容：\n{top_content}",
-            user_message
-        )
-
-        return answer, source
+        answer, source = search_website_content(user_message, url_data)
+        if answer:
+            return answer, source
 
     kb, src = search_knowledge(user_message)
     if kb:
