@@ -29,6 +29,7 @@ from site_index import router as site_index_router
 from dashboard import router as dashboard_router
 from insights import router as insights_router
 from services.search_index import build_all_indexes
+from services.retriever import retrieve
 
 app.include_router(dashboard_router)
 app.include_router(logs_router)
@@ -350,6 +351,38 @@ def search_knowledge(user_message):
 
 
 # =========================
+# SITE INDEX
+# =========================
+def search_site_index(user_message):
+    pages = retrieve(user_message, top_k=3)
+
+    if not pages:
+        return None, None
+
+    context = "\n\n".join(
+        "網站：{site}\n頁面：{url}\n內容：{text}".format(
+            site=page.get("site", page.get("site_base", "")),
+            url=page.get("url", ""),
+            text=page.get("text", "")[:1600]
+        )
+        for page in pages
+    )
+    first_url = pages[0].get("url") or pages[0].get("site_base") or "site_index"
+
+    prompt = SYSTEM_PROMPT + f"""
+
+網站索引內容：
+{context}
+
+請只根據以上網站索引內容回答使用者問題。
+如果索引內容沒有答案，請回答「目前網站索引沒有相關資訊」。
+"""
+
+    answer = ask_deepseek(prompt, user_message)
+    return answer, f"網站索引 - {first_url}"
+
+
+# =========================
 # AI fallback
 # =========================
 def ai_fallback(user_message, context=""):
@@ -373,16 +406,20 @@ def ai_reply(user_message):
     if faq:
         return faq, "FAQ"
 
+    kb, src = search_knowledge(user_message)
+    if kb:
+        return kb, src
+
+    indexed_answer, indexed_source = search_site_index(user_message)
+    if indexed_answer:
+        return indexed_answer, indexed_source
+
     url_data = search_urls(user_message)
 
     if url_data:
         answer, source = search_website_content(user_message, url_data)
         if answer:
             return answer, source
-
-    kb, src = search_knowledge(user_message)
-    if kb:
-        return kb, src
 
     company, _ = handle_company(user_message)
     if company:

@@ -1,7 +1,6 @@
 # retriever.py
 
 import json
-import math
 
 INDEX_FILE = "data/site_index.json"
 
@@ -12,7 +11,8 @@ INDEX_FILE = "data/site_index.json"
 def load_index():
     try:
         with open(INDEX_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            return data if isinstance(data, list) else []
     except:
         return []
 
@@ -21,13 +21,18 @@ def load_index():
 # simple scoring
 # =========================
 def score(text, query):
-    q_words = query.lower().split()
+    q = query.lower().strip()
+    q_words = q.split()
     t = text.lower()
 
     s = 0
+
+    if q and q in t:
+        s += 8
+
     for w in q_words:
         if w in t:
-            s += 1
+            s += 2
 
     return s
 
@@ -41,7 +46,11 @@ def retrieve(query, top_k=3):
     scored = []
 
     for item in data:
-        s = score(item["text"], query)
+        text = item.get("text", "")
+        if not text:
+            continue
+
+        s = score(text, query)
 
         if s > 0:
             scored.append((s, item))
