@@ -23,8 +23,6 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
-        ("/unanswered", "未回答"),
-        ("/faq-suggestions", "建議 FAQ"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -110,8 +108,9 @@ def dashboard():
             background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg);
             padding:24px;
             color:var(--text);
+            font-size:16px;
         }}
-        .page {{ max-width:1180px; margin:0 auto; }}
+        .page {{ max-width:1280px; margin:0 auto; }}
         .topbar {{
             display:flex;
             justify-content:space-between;
@@ -121,7 +120,7 @@ def dashboard():
         }}
         h2 {{ margin:0; font-size:28px; }}
         .subtitle {{ margin:8px 0 0; color:var(--muted); font-size:13px; }}
-        .nav {{ display:flex; gap:8px; flex-wrap:wrap; }}
+        .nav {{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 18px; }}
         .nav-link {{
             min-height:40px;
             padding:8px 14px;
@@ -167,7 +166,7 @@ def dashboard():
             .topbar {{ flex-direction:column; align-items:stretch; }}
             .grid, .wide {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
-            .nav a {{ width:100%; justify-content:center; }}
+            .nav-link {{ width:100%; justify-content:center; }}
         }}
     </style>
     </head>
@@ -178,8 +177,9 @@ def dashboard():
                 <h2>AI 客服 Dashboard</h2>
                 <p class="subtitle">LINE 客服、FAQ、網站索引與回應品質總覽</p>
             </div>
-            <nav class="nav">{nav_html("Dashboard")}</nav>
         </header>
+
+        <nav class="nav">{nav_html("Dashboard")}</nav>
 
         <section class="grid">
             <div class="card">

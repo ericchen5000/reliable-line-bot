@@ -398,8 +398,6 @@ def admin_nav(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
-        ("/unanswered", "未回答"),
-        ("/faq-suggestions", "建議 FAQ"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -414,7 +412,7 @@ def admin_css():
     :root { --bg:#f6f7fb; --panel:#fff; --panel-soft:#f1f5f9; --text:#172033; --muted:#64748b; --border:#e2e8f0; --button-bg:linear-gradient(135deg,#60a5fa,#a78bfa); --danger:#dc2626; --shadow:0 16px 40px rgba(15,23,42,0.08); }
     * { box-sizing:border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg); color:var(--text); padding:24px; }
-    .page { max-width:960px; margin:0 auto; }
+    .page { max-width:1280px; margin:0 auto; }
     h2 { margin:0; font-size:28px; }
     .subtitle { color:var(--muted); font-size:13px; margin:8px 0 0; }
     .nav { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0; }

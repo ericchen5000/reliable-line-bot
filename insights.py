@@ -32,8 +32,6 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
-        ("/unanswered", "未回答"),
-        ("/faq-suggestions", "建議 FAQ"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -66,7 +64,7 @@ def base_css():
         color:var(--text);
         padding:24px;
     }
-    .page { max-width:1180px; margin:0 auto; }
+    .page { max-width:1280px; margin:0 auto; }
     .topbar { margin-bottom:18px; }
     h2 { margin:0; font-size:28px; }
     .subtitle { color:var(--muted); font-size:13px; margin:8px 0 0; }

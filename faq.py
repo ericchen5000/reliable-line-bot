@@ -46,8 +46,6 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
-        ("/unanswered", "未回答"),
-        ("/faq-suggestions", "建議 FAQ"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -150,6 +148,7 @@ def faq_page(edit_id: int = None, q: str = ""):
                 var(--bg);
             padding:24px;
             color:var(--text);
+            font-size:16px;
             transition: background 0.2s ease, color 0.2s ease;
         }}
 
@@ -314,8 +313,23 @@ def faq_page(edit_id: int = None, q: str = ""):
         .tool-row form {{
             display:flex;
             gap:10px;
-            flex-wrap:wrap;
+            flex:1 1 auto;
+            flex-wrap:nowrap;
             align-items:center;
+        }}
+
+        .tool-row input[type="file"] {{
+            flex:1 1 auto;
+            min-width:260px;
+            margin-bottom:0;
+        }}
+
+        .tool-row .export-link,
+        .tool-row button {{
+            flex:0 0 auto;
+            min-height:40px;
+            white-space:nowrap;
+            padding:8px 14px;
         }}
 
         .search-card input {{
@@ -504,6 +518,13 @@ def faq_page(edit_id: int = None, q: str = ""):
             .tool-row form {{
                 display:grid;
                 grid-template-columns:1fr;
+            }}
+
+            .tool-row input[type="file"],
+            .tool-row .export-link,
+            .tool-row button {{
+                width:100%;
+                min-width:0;
             }}
 
             .search-card input,

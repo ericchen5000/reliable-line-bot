@@ -49,8 +49,6 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
-        ("/unanswered", "未回答"),
-        ("/faq-suggestions", "建議 FAQ"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -488,6 +486,7 @@ def logs_ui(
             var(--bg);
         padding:24px;
         color:var(--text);
+        font-size:16px;
         transition: background 0.2s ease, color 0.2s ease;
     }
 

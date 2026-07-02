@@ -19,8 +19,6 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/site-index", "網站索引"),
-        ("/unanswered", "未回答"),
-        ("/faq-suggestions", "建議 FAQ"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -85,10 +83,18 @@ def site_index_page():
             background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg);
             padding:24px;
             color:var(--text);
+            font-size:16px;
         }}
         .page {{
-            max-width:960px;
+            max-width:1280px;
             margin:0 auto;
+        }}
+        .topbar {{
+            display:flex;
+            align-items:flex-end;
+            justify-content:space-between;
+            gap:16px;
+            margin-bottom:18px;
         }}
         .nav {{
             display:flex;
@@ -121,7 +127,13 @@ def site_index_page():
             margin-bottom:16px;
         }}
         h2 {{
-            margin:0 0 8px;
+            margin:0;
+            font-size:28px;
+        }}
+        .subtitle {{
+            margin:8px 0 0;
+            color:var(--muted);
+            font-size:13px;
         }}
         .muted {{
             color:#64748b;
@@ -157,6 +169,8 @@ def site_index_page():
         @media (max-width:860px) {{
             body {{ padding:14px; }}
             h2 {{ font-size:24px; }}
+            .topbar {{ flex-direction:column; align-items:stretch; }}
+            .nav-link {{ width:100%; justify-content:center; }}
             table, tbody, tr, td {{ display:block; width:100%; }}
             tr {{ border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); }}
             tr:first-child {{ display:none; }}
@@ -166,9 +180,14 @@ def site_index_page():
     </head>
     <body>
     <main class="page">
+        <header class="topbar">
+            <div>
+                <h2>網站索引管理</h2>
+                <p class="subtitle">管理指定網站的本地搜尋索引</p>
+            </div>
+        </header>
         <nav class="nav">{nav_html("網站索引")}</nav>
         <div class="card">
-            <h2>網站索引管理</h2>
             <p class="muted">索引會依照 data/urls.json 的網站清單建立。排程預設每 24 小時重建一次。</p>
             <p>最後更新：{e(status.get("last_run", "尚未建立"))}</p>
             <p>目前索引段落數：{e(status.get("total_chunks", index_count()))}</p>
