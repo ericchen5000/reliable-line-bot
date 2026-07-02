@@ -175,7 +175,7 @@ def logs_ui(
             <td data-label="來源" class="source">{e(g(l,'source','-'))}</td>
             <td data-label="IP" class="ip">{e(g(l,'ip','-'))}</td>
 
-            <td data-label="更多資訊">
+            <td data-label="更多資訊" class="log-actions">
                 <button onclick="toggleDetail({i})">點擊查看</button>
                 <form class="inline-form" method="post" action="/faq/add">
                     <input type="hidden" name="question" value="{e(g(l,'message',''))}">
@@ -513,6 +513,16 @@ def logs_ui(
         background:var(--button-bg-hover);
     }
 
+    .log-actions {
+        min-width:150px;
+    }
+
+    .log-actions > button,
+    .log-actions .inline-form button {
+        min-width:86px;
+        white-space:nowrap;
+    }
+
     /* TABLE */
     .table-wrap {
         overflow-x:auto;
@@ -681,12 +691,6 @@ def logs_ui(
             min-width:0;
         }
 
-        .inline-form {
-            display:flex;
-            width:100%;
-            margin:8px 0 0;
-        }
-
         .table-wrap {
             overflow:visible;
             background:transparent;
@@ -739,6 +743,30 @@ def logs_ui(
             content:attr(data-label);
             color:var(--muted);
             font-weight:700;
+        }
+
+        .log-actions {
+            display:grid;
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:10px;
+            min-width:0;
+            align-items:stretch;
+        }
+
+        .log-actions::before {
+            grid-column:1 / -1;
+        }
+
+        .log-actions > button,
+        .log-actions .inline-form,
+        .log-actions .inline-form button {
+            width:100%;
+            min-width:0;
+        }
+
+        .log-actions .inline-form {
+            display:flex;
+            margin:0;
         }
 
         .detail-row td {

@@ -323,6 +323,9 @@ def faq_page(edit_id: int = None):
         }}
 
         .actions {{
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
             white-space:nowrap;
         }}
 
@@ -337,7 +340,7 @@ def faq_page(edit_id: int = None):
             display:inline-flex;
             align-items:center;
             justify-content:center;
-            margin:0 4px 4px 0;
+            margin:0;
         }}
 
         .btn-edit {{
@@ -442,7 +445,19 @@ def faq_page(edit_id: int = None):
             }}
 
             .actions {{
+                display:grid;
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+                gap:10px;
                 white-space:normal;
+            }}
+
+            .actions::before {{
+                grid-column:1 / -1;
+            }}
+
+            .actions .btn-edit,
+            .actions .btn-del {{
+                width:100%;
             }}
         }}
     </style>
