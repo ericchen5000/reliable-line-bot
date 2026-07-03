@@ -52,6 +52,44 @@ def e(value):
     return html.escape(str(value))
 
 
+def source_summary(value):
+    source = str(value or "-").strip()
+
+    if source.startswith("網站索引 - "):
+        rest = source.replace("網站索引 - ", "", 1)
+        items = [item.strip() for item in rest.split(",") if item.strip()]
+        count = len(dict.fromkeys(items))
+        return f"網站索引 · {count} 項來源" if count else "網站索引"
+
+    if source.startswith("http"):
+        items = [item.strip() for item in source.split(",") if item.strip()]
+        count = len(dict.fromkeys(items))
+        return f"網站來源 · {count} 項" if count > 1 else "網站來源"
+
+    if len(source) > 28:
+        return source[:28] + "..."
+
+    return source
+
+
+def source_detail_html(value):
+    source = str(value or "-").strip()
+
+    if source.startswith("網站索引 - "):
+        rest = source.replace("網站索引 - ", "", 1)
+        items = list(dict.fromkeys([item.strip() for item in rest.split(",") if item.strip()]))
+
+        if items:
+            links = "".join(
+                f'<a class="source-link" href="{e(item)}" target="_blank" rel="noopener noreferrer">{e(item)}</a>'
+                if item.startswith("http") else f'<div class="source-link">{e(item)}</div>'
+                for item in items
+            )
+            return f'<div class="source-list"><b>網站索引</b>{links}</div>'
+
+    return f'<div class="detail-text">{e(source)}</div>'
+
+
 def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
@@ -354,6 +392,7 @@ def logs_ui(
         meta = l.get("meta", {}) if isinstance(l.get("meta"), dict) else {}
         message = g(l, "message", "")
         reply = g(l, "reply", "")
+        source_value = g(l, "source", "-")
         log_id = g(l, "id", i + 1)
         quality = g(l, "quality", "")
         quality_text = {
@@ -384,7 +423,7 @@ def logs_ui(
             <td data-label="回覆" class="reply-cell">{e(str(reply)[:60])}</td>
 
             <td data-label="延遲" class="latency">{e(g(l,'latency','-'))}</td>
-            <td data-label="來源" class="source">{e(g(l,'source','-'))}</td>
+            <td data-label="來源" class="source"><span title="{e(source_value)}">{e(source_summary(source_value))}</span></td>
             <td data-label="IP" class="ip">{e(g(l,'ip','-'))}</td>
 
             <td data-label="更多資訊" class="log-actions">
@@ -421,6 +460,11 @@ def logs_ui(
                     <div class="block">
                         <span class="pill-more"><b>回覆</b></span>
                         <div class="detail-text">{e(reply)}</div>
+                    </div>
+
+                    <div class="block">
+                        <span class="pill-more"><b>來源</b></span>
+                        {source_detail_html(source_value)}
                     </div>
 
                     <div class="block">
@@ -968,7 +1012,16 @@ def logs_ui(
     .source {
         font-weight:600;
         color:var(--accent-strong);
-        word-break:break-word;
+        white-space:nowrap;
+    }
+
+    .source span {
+        display:inline-flex;
+        max-width:130px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        vertical-align:top;
     }
 
     .ip {
@@ -1005,6 +1058,34 @@ def logs_ui(
         border:1px solid var(--border);
         line-height:1.7;
         white-space:pre-wrap;
+    }
+
+    .source-list {
+        margin:12px 0 0 0;
+        padding:12px;
+        border-radius:8px;
+        background:var(--panel);
+        border:1px solid var(--border);
+        line-height:1.7;
+    }
+
+    .source-list b {
+        display:block;
+        margin-bottom:8px;
+    }
+
+    .source-link {
+        display:block;
+        color:var(--accent-strong);
+        text-decoration:none;
+        overflow-wrap:anywhere;
+        word-break:break-word;
+        padding:7px 0;
+        border-top:1px solid var(--border);
+    }
+
+    .source-link:first-of-type {
+        border-top:none;
     }
 
     .quality-row {
@@ -1259,6 +1340,14 @@ def logs_ui(
         }
 
         .msg, .reply-cell {
+            max-width:none;
+            white-space:normal;
+            overflow:visible;
+            text-overflow:clip;
+        }
+
+        .source,
+        .source span {
             max-width:none;
             white-space:normal;
             overflow:visible;
