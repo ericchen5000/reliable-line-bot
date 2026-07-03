@@ -389,7 +389,13 @@ def search_site_index(user_message):
         )
         for page in pages
     )
-    first_url = pages[0].get("url") or pages[0].get("site_base") or "site_index"
+    source_urls = []
+
+    for page in pages:
+        url = page.get("url") or page.get("site_base")
+
+        if url and url not in source_urls:
+            source_urls.append(url)
 
     prompt = SYSTEM_PROMPT + f"""
 
@@ -412,7 +418,7 @@ def search_site_index(user_message):
     if any(marker in answer for marker in no_answer_markers):
         return None, None
 
-    return answer, f"網站索引 - {first_url}"
+    return answer, "網站索引 - " + ",".join(source_urls[:3])
 
 
 # =========================
@@ -587,14 +593,17 @@ def source_items(source):
     if not source:
         return []
 
-    parts = [part.strip() for part in str(source).split(",") if part.strip()]
+    raw = str(source)
+
+    if raw.startswith("網站索引 - "):
+        raw = raw.replace("網站索引 - ", "", 1).strip()
+
+    parts = [part.strip() for part in raw.split(",") if part.strip()]
     items = []
 
     for part in parts:
-        if part.startswith("網站索引 - "):
-            part = part.replace("網站索引 - ", "", 1).strip()
-
-        items.append(part)
+        if part not in items:
+            items.append(part)
 
     return items
 
