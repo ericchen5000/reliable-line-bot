@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
@@ -22,6 +23,23 @@ from config import (
 from deepseek import ask_deepseek
 
 app = FastAPI(title="AI Assistant")
+
+WEB_CHAT_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "WEB_CHAT_ALLOWED_ORIGINS",
+        "https://www.reliable.com.tw,https://reliable.com.tw,http://www.reliable.com.tw,http://reliable.com.tw"
+    ).split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=WEB_CHAT_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 from logs import router as logs_router
 from faq import router as faq_router
@@ -563,6 +581,67 @@ def test_chat_page(message: str = ""):
 def html_escape(value):
     import html
     return html.escape(str(value))
+
+
+def source_items(source):
+    if not source:
+        return []
+
+    parts = [part.strip() for part in str(source).split(",") if part.strip()]
+    items = []
+
+    for part in parts:
+        if part.startswith("網站索引 - "):
+            part = part.replace("網站索引 - ", "", 1).strip()
+
+        items.append(part)
+
+    return items
+
+
+async def web_chat_response(request: Request):
+    start = time.time()
+
+    try:
+        payload = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="JSON 格式錯誤")
+
+    message = str(payload.get("message", "")).strip()
+    session_id = str(payload.get("session_id", "web")).strip() or "web"
+
+    if not message:
+        raise HTTPException(status_code=400, detail="請輸入問題")
+
+    reply, source = ai_reply(message)
+    latency = round(time.time() - start, 3)
+
+    save_log(
+        session_id,
+        message,
+        reply,
+        request,
+        "WEB",
+        latency,
+        source
+    )
+
+    return {
+        "reply": reply,
+        "source": source,
+        "used_sources": source_items(source),
+        "latency": latency
+    }
+
+
+@app.post("/chat")
+async def web_chat(request: Request):
+    return await web_chat_response(request)
+
+
+@app.post("/web/chat")
+async def web_chat_alias(request: Request):
+    return await web_chat_response(request)
 
 
 @app.get("/health", response_class=HTMLResponse)
