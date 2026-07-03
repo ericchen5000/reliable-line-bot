@@ -1,6 +1,7 @@
 # retriever.py
 
 import json
+import re
 
 INDEX_FILE = "data/site_index.json"
 STOP_WORDS = {
@@ -22,47 +23,87 @@ def load_index():
         return []
 
 
-# =========================
-# simple scoring
-# =========================
-def score(text, query):
+def tokenize(query):
     q = query.lower().strip()
-    q_words = [
-        word.strip(" ?!,.，。？！、：:")
-        for word in q.split()
+    rough_tokens = [
+        word.strip(" ?!,.，。？！、：:；;「」『』()（）[]【】")
+        for word in re.split(r"\s+", q)
     ]
-    q_words = [
-        word for word in q_words
+    tokens = [
+        word for word in rough_tokens
         if len(word) >= 2 and word not in STOP_WORDS
     ]
-    t = text.lower()
+    cjk_runs = re.findall(r"[\u4e00-\u9fff]{2,}", q)
+
+    for run in cjk_runs:
+        if run not in STOP_WORDS:
+            tokens.append(run)
+
+        for size in (2, 3, 4):
+            for i in range(0, max(0, len(run) - size + 1)):
+                piece = run[i:i + size]
+
+                if piece not in STOP_WORDS:
+                    tokens.append(piece)
+
+    seen = set()
+    unique = []
+
+    for token in tokens:
+        if token and token not in seen:
+            seen.add(token)
+            unique.append(token)
+
+    return unique
+
+
+# =========================
+# weighted scoring
+# =========================
+def score(item, query):
+    q = query.lower().strip()
+    tokens = tokenize(query)
+    title = str(item.get("title", "")).lower()
+    url = str(item.get("url", "")).lower()
+    text = str(item.get("text", "")).lower()
+    haystack = f"{title}\n{url}\n{text}"
 
     s = 0
 
-    if q and q in t:
-        s += 8
+    if q and q in title:
+        s += 30
+    if q and q in text:
+        s += 18
+    if q and q in url:
+        s += 12
 
-    for w in q_words:
-        if w in t:
+    for token in tokens:
+        if token in title:
+            s += 8
+        if token in url:
+            s += 5
+        if token in text:
             s += 2
+
+    if any(path in url for path in ["/pr/", "/category/pr/"]):
+        s += 2
+    if any(path in url for path in ["/kb/", "/category/kb/"]):
+        s += 2
+    if "array" in q and "array" in haystack:
+        s += 5
+    if "shadow" in q and "shadow" in haystack:
+        s += 5
 
     return s
 
 
 def minimum_score(query):
-    words = [
-        word.strip(" ?!,.，。？！、：:")
-        for word in query.lower().split()
-    ]
-    words = [
-        word for word in words
-        if len(word) >= 2 and word not in STOP_WORDS
-    ]
+    words = tokenize(query)
 
     if len(words) <= 1:
         return 4
 
-    return 6
+    return 8
 
 
 # =========================
@@ -79,7 +120,7 @@ def retrieve(query, top_k=3):
         if not text:
             continue
 
-        s = score(text, query)
+        s = score(item, query)
 
         if s >= min_score:
             item = dict(item)

@@ -2,6 +2,56 @@
   {
     "title": "Reliable Information 官方網站",
     "url": "https://www.reliable.com.tw/",
-    "keywords": ["reliable", "定承", "公司", "首頁", "about"]
+    "keywords": ["reliable", "定承", "公司", "官網", "首頁", "about"]
+  },
+  {
+    "title": "新聞中心",
+    "url": "https://www.reliable.com.tw/category/pr/",
+    "keywords": ["新聞", "新聞中心", "pr", "press", "文章", "最新消息"]
+  },
+  {
+    "title": "Stratus",
+    "url": "https://www.reliable.com.tw/brand-stratus/",
+    "keywords": ["stratus", "everrun", "ztc", "容錯", "高可用"]
+  },
+  {
+    "title": "Array Networks",
+    "url": "https://www.reliable.com.tw/array-networks/",
+    "keywords": ["array", "array networks", "vpn", "ztag", "ag", "安全存取"]
+  },
+  {
+    "title": "Neverfail Continuity Engine",
+    "url": "https://www.reliable.com.tw/neverfail-continuity-engine/",
+    "keywords": ["neverfail", "continuity engine", "災難復原", "備援"]
+  },
+  {
+    "title": "Vates",
+    "url": "https://www.reliable.com.tw/vates/",
+    "keywords": ["vates", "xcp-ng", "xen orchestra", "虛擬化"]
+  },
+  {
+    "title": "程式下載",
+    "url": "https://www.reliable.com.tw/program/",
+    "keywords": ["程式", "下載", "program", "download"]
+  },
+  {
+    "title": "文件下載",
+    "url": "https://www.reliable.com.tw/document/",
+    "keywords": ["文件", "document", "手冊", "下載"]
+  },
+  {
+    "title": "授權申請",
+    "url": "https://www.reliable.com.tw/license-apply/",
+    "keywords": ["授權", "license", "申請", "試用"]
+  },
+  {
+    "title": "知識庫",
+    "url": "https://www.reliable.com.tw/category/kb/",
+    "keywords": ["知識庫", "kb", "教學", "問題", "故障排除"]
+  },
+  {
+    "title": "CTC",
+    "url": "https://www.reliable.com.tw/ctc/",
+    "keywords": ["ctc"]
   }
 ]

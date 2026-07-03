@@ -362,9 +362,11 @@ def search_site_index(user_message):
         return None, None
 
     context = "\n\n".join(
-        "網站：{site}\n頁面：{url}\n內容：{text}".format(
+        "網站：{site}\n標題：{title}\n頁面：{url}\n搜尋分數：{score}\n內容：{text}".format(
             site=page.get("site", page.get("site_base", "")),
+            title=page.get("title", ""),
             url=page.get("url", ""),
+            score=page.get("_score", ""),
             text=page.get("text", "")[:1600]
         )
         for page in pages

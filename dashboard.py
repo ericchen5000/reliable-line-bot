@@ -107,12 +107,14 @@ def dashboard():
         <tr>
             <td data-label="網站">{e(site.get("title", "-"))}</td>
             <td data-label="網址">{e(site.get("url", "-"))}</td>
+            <td data-label="抓取頁數">{e(site.get("pages", "-"))}</td>
             <td data-label="索引段落">{e(site.get("chunks", 0))}</td>
+            <td data-label="失敗">{e(site.get("failed", 0))}</td>
         </tr>
         """
 
     if not site_rows:
-        site_rows = "<tr><td colspan='3'>尚未建立索引</td></tr>"
+        site_rows = "<tr><td colspan='5'>尚未建立索引</td></tr>"
 
     return HTMLResponse(f"""
     <html>
@@ -324,7 +326,7 @@ def dashboard():
                 </div>
             </div>
             <table>
-                <tr><th>網站</th><th>網址</th><th>索引段落</th></tr>
+                <tr><th>網站</th><th>網址</th><th>抓取頁數</th><th>索引段落</th><th>失敗</th></tr>
                 {site_rows}
             </table>
         </section>
