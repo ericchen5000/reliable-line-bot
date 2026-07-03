@@ -66,10 +66,11 @@ def nav_html(active=""):
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
-    return "".join(
+    links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
         for href, label in items
     )
+    return f'<button type="button" class="nav-toggle" onclick="this.closest(\'nav\').classList.toggle(\'open\')">☰ 選單</button><div class="nav-menu">{links}</div>'
 
 
 def base_css():
@@ -81,7 +82,9 @@ def base_css():
     .topbar { margin-bottom:18px; }
     h2 { margin:0; font-size:28px; }
     .subtitle { color:var(--muted); font-size:13px; margin:8px 0 0; }
-    .nav { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 18px; }
+    .nav { margin:0 0 18px; }
+    .nav-menu { display:flex; gap:8px; flex-wrap:wrap; }
+    .nav-toggle { display:none; }
     .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
     .nav-link.active { color:white; background:var(--button-bg); border:none; }
     .report-top { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
@@ -92,7 +95,7 @@ def base_css():
     .label { color:var(--muted); font-size:13px; font-weight:700; }
     .value { margin-top:8px; font-size:28px; font-weight:800; }
     table { width:100%; border-collapse:collapse; }
-    th, td { padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; line-height:1.6; }
+    th, td { padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; line-height:1.6; overflow-wrap:anywhere; word-break:break-word; }
     th { color:var(--muted); background:var(--panel-soft); }
     .pill { display:inline-flex; min-height:30px; align-items:center; padding:5px 9px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-size:13px; font-weight:800; }
     .bar-chart { display:grid; gap:12px; }
@@ -106,7 +109,7 @@ def base_css():
     .report-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
     .report-head h3 { margin:0; }
     .report-text { padding:14px; border-radius:8px; background:var(--panel-soft); border:1px solid var(--border); white-space:pre-wrap; line-height:1.8; }
-    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } .report-top,.report-head { align-items:stretch; flex-direction:column; } .primary-action,.report-box button { width:100%; } .grid,.wide { grid-template-columns:1fr; } .nav-link { width:100%; } .bar-row { grid-template-columns:1fr 64px; } .bar-name { grid-column:1 / -1; white-space:normal; } table,tbody,tr,td { display:block; width:100%; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:90px 1fr; gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
+    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } .report-top,.report-head { align-items:stretch; flex-direction:column; } .primary-action,.report-box button { width:100%; } .grid,.wide { grid-template-columns:1fr; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } .bar-row { grid-template-columns:1fr 64px; } .bar-name { grid-column:1 / -1; white-space:normal; } table,tbody,tr,td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:90px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
     """
 
 

@@ -29,10 +29,11 @@ def nav_html(active=""):
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
-    return "".join(
+    links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
         for href, label in items
     )
+    return f'<button type="button" class="nav-toggle" onclick="this.closest(\'nav\').classList.toggle(\'open\')">☰ 選單</button><div class="nav-menu">{links}</div>'
 
 
 def load_json(path, default):
@@ -92,8 +93,8 @@ def dashboard():
     for source, count in top_sources:
         source_rows += f"""
         <tr>
-            <td>{e(source)}</td>
-            <td>{e(count)}</td>
+            <td data-label="來源">{e(source)}</td>
+            <td data-label="次數">{e(count)}</td>
         </tr>
         """
 
@@ -104,9 +105,9 @@ def dashboard():
     for site in index_status.get("sites", []):
         site_rows += f"""
         <tr>
-            <td>{e(site.get("title", "-"))}</td>
-            <td>{e(site.get("url", "-"))}</td>
-            <td>{e(site.get("chunks", 0))}</td>
+            <td data-label="網站">{e(site.get("title", "-"))}</td>
+            <td data-label="網址">{e(site.get("url", "-"))}</td>
+            <td data-label="索引段落">{e(site.get("chunks", 0))}</td>
         </tr>
         """
 
@@ -149,7 +150,9 @@ def dashboard():
         }}
         h2 {{ margin:0; font-size:28px; }}
         .subtitle {{ margin:8px 0 0; color:var(--muted); font-size:13px; }}
-        .nav {{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 18px; }}
+        .nav {{ margin:0 0 18px; }}
+        .nav-menu {{ display:flex; gap:8px; flex-wrap:wrap; }}
+        .nav-toggle {{ display:none; }}
         .nav-link {{
             min-height:36px;
             padding:8px 12px;
@@ -233,7 +236,7 @@ def dashboard():
             justify-content:center;
         }}
         table {{ width:100%; border-collapse:collapse; }}
-        th, td {{ padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; }}
+        th, td {{ padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; }}
         th {{ color:var(--muted); background:var(--panel-soft); }}
         @media (max-width: 860px) {{
             body {{ padding:14px; }}
@@ -242,7 +245,17 @@ def dashboard():
             button {{ width:100%; }}
             .grid, .wide, .feature-grid {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
+            .nav-toggle {{ width:100%; display:flex; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; }}
+            .nav-menu {{ display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; }}
+            .nav.open .nav-menu {{ display:grid; }}
             .nav-link {{ width:100%; justify-content:center; }}
+            table, tbody, tr, td {{ display:block; width:100%; }}
+            table {{ background:transparent; }}
+            tr {{ border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); }}
+            tr:first-child {{ display:none; }}
+            td {{ display:grid; grid-template-columns:86px minmax(0, 1fr); gap:10px; border-top:1px solid var(--border); }}
+            td:first-child {{ border-top:none; }}
+            td::before {{ content:attr(data-label); color:var(--muted); font-weight:700; }}
         }}
     </style>
     </head>

@@ -452,10 +452,11 @@ def admin_nav(active=""):
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
-    return "".join(
+    links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
         for href, label in items
     )
+    return f'<button type="button" class="nav-toggle" onclick="this.closest(\'nav\').classList.toggle(\'open\')">☰ 選單</button><div class="nav-menu">{links}</div>'
 
 
 def admin_css():
@@ -466,7 +467,9 @@ def admin_css():
     .page { max-width:1280px; margin:0 auto; }
     h2 { margin:0; font-size:28px; }
     .subtitle { color:var(--muted); font-size:13px; margin:8px 0 0; }
-    .nav { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0; }
+    .nav { margin:18px 0; }
+    .nav-menu { display:flex; gap:8px; flex-wrap:wrap; }
+    .nav-toggle { display:none; }
     .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
     .nav-link.active { color:white; background:var(--button-bg); border:none; }
     .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
@@ -474,7 +477,7 @@ def admin_css():
     textarea { min-height:120px; resize:vertical; }
     button { min-height:40px; padding:8px 14px; border:none; border-radius:8px; color:white; background:var(--button-bg); font-weight:700; cursor:pointer; }
     table { width:100%; border-collapse:collapse; }
-    td, th { padding:12px; border-top:1px solid var(--border); text-align:left; }
+    td, th { padding:12px; border-top:1px solid var(--border); text-align:left; overflow-wrap:anywhere; word-break:break-word; }
     th { background:var(--panel-soft); color:var(--muted); }
     .ok { color:#16a34a; font-weight:800; }
     .bad { color:var(--danger); font-weight:800; }
@@ -482,7 +485,7 @@ def admin_css():
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
     .miss { background:#fee2e2; color:#b91c1c; }
-    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } }
+    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
     """
 
 
@@ -572,7 +575,7 @@ def health_page():
         ("網站索引檔案", os.path.exists("data/site_index.json")),
     ]
     rows = "".join(
-        f"<tr><td>{html_escape(name)}</td><td class='{'ok' if ok else 'bad'}'>{'OK' if ok else '缺少'}</td></tr>"
+        f"<tr><td data-label='項目'>{html_escape(name)}</td><td data-label='狀態' class='{'ok' if ok else 'bad'}'>{'OK' if ok else '缺少'}</td></tr>"
         for name, ok in checks
     )
     return HTMLResponse(f"""

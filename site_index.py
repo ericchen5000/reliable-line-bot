@@ -23,10 +23,11 @@ def nav_html(active=""):
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
-    return "".join(
+    links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
         for href, label in items
     )
+    return f'<button type="button" class="nav-toggle" onclick="this.closest(\'nav\').classList.toggle(\'open\')">☰ 選單</button><div class="nav-menu">{links}</div>'
 
 
 def index_count():
@@ -49,9 +50,9 @@ def site_index_page():
     for site in sites:
         rows += f"""
         <tr>
-            <td>{e(site.get("title", "-"))}</td>
-            <td>{e(site.get("url", "-"))}</td>
-            <td>{e(site.get("chunks", 0))}</td>
+            <td data-label="網站">{e(site.get("title", "-"))}</td>
+            <td data-label="網址">{e(site.get("url", "-"))}</td>
+            <td data-label="索引段落">{e(site.get("chunks", 0))}</td>
         </tr>
         """
 
@@ -99,10 +100,15 @@ def site_index_page():
             margin-bottom:18px;
         }}
         .nav {{
+            margin:0 0 18px;
+        }}
+        .nav-menu {{
             display:flex;
             gap:8px;
             flex-wrap:wrap;
-            margin:0 0 18px;
+        }}
+        .nav-toggle {{
+            display:none;
         }}
         .nav-link {{
             min-height:36px;
@@ -166,6 +172,8 @@ def site_index_page():
             border-top:1px solid var(--border);
             text-align:left;
             vertical-align:top;
+            overflow-wrap:anywhere;
+            word-break:break-word;
         }}
         th {{
             color:var(--muted);
@@ -175,11 +183,15 @@ def site_index_page():
             body {{ padding:14px; }}
             h2 {{ font-size:24px; }}
             .topbar {{ flex-direction:column; align-items:stretch; }}
+            .nav-toggle {{ display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; }}
+            .nav-menu {{ display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; }}
+            .nav.open .nav-menu {{ display:grid; }}
             .nav-link {{ width:100%; justify-content:center; }}
             table, tbody, tr, td {{ display:block; width:100%; }}
             tr {{ border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); }}
             tr:first-child {{ display:none; }}
-            td {{ border-top:1px solid var(--border); }}
+            td {{ display:grid; grid-template-columns:86px minmax(0, 1fr); gap:10px; border-top:1px solid var(--border); }}
+            td::before {{ content:attr(data-label); color:var(--muted); font-weight:700; }}
         }}
     </style>
     </head>

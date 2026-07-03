@@ -50,10 +50,11 @@ def nav_html(active=""):
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
-    return "".join(
+    links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
         for href, label in items
     )
+    return f'<button type="button" class="nav-toggle" onclick="this.closest(\'nav\').classList.toggle(\'open\')">☰ 選單</button><div class="nav-menu">{links}</div>'
 
 
 def normalize_question(value):
@@ -176,10 +177,17 @@ def faq_page(edit_id: int = None, q: str = ""):
         }}
 
         .nav {{
+            margin:0 0 18px;
+        }}
+
+        .nav-menu {{
             display:flex;
             gap:8px;
             flex-wrap:wrap;
-            margin:0 0 18px;
+        }}
+
+        .nav-toggle {{
+            display:none;
         }}
 
         .nav-link {{
@@ -510,6 +518,35 @@ def faq_page(edit_id: int = None, q: str = ""):
                 justify-content:space-between;
             }}
 
+            .nav-toggle {{
+                display:flex;
+                width:100%;
+                min-height:40px;
+                padding:8px 12px;
+                border-radius:8px;
+                border:1px solid var(--border);
+                background:var(--panel);
+                color:var(--text);
+                font-weight:700;
+                align-items:center;
+                justify-content:space-between;
+            }}
+
+            .nav-menu {{
+                display:none;
+                grid-template-columns:1fr;
+                gap:8px;
+                margin-top:8px;
+            }}
+
+            .nav.open .nav-menu {{
+                display:grid;
+            }}
+
+            .nav-link {{
+                width:100%;
+            }}
+
             .layout {{
                 grid-template-columns:1fr;
             }}
@@ -570,7 +607,7 @@ def faq_page(edit_id: int = None, q: str = ""):
 
             td {{
                 display:grid;
-                grid-template-columns:76px 1fr;
+                grid-template-columns:76px minmax(0, 1fr);
                 gap:10px;
                 border-top:1px solid var(--border);
                 padding:10px 12px;
