@@ -119,6 +119,7 @@ def faq_page(edit_id: int = None, q: str = ""):
     <html>
     <head>
     <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
 
     <style>
         :root {{

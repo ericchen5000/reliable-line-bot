@@ -1234,6 +1234,7 @@ def logs_ui(
     <html>
     <head>
     <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
     </head>
 
     <body>
@@ -1369,6 +1370,7 @@ def log_summary(log_id: int):
     <html>
     <head>
     <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <style>
     body {{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:#f6f7fb; color:#172033; padding:24px; }}
     .page {{ max-width:900px; margin:0 auto; }}

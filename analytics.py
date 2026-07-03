@@ -236,7 +236,7 @@ def weekly_report(generate: int = 0):
     """ if generate else ""
 
     return HTMLResponse(f"""
-    <html><head><meta charset="utf-8"/><style>{base_css()}</style></head>
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{base_css()}</style></head>
     <body><main class="page">
     <header class="topbar report-top">
         <div><h2>AI 客服週報</h2><p class="subtitle">最近 7 天客服營運摘要</p></div>
@@ -290,7 +290,7 @@ def knowledge_gaps():
     ) or "<tr><td colspan='4'>目前沒有明顯知識缺口</td></tr>"
 
     return HTMLResponse(f"""
-    <html><head><meta charset="utf-8"/><style>{base_css()}</style></head>
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{base_css()}</style></head>
     <body><main class="page">
     <header class="topbar"><h2>知識庫缺口分析</h2><p class="subtitle">找出 AI 常答不好或資料不足的問題</p></header>
     <nav class="nav">{nav_html("知識缺口")}</nav>

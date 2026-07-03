@@ -170,7 +170,7 @@ def unanswered_page():
         rows = "<tr><td colspan='4'>目前沒有未回答問題</td></tr>"
 
     return HTMLResponse(f"""
-    <html><head><meta charset="utf-8"/><style>{base_css()}</style></head>
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{base_css()}</style></head>
     <body><main class="page">
     <header class="topbar"><h2>未回答問題</h2><p class="subtitle">整理 AI 沒有把握回答的 LOGS</p></header>
     <nav class="nav">{nav_html("未回答")}</nav>
@@ -221,7 +221,7 @@ def faq_suggestions_page():
         rows = "<tr><td colspan='3'>目前沒有重複問題建議</td></tr>"
 
     return HTMLResponse(f"""
-    <html><head><meta charset="utf-8"/><style>{base_css()}</style></head>
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{base_css()}</style></head>
     <body><main class="page">
     <header class="topbar"><h2>建議 FAQ</h2><p class="subtitle">從重複出現的 LOGS 問題整理建議</p></header>
     <nav class="nav">{nav_html("建議 FAQ")}</nav>

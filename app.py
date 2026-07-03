@@ -542,7 +542,7 @@ def test_chat_page(message: str = ""):
         """
 
     return HTMLResponse(f"""
-    <html><head><meta charset="utf-8"/><style>{admin_css()}</style></head>
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
     <body><main class="page">
     <h2>LINE 問答測試</h2><p class="subtitle">不用打開 LINE，直接測目前 AI 客服回答流程</p>
     <nav class="nav">{admin_nav("測試")}</nav>
@@ -576,7 +576,7 @@ def health_page():
         for name, ok in checks
     )
     return HTMLResponse(f"""
-    <html><head><meta charset="utf-8"/><style>{admin_css()}</style></head>
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
     <body><main class="page">
     <h2>健康檢查</h2><p class="subtitle">確認服務設定與必要資料檔是否存在</p>
     <nav class="nav">{admin_nav("健康檢查")}</nav>
