@@ -46,7 +46,6 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/weekly-report", "週報"),
-        ("/knowledge-gaps", "知識缺口"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]

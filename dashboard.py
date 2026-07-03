@@ -25,7 +25,6 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
         ("/weekly-report", "週報"),
-        ("/knowledge-gaps", "知識缺口"),
         ("/test-chat", "測試"),
         ("/health", "健康檢查"),
     ]
@@ -194,21 +193,6 @@ def dashboard():
             grid-template-columns:1fr 1fr;
             gap:14px;
         }}
-        .feature-grid {{
-            display:grid;
-            grid-template-columns:repeat(3, minmax(0, 1fr));
-            gap:14px;
-            margin-bottom:14px;
-        }}
-        .feature-card {{
-            text-decoration:none;
-            color:var(--text);
-            display:block;
-        }}
-        .feature-card b {{
-            display:block;
-            margin-bottom:8px;
-        }}
         .index-head {{
             display:flex;
             align-items:flex-start;
@@ -245,7 +229,7 @@ def dashboard():
             .topbar {{ flex-direction:column; align-items:stretch; }}
             .index-head {{ flex-direction:column; }}
             button {{ width:100%; }}
-            .grid, .wide, .feature-grid {{ grid-template-columns:1fr; }}
+            .grid, .wide {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
             .nav-toggle {{ width:100%; display:flex; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; }}
             .nav-menu {{ display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; }}
@@ -289,12 +273,6 @@ def dashboard():
                 <div class="label">平均延遲</div>
                 <div class="value">{e(avg_latency)}</div>
             </div>
-        </section>
-
-        <section class="feature-grid">
-            <a class="card feature-card" href="/weekly-report"><b>AI 客服週報</b><span class="subtitle">整理 7 天客服狀態與常見問題</span></a>
-            <a class="card feature-card" href="/knowledge-gaps"><b>知識缺口分析</b><span class="subtitle">找出 AI 沒答好的問題</span></a>
-            <a class="card feature-card" href="/logs"><b>LOGS 智慧搜尋</b><span class="subtitle">快速篩選來源、未回答與待修紀錄</span></a>
         </section>
 
         <section class="wide">
