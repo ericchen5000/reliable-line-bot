@@ -445,6 +445,10 @@ def ai_reply(user_message):
     if faq:
         return faq, "FAQ"
 
+    company, _ = handle_company(user_message)
+    if company:
+        return company, "COMPANY"
+
     kb, src = search_knowledge(user_message)
     if kb:
         return kb, src
@@ -459,10 +463,6 @@ def ai_reply(user_message):
         answer, source = search_website_content(user_message, url_data)
         if answer:
             return answer, source
-
-    company, _ = handle_company(user_message)
-    if company:
-        return company, "COMPANY"
 
     reply, _ = ai_fallback(user_message)
     return reply, "AI客服"
@@ -521,6 +521,9 @@ def trace_reply_flow(message):
     faq, _ = search_faq(message)
     steps.append(("FAQ", bool(faq), "命中 FAQ" if faq else "未命中"))
 
+    company, _ = handle_company(message)
+    steps.append(("公司資料", bool(company), "命中 company.json" if company else "未命中"))
+
     kb, kb_source = search_knowledge(message)
     steps.append(("KB", bool(kb), kb_source if kb else "未命中"))
 
@@ -529,9 +532,6 @@ def trace_reply_flow(message):
 
     url_data = search_urls(message)
     steps.append(("即時網站搜尋", bool(url_data), url_data.get("title", "命中") if url_data else "未命中 urls.json keywords"))
-
-    company, _ = handle_company(message)
-    steps.append(("公司資料", bool(company), "命中 company.json" if company else "未命中"))
 
     return steps
 

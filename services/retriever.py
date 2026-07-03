@@ -101,9 +101,33 @@ def minimum_score(query):
     words = tokenize(query)
 
     if len(words) <= 1:
-        return 4
+        return 12
 
-    return 8
+    return 18
+
+
+def has_meaningful_match(item, query):
+    tokens = tokenize(query)
+    title = str(item.get("title", "")).lower()
+    url = str(item.get("url", "")).lower()
+    text = str(item.get("text", "")).lower()
+    q = query.lower().strip()
+
+    if q and (q in title or q in text or q in url):
+        return True
+
+    meaningful_tokens = [
+        token for token in tokens
+        if token not in {"定承", "承資", "資訊", "reliable", "公司", "客服"}
+    ]
+
+    hits = 0
+
+    for token in meaningful_tokens:
+        if token in title or token in url or token in text:
+            hits += 1
+
+    return hits >= 2
 
 
 # =========================
@@ -122,7 +146,7 @@ def retrieve(query, top_k=3):
 
         s = score(item, query)
 
-        if s >= min_score:
+        if s >= min_score and has_meaningful_match(item, query):
             item = dict(item)
             item["_score"] = s
             scored.append((s, item))
