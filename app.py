@@ -487,7 +487,7 @@ def admin_css():
     return """
     :root { --bg:#f6f7fb; --panel:#fff; --panel-soft:#f1f5f9; --text:#172033; --muted:#64748b; --border:#e2e8f0; --button-bg:linear-gradient(135deg,#60a5fa,#a78bfa); --danger:#dc2626; --shadow:0 16px 40px rgba(15,23,42,0.08); }
     * { box-sizing:border-box; }
-    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg); color:var(--text); padding:24px; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg); min-height:100vh; color:var(--text); padding:24px; font-size:16px; }
     body.dark { --bg:#0f172a; --panel:#162033; --panel-soft:#1e293b; --text:#e5edf7; --muted:#94a3b8; --border:#334155; --shadow:0 16px 40px rgba(0,0,0,0.28); }
     .page { max-width:1280px; margin:0 auto; }
     .topbar { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:18px; }
@@ -500,11 +500,11 @@ def admin_css():
     .slider::before { content:""; position:absolute; width:26px; height:26px; left:2px; top:2px; border-radius:50%; background:#fff; box-shadow:0 2px 8px rgba(15,23,42,0.25); transition:transform 0.2s ease; }
     .switch input:checked + .slider { background:linear-gradient(135deg,#60a5fa,#a78bfa); }
     .switch input:checked + .slider::before { transform:translateX(22px); }
-    .nav { margin:18px 0; }
+    .nav { margin:0 0 18px; }
     .nav-menu { display:flex; gap:8px; flex-wrap:wrap; }
     .nav-toggle { display:none; }
     .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
-    .nav-link.active { color:white; background:var(--button-bg); border:none; }
+    .nav-link.active { color:white; background:var(--button-bg); border:1px solid transparent; }
     .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
     textarea, input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
     textarea { min-height:120px; resize:vertical; }

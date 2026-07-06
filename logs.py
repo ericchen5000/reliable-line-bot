@@ -738,8 +738,9 @@ def logs_ui(
         margin:0;
         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
         background:
-            radial-gradient(circle at top left, rgba(20,184,166,0.14), transparent 30%),
+            radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%),
             var(--bg);
+        min-height:100vh;
         padding:24px;
         color:var(--text);
         font-size:16px;
@@ -799,7 +800,7 @@ def logs_ui(
     .nav-link.active {
         color:white;
         background:var(--button-bg);
-        border:none;
+        border:1px solid transparent;
     }
 
     .topbar {

@@ -244,6 +244,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
             background:
                 radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%),
                 var(--bg);
+            min-height:100vh;
             padding:24px;
             color:var(--text);
             font-size:16px;
@@ -303,7 +304,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
         .nav-link.active {{
             color:white;
             background:var(--button-bg);
-            border:none;
+            border:1px solid transparent;
         }}
 
         .topbar {{
