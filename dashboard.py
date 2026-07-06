@@ -206,14 +206,6 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
     if not site_rows:
         site_rows = "<tr><td colspan='5'>尚未建立索引</td></tr>"
 
-    grouped_source_rows = "".join(
-        f"<tr><td data-label='來源'>{e(source)}</td><td data-label='次數'>{count}</td></tr>"
-        for source, count in grouped_sources.most_common(8)
-    ) or "<tr><td colspan='2'>尚無資料</td></tr>"
-    brand_rows = "".join(
-        f"<tr><td data-label='品牌'>{e(brand)}</td><td data-label='提及次數'>{count}</td></tr>"
-        for brand, count in brands.most_common(8)
-    ) or "<tr><td colspan='2'>尚無品牌資料</td></tr>"
     repeat_rows = "".join(
         f"<tr><td data-label='問題'>{e(question)}</td><td data-label='次數'>{count}</td></tr>"
         for question, count in repeats[:8]
@@ -310,6 +302,12 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             gap:14px;
             margin:22px 0 14px;
         }}
+        .section-actions {{
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+            justify-content:flex-end;
+        }}
         .toolbar {{
             display:flex;
             justify-content:space-between;
@@ -350,6 +348,24 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             gap:10px;
             flex-wrap:wrap;
             align-items:center;
+        }}
+        .index-summary {{
+            display:grid;
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:12px;
+            margin-bottom:14px;
+        }}
+        .mini-stat {{
+            padding:12px;
+            border-radius:8px;
+            border:1px solid var(--border);
+            background:var(--panel-soft);
+        }}
+        .mini-stat b {{
+            display:block;
+            margin-top:6px;
+            color:var(--text);
+            font-size:18px;
         }}
         button {{
             min-height:40px;
@@ -415,11 +431,14 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             body {{ padding:14px; }}
             .topbar {{ flex-direction:column; align-items:stretch; }}
             .section-head, .report-head {{ flex-direction:column; align-items:stretch; }}
+            .section-actions {{ justify-content:stretch; }}
+            .section-actions .tab {{ flex:1; }}
             .primary-action {{ width:100%; }}
             .toolbar {{ display:grid; grid-template-columns:1fr; }}
             .tabs {{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); }}
             .tab {{ width:100%; }}
             .index-head {{ flex-direction:column; }}
+            .index-summary {{ grid-template-columns:1fr; }}
             button {{ width:100%; }}
             .grid, .wide {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
@@ -454,21 +473,14 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
 
         <nav class="nav">{nav_html("Dashboard")}</nav>
 
-        <section class="toolbar">
-            <div>
-                <div class="label">統計期間</div>
-                <div class="tabs">{time_tabs(days, chart).replace('/weekly-report', '/')}</div>
-            </div>
-            <div>
-                <div class="label">圖表樣式</div>
-                <div class="tabs">{chart_tabs(days, chart).replace('/weekly-report', '/')}</div>
-            </div>
-        </section>
-
         <section class="section-head">
             <div>
                 <h2>營運總覽</h2>
                 <p class="subtitle">核心數字集中看，避免和明細資料混在一起。</p>
+            </div>
+            <div>
+                <div class="label">統計期間</div>
+                <div class="tabs section-actions">{time_tabs(days, chart).replace('/weekly-report', '/')}</div>
             </div>
         </section>
         <section class="grid">
@@ -511,10 +523,15 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
                 <h2>回答與品質分析</h2>
                 <p class="subtitle">同類資訊集中成圖表，快速看出來源、平台、品質與商機狀態。</p>
             </div>
+            <div>
+                <div class="label">圖表樣式</div>
+                <div class="tabs section-actions">{chart_tabs(days, chart).replace('/weekly-report', '/')}</div>
+            </div>
         </section>
         <section class="wide">
             <div class="card"><h3>平台分布</h3><div class="bar-chart">{platform_chart}</div></div>
-            <div class="card"><h3>回答來源分布</h3><div class="bar-chart">{source_chart}</div></div>
+            <div class="card"><h3>品牌/產品圖表</h3><div class="bar-chart">{brand_chart}</div></div>
+            <div class="card"><h3>回答來源明細</h3><div class="bar-chart">{source_chart}</div></div>
             <div class="card"><h3>品質狀態</h3><div class="bar-chart">{quality_chart}</div></div>
             <div class="card"><h3>商機意圖</h3><div class="bar-chart">{lead_chart}</div></div>
         </section>
@@ -522,8 +539,8 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
         <section class="card">
             <div class="index-head">
                 <div>
-                    <div class="label">網站索引與健康檢查</div>
-                    <p class="subtitle">網站索引狀態、指定網站清單，以及服務必要設定集中在這裡。</p>
+                    <div class="label">網站索引管理</div>
+                    <p class="subtitle">網站索引狀態與各網站抓取結果集中在這裡。</p>
                 </div>
                 <div class="index-actions">
                     <form method="post" action="/dashboard/site-index/rebuild">
@@ -531,24 +548,29 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
                     </form>
                 </div>
             </div>
-            <section class="wide">
-                <div>
-                    <div class="label">網站索引狀態</div>
-                    <p>最後更新：{e(index_status.get("last_run", "尚未建立"))}</p>
-                    <p>索引段落數：{e(index_status.get("total_chunks", index_count()))}</p>
-                    <p class="subtitle">索引排程預設每 24 小時重建一次，也可以手動立即建立。</p>
+            <div class="index-summary">
+                <div class="mini-stat">
+                    <div class="label">最後更新</div>
+                    <b>{e(index_status.get("last_run", "尚未建立"))}</b>
                 </div>
-                <div>
-                    <div class="label">健康檢查</div>
-                    <table>
-                        <tr><th>項目</th><th>狀態</th></tr>
-                        {health_rows}
-                    </table>
+                <div class="mini-stat">
+                    <div class="label">索引段落數</div>
+                    <b>{e(index_status.get("total_chunks", index_count()))} 段</b>
                 </div>
-            </section>
+            </div>
             <table style="margin-top:14px;">
                 <tr><th>網站</th><th>網址</th><th>抓取頁數</th><th>索引段落</th><th>失敗</th></tr>
                 {site_rows}
+            </table>
+            <p class="subtitle">索引排程預設每 24 小時重建一次，也可以手動立即建立。</p>
+        </section>
+
+        <section class="card" style="margin-top:14px;">
+            <div class="label">健康檢查</div>
+            <p class="subtitle">確認服務設定與必要資料檔是否存在。</p>
+            <table style="margin-top:14px;">
+                <tr><th>項目</th><th>狀態</th></tr>
+                {health_rows}
             </table>
         </section>
 
@@ -560,14 +582,7 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             <a class="primary-action" href="/?days={days}&chart={e(chart)}&generate=1">一鍵產生建議</a>
         </section>
         {report_html}
-        <section class="wide">
-            <div class="card"><h3>品牌/產品圖表</h3><div class="bar-chart">{brand_chart}</div></div>
-            <div class="card"><h3>回答來源明細</h3><table><tr><th>來源</th><th>次數</th></tr>{grouped_source_rows}</table></div>
-        </section>
-        <section class="wide">
-            <div class="card"><h3>品牌/產品熱度</h3><table><tr><th>品牌</th><th>提及次數</th></tr>{brand_rows}</table></div>
-            <div class="card"><h3>重複問題</h3><table><tr><th>問題</th><th>次數</th></tr>{repeat_rows}</table></div>
-        </section>
+        <div class="card"><h3>重複問題</h3><table><tr><th>問題</th><th>次數</th></tr>{repeat_rows}</table></div>
         <script>
         if (window.location.search.includes("generate=1")) {{
             setTimeout(() => document.getElementById("generated-report")?.scrollIntoView({{behavior:"smooth", block:"start"}}), 120);
