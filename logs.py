@@ -5,6 +5,7 @@ import html
 import io
 import json
 import os
+from collections import Counter
 from datetime import datetime, time
 from urllib.parse import urlencode
 from deepseek import ask_deepseek
@@ -70,6 +71,74 @@ def source_summary(value):
         return source[:28] + "..."
 
     return source
+
+
+def source_group(value):
+    source = str(value or "-").strip()
+
+    if "網站索引" in source or source.startswith("http") or source.startswith("URL-"):
+        return "網站索引"
+
+    if source in {"AI", "AI客服"}:
+        return "AI 客服"
+
+    if source.startswith("KB") or source.startswith("知識庫"):
+        return "知識庫"
+
+    return source or "-"
+
+
+def metric_card(label, value, unit="", note=""):
+    return f"""
+    <div class="metric-card">
+        <div class="metric-label">{e(label)}</div>
+        <div class="metric-value">{e(value)}{f'<span>{e(unit)}</span>' if unit else ''}</div>
+        {f'<div class="metric-note">{e(note)}</div>' if note else ''}
+    </div>
+    """
+
+
+def bar_chart(items, empty_text="尚無資料"):
+    normalized = []
+
+    for label, count in items:
+        try:
+            count = int(count)
+        except:
+            count = 0
+
+        if count > 0:
+            normalized.append((str(label), count))
+
+    if not normalized:
+        return f'<div class="chart-empty">{e(empty_text)}</div>'
+
+    max_count = max(count for _, count in normalized) or 1
+    rows = []
+
+    for label, count in normalized[:8]:
+        width = max(7, round(count / max_count * 100, 1))
+        rows.append(f"""
+        <div class="chart-row">
+            <div class="chart-name">{e(label)}</div>
+            <div class="chart-track"><div class="chart-fill" style="width:{width}%"></div></div>
+            <div class="chart-count">{e(count)}</div>
+        </div>
+        """)
+
+    return "".join(rows)
+
+
+def avg_latency(logs):
+    values = []
+
+    for item in logs:
+        try:
+            values.append(float(item.get("latency", 0)))
+        except:
+            pass
+
+    return round(sum(values) / len(values), 3) if values else "-"
 
 
 def source_detail_html(value):
@@ -446,7 +515,43 @@ def logs_ui(
     sort_order: str = "desc"
 ):
 
-    logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
+    all_logs = load_logs()
+    logs = filter_logs(all_logs, keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
+    total_all = len(all_logs)
+    filtered_count = len(logs)
+    unanswered_count = sum(1 for item in all_logs if is_unanswered_log(item))
+    review_count = sum(1 for item in all_logs if str(item.get("quality", "")) in {"fix", "wrong"})
+    followup_count = sum(
+        1 for item in all_logs
+        if bool(item.get("need_followup")) and item.get("followup_status", "pending") == "pending"
+    )
+    lead_count = sum(1 for item in all_logs if bool(item.get("need_followup")) or int(item.get("lead_score") or 0) >= 35)
+    platform_counts = Counter(str(item.get("platform", "LINE") or "LINE") for item in all_logs)
+    source_counts = Counter(source_group(item.get("source", "-")) for item in all_logs)
+    quality_counts = Counter()
+    lead_intent_counts = Counter()
+
+    for item in all_logs:
+        quality = str(item.get("quality", "") or "")
+        quality_counts[{
+            "good": "良好",
+            "fix": "待修",
+            "wrong": "錯誤",
+        }.get(quality, "未標記")] += 1
+
+        if bool(item.get("need_followup")) or int(item.get("lead_score") or 0) >= 35:
+            lead_intent_counts[str(item.get("intent", "一般詢問") or "一般詢問")] += 1
+
+    metric_cards = "".join([
+        metric_card("總對話", total_all, "筆", f"目前篩選 {filtered_count} 筆"),
+        metric_card("未回答 / 待修", unanswered_count, "筆", f"品質標記待修 {review_count} 筆"),
+        metric_card("待人工追蹤", followup_count, "筆", f"可能商機 {lead_count} 筆"),
+        metric_card("平均延遲", avg_latency(all_logs), "秒", "全部 LOG 平均"),
+    ])
+    platform_chart = bar_chart(platform_counts.most_common(), "尚無平台資料")
+    source_chart = bar_chart(source_counts.most_common(), "尚無來源資料")
+    quality_chart = bar_chart(quality_counts.most_common(), "尚無品質資料")
+    lead_chart = bar_chart(lead_intent_counts.most_common(), "尚無商機資料")
 
     # =========================
     # PAGINATION
@@ -839,6 +944,142 @@ def logs_ui(
         font-weight:700;
         cursor:pointer;
         user-select:none;
+    }
+
+    .overview-grid {
+        display:grid;
+        grid-template-columns:repeat(4, minmax(0, 1fr));
+        gap:14px;
+        margin:0 0 14px;
+    }
+
+    .metric-card {
+        background:var(--panel);
+        border:1px solid var(--border);
+        border-radius:8px;
+        box-shadow:var(--shadow);
+        padding:16px;
+        min-width:0;
+    }
+
+    .metric-label {
+        color:var(--muted);
+        font-size:13px;
+        font-weight:800;
+    }
+
+    .metric-value {
+        margin-top:8px;
+        font-size:28px;
+        line-height:1.1;
+        font-weight:900;
+        color:var(--text);
+    }
+
+    .metric-value span {
+        margin-left:4px;
+        color:var(--muted);
+        font-size:13px;
+        font-weight:800;
+    }
+
+    .metric-note {
+        margin-top:8px;
+        color:var(--muted);
+        font-size:12px;
+        line-height:1.5;
+    }
+
+    .analytics-grid {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:14px;
+        margin:0 0 16px;
+    }
+
+    .analytics-card {
+        background:var(--panel);
+        border:1px solid var(--border);
+        border-radius:8px;
+        box-shadow:var(--shadow);
+        padding:16px;
+        min-width:0;
+    }
+
+    .analytics-card h3 {
+        margin:0 0 12px;
+        font-size:15px;
+        line-height:1.4;
+    }
+
+    .chart-row {
+        display:grid;
+        grid-template-columns:90px minmax(0, 1fr) 38px;
+        gap:10px;
+        align-items:center;
+        min-height:30px;
+        margin-top:10px;
+    }
+
+    .chart-row:first-child {
+        margin-top:0;
+    }
+
+    .chart-name {
+        color:var(--text);
+        font-size:13px;
+        font-weight:700;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+    }
+
+    .chart-track {
+        height:12px;
+        border-radius:999px;
+        background:var(--panel-soft);
+        border:1px solid var(--border);
+        overflow:hidden;
+    }
+
+    .chart-fill {
+        height:100%;
+        border-radius:999px;
+        background:var(--button-bg);
+        min-width:8px;
+    }
+
+    .chart-count {
+        color:var(--accent-strong);
+        font-size:13px;
+        font-weight:900;
+        text-align:right;
+    }
+
+    .chart-empty {
+        padding:14px;
+        border-radius:8px;
+        border:1px dashed var(--border);
+        background:var(--panel-soft);
+        color:var(--muted);
+        font-size:13px;
+    }
+
+    .section-title {
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:14px;
+        margin:20px 0 10px;
+    }
+
+    .section-title h3 {
+        margin:0;
+        font-size:18px;
+    }
+
+    .section-title .subtitle {
+        margin-top:4px;
     }
 
     .switch {
@@ -1420,6 +1661,30 @@ def logs_ui(
             justify-content:space-between;
         }
 
+        .overview-grid,
+        .analytics-grid {
+            grid-template-columns:1fr;
+        }
+
+        .metric-value {
+            font-size:26px;
+        }
+
+        .section-title {
+            align-items:stretch;
+            flex-direction:column;
+        }
+
+        .chart-row {
+            grid-template-columns:1fr 48px;
+            gap:8px;
+        }
+
+        .chart-name {
+            grid-column:1 / -1;
+            white-space:normal;
+        }
+
         .nav-toggle {
             display:flex;
             width:100%;
@@ -1610,9 +1875,37 @@ def logs_ui(
 
     <nav class="nav">{nav_html("LOGS")}</nav>
 
-    <div class="quick-filters">
-        {quick_buttons}
-    </div>
+    <section class="overview-grid">
+        {metric_cards}
+    </section>
+
+    <section class="analytics-grid">
+        <div class="analytics-card">
+            <h3>平台分布</h3>
+            {platform_chart}
+        </div>
+        <div class="analytics-card">
+            <h3>回答來源分布</h3>
+            {source_chart}
+        </div>
+        <div class="analytics-card">
+            <h3>品質狀態</h3>
+            {quality_chart}
+        </div>
+        <div class="analytics-card">
+            <h3>商機意圖</h3>
+            {lead_chart}
+        </div>
+    </section>
+
+    <section class="section-title">
+        <div>
+            <h3>查詢與篩選</h3>
+            <p class="subtitle">先用快速分類縮小範圍，再用關鍵字或日期查明細。</p>
+        </div>
+    </section>
+
+    <div class="quick-filters">{quick_buttons}</div>
 
     <form class="bar">
         <input type="hidden" name="quick" value="{e(quick)}">
@@ -1640,6 +1933,13 @@ def logs_ui(
         
         <button>搜尋</button>
     </form>
+
+    <section class="section-title">
+        <div>
+            <h3>對話明細</h3>
+            <p class="subtitle">目前顯示 {e(filtered_count)} 筆結果，可展開查看完整問題、回覆、來源與追蹤狀態。</p>
+        </div>
+    </section>
 
     <div class="pages">{pages}</div>
 
