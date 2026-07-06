@@ -62,6 +62,7 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 LOG_PATH = "logs/chat_logs.json"
 URLS_FILE = "data/urls.json"
+SITE_INDEX_FILE = "data/site_index.json"
 SITE_INDEX_INTERVAL_HOURS = int(os.getenv("SITE_INDEX_INTERVAL_HOURS", "24"))
 
 
@@ -607,6 +608,95 @@ def source_items(source):
     return items
 
 
+def source_references(source):
+    items = source_items(source)
+    source_text = str(source or "")
+    refs = []
+    title_map = {}
+
+    if os.path.exists(SITE_INDEX_FILE):
+        try:
+            with open(SITE_INDEX_FILE, "r", encoding="utf-8") as f:
+                for item in json.load(f):
+                    url = item.get("url")
+                    if url and url not in title_map:
+                        title_map[url] = item.get("title") or item.get("site") or url
+        except:
+            title_map = {}
+
+    for item in items:
+        if item.startswith("http"):
+            refs.append({
+                "type": "網站",
+                "title": title_map.get(item, item),
+                "url": item
+            })
+        elif item.startswith("KB-"):
+            refs.append({"type": "KB", "title": item.replace("KB-", "知識庫：", 1), "url": ""})
+        elif "KB" in source_text:
+            refs.append({"type": "KB", "title": item, "url": ""})
+        elif item in {"FAQ", "COMPANY"}:
+            refs.append({"type": item, "title": "FAQ" if item == "FAQ" else "公司資料", "url": ""})
+
+    return refs
+
+
+def classify_lead(message, reply="", source=""):
+    text = f"{message} {reply}".lower()
+    rules = [
+        ("詢價", 45, ["價格", "費用", "報價", "多少錢", "price", "quote", "quotation", "cost"]),
+        ("授權", 40, ["授權", "license", "續約", "renewal", "key"]),
+        ("試用", 40, ["試用", "demo", "poc", "評估", "下載試用", "trial"]),
+        ("產品比較", 35, ["比較", "差異", "vs", "對比", "哪個好", "替代", "競品"]),
+        ("導入建議", 35, ["導入", "建置", "部署", "規劃", "方案", "implementation", "migration"]),
+        ("業務聯絡", 50, ["業務", "專人", "聯絡我", "聯繫我", "有人聯絡", "contact", "sales"]),
+    ]
+    score = 0
+    intents = []
+    reasons = []
+
+    for intent, weight, keywords in rules:
+        hits = [keyword for keyword in keywords if keyword in text]
+
+        if hits:
+            intents.append(intent)
+            score += weight
+            reasons.append(f"{intent}：{', '.join(hits[:3])}")
+
+    no_answer_markers = ["沒有相關資訊", "目前知識庫沒有", "目前網站索引沒有", "無法根據"]
+
+    if str(source) == "AI客服" or any(marker in str(reply) for marker in no_answer_markers):
+        score += 20
+        reasons.append("回答信心較低")
+
+    score = min(score, 100)
+    followup_intents = {"詢價", "授權", "試用", "業務聯絡"}
+    need_followup = score >= 70 or any(intent in followup_intents for intent in intents)
+
+    if not intents:
+        intents = ["一般詢問"]
+
+    return {
+        "intent": "、".join(dict.fromkeys(intents)),
+        "lead_score": score,
+        "lead_reason": "；".join(reasons),
+        "need_followup": need_followup,
+        "followup_status": "pending" if need_followup else "none"
+    }
+
+
+def apply_handoff_message(reply, lead):
+    if not lead.get("need_followup"):
+        return reply
+
+    handoff = "我可以先幫您整理初步資訊，也建議由專人協助確認需求。"
+
+    if handoff in reply:
+        return reply
+
+    return f"{reply}\n\n{handoff}"
+
+
 async def web_chat_response(request: Request):
     start = time.time()
 
@@ -622,6 +712,8 @@ async def web_chat_response(request: Request):
         raise HTTPException(status_code=400, detail="請輸入問題")
 
     reply, source = ai_reply(message)
+    lead = classify_lead(message, reply, source)
+    reply = apply_handoff_message(reply, lead)
     latency = round(time.time() - start, 3)
 
     save_log(
@@ -631,13 +723,18 @@ async def web_chat_response(request: Request):
         request,
         "WEB",
         latency,
-        source
+        source,
+        lead
     )
 
     return {
         "reply": reply,
         "source": source,
         "used_sources": source_items(source),
+        "references": source_references(source),
+        "intent": lead["intent"],
+        "lead_score": lead["lead_score"],
+        "need_followup": lead["need_followup"],
         "latency": latency
     }
 
@@ -680,7 +777,7 @@ def health_page():
 # =========================
 # LOG SAVE
 # =========================
-def save_log(user, message, reply, request: Request, platform, latency, source):
+def save_log(user, message, reply, request: Request, platform, latency, source, lead=None):
 
     os.makedirs("logs", exist_ok=True)
 
@@ -696,6 +793,8 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
 
     ip = request.headers.get("x-forwarded-for") or request.client.host or "-"
 
+    lead = lead or classify_lead(message, reply, source)
+
     logs.append({
         "id": len(logs) + 1,
         "time": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
@@ -705,7 +804,12 @@ def save_log(user, message, reply, request: Request, platform, latency, source):
         "platform": platform,
         "latency": latency,
         "ip": ip,
-        "source": source
+        "source": source,
+        "intent": lead.get("intent", "一般詢問"),
+        "lead_score": lead.get("lead_score", 0),
+        "lead_reason": lead.get("lead_reason", ""),
+        "need_followup": lead.get("need_followup", False),
+        "followup_status": lead.get("followup_status", "none")
     })
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -738,6 +842,8 @@ async def line_webhook(request: Request):
         platform = detect_platform(request)
 
         reply, source = ai_reply(user_msg)
+        lead = classify_lead(user_msg, reply, source)
+        reply = apply_handoff_message(reply, lead)
 
         latency = round(time.time() - start, 3)
 
@@ -755,7 +861,8 @@ async def line_webhook(request: Request):
             request,
             platform,
             latency,
-            source
+            source,
+            lead
         )
 
     return {"status": "ok"}

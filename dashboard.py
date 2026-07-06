@@ -87,6 +87,14 @@ def dashboard():
     avg_latency = round(sum(latencies) / len(latencies), 3) if latencies else "-"
     sources = Counter(str(item.get("source", "-")) for item in logs)
     top_sources = sources.most_common(5)
+    lead_logs = [
+        item for item in logs
+        if bool(item.get("need_followup")) or int(item.get("lead_score") or 0) >= 35
+    ]
+    pending_followups = [
+        item for item in logs
+        if bool(item.get("need_followup")) and item.get("followup_status", "pending") == "pending"
+    ]
 
     source_rows = ""
     for source, count in top_sources:
@@ -268,6 +276,14 @@ def dashboard():
             <div class="card">
                 <div class="label">FAQ 筆數</div>
                 <div class="value">{e(len(faq))}</div>
+            </div>
+            <div class="card">
+                <div class="label">可能商機</div>
+                <div class="value">{e(len(lead_logs))}</div>
+            </div>
+            <div class="card">
+                <div class="label">待人工追蹤</div>
+                <div class="value">{e(len(pending_followups))}</div>
             </div>
             <div class="card">
                 <div class="label">平均延遲</div>

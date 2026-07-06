@@ -90,6 +90,20 @@ def source_detail_html(value):
     return f'<div class="detail-text">{e(source)}</div>'
 
 
+def lead_badge(item):
+    score = int(item.get("lead_score") or 0)
+    need_followup = bool(item.get("need_followup"))
+    intent = str(item.get("intent", "一般詢問"))
+
+    if need_followup:
+        return f'<span class="lead-badge hot">待追蹤 · {score}</span>'
+
+    if score >= 35:
+        return f'<span class="lead-badge warm">{e(intent)} · {score}</span>'
+
+    return '<span class="lead-badge">一般</span>'
+
+
 def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
@@ -217,6 +231,8 @@ def filter_logs(
             ]
         elif quick == "needs-review":
             logs = [l for l in logs if str(l.get("quality", "")) in {"fix", "wrong"}]
+        elif quick == "followup":
+            logs = [l for l in logs if bool(l.get("need_followup")) and l.get("followup_status", "pending") == "pending"]
 
     start_at = parse_date(date_from)
     end_at = parse_date(date_to, end_of_day=True)
@@ -287,7 +303,7 @@ def export_logs(
     output = io.StringIO()
     output.write("\ufeff")
     writer = csv.writer(output)
-    writer.writerow(["ID", "時間", "平台", "問題", "回覆", "延遲", "來源", "IP"])
+    writer.writerow(["ID", "時間", "平台", "問題", "回覆", "延遲", "來源", "商機意圖", "商機分數", "待追蹤", "IP"])
 
     for i, item in enumerate(logs):
         writer.writerow([
@@ -298,6 +314,9 @@ def export_logs(
             g(item, "reply", ""),
             g(item, "latency", "-"),
             g(item, "source", "-"),
+            g(item, "intent", "-"),
+            g(item, "lead_score", 0),
+            "是" if item.get("need_followup") else "否",
             g(item, "ip", "-"),
         ])
 
@@ -423,6 +442,7 @@ def logs_ui(
 
             <td data-label="延遲" class="latency">{e(g(l,'latency','-'))}</td>
             <td data-label="來源" class="source"><span title="{e(source_value)}">{e(source_summary(source_value))}</span></td>
+            <td data-label="商機" class="lead-cell">{lead_badge(l)}</td>
             <td data-label="IP" class="ip">{e(g(l,'ip','-'))}</td>
 
             <td data-label="更多資訊" class="log-actions">
@@ -438,7 +458,7 @@ def logs_ui(
         # =========================
         rows += f"""
         <tr id="detail-{i}" class="detail-row" style="display:none;">
-            <td colspan="9">
+            <td colspan="10">
                 <div class="detail-box" id="detail-content-{i}">
 
                     <div class="grid">
@@ -464,6 +484,17 @@ def logs_ui(
                     <div class="block">
                         <span class="pill-more"><b>來源</b></span>
                         {source_detail_html(source_value)}
+                    </div>
+
+                    <div class="block">
+                        <span class="pill-more"><b>商機 / 人工追蹤</b></span>
+                        <div class="detail-text">
+意圖：{e(g(l, 'intent', '一般詢問'))}
+分數：{e(g(l, 'lead_score', 0))}
+是否待追蹤：{e('是' if l.get('need_followup') else '否')}
+狀態：{e(g(l, 'followup_status', 'none'))}
+原因：{e(g(l, 'lead_reason', '-'))}
+                        </div>
                     </div>
 
                     <div class="block">
@@ -530,6 +561,7 @@ def logs_ui(
         ("site-index", "網站索引"),
         ("transferred", "已轉 FAQ"),
         ("needs-review", "待修 / 錯誤"),
+        ("followup", "待追蹤"),
     ]
 
     def quick_link(value):
@@ -1087,6 +1119,37 @@ def logs_ui(
         border-top:none;
     }
 
+    .lead-cell {
+        min-width:92px;
+    }
+
+    .lead-badge {
+        min-height:28px;
+        padding:5px 8px;
+        border-radius:999px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        background:var(--panel-soft);
+        color:var(--muted);
+        border:1px solid var(--border);
+        font-size:12px;
+        font-weight:800;
+        white-space:nowrap;
+    }
+
+    .lead-badge.warm {
+        background:#fef3c7;
+        color:#92400e;
+        border-color:#fde68a;
+    }
+
+    .lead-badge.hot {
+        background:#fee2e2;
+        color:#b91c1c;
+        border-color:#fecaca;
+    }
+
     .quality-row {
         display:flex;
         gap:10px;
@@ -1424,6 +1487,7 @@ def logs_ui(
             <th width="14%">回覆</th>
             <th width="5%">延遲</th>
             <th width="8%">來源</th>
+            <th width="7%">商機</th>
             <th width="8%">IP</th>
             <th width="5%">更多資訊</th>
         </tr>
