@@ -85,6 +85,21 @@ def health_checks():
     ]
 
 
+def source_group(value):
+    source = str(value or "-").strip()
+
+    if "網站索引" in source or source.startswith("http") or source.startswith("URL-"):
+        return "網站索引"
+
+    if source in {"AI", "AI客服"}:
+        return "AI 客服"
+
+    if source.startswith("KB") or source.startswith("知識庫"):
+        return "知識庫"
+
+    return source or "-"
+
+
 @router.get("/", response_class=HTMLResponse)
 def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
     if days not in {0, 7, 14, 30, 90}:
@@ -111,8 +126,6 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             pass
 
     avg_latency = round(sum(latencies) / len(latencies), 3) if latencies else "-"
-    sources = Counter(str(item.get("source", "-")) for item in logs)
-    top_sources = sources.most_common(5)
     lead_logs = [
         item for item in logs
         if bool(item.get("need_followup")) or int(item.get("lead_score") or 0) >= 35
@@ -129,6 +142,22 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
     brands = brand_counter(report_logs)
     repeats = repeated_questions(report_logs)
     report_sources = Counter(str(item.get("source", "-")) for item in report_logs)
+    grouped_sources = Counter(source_group(item.get("source", "-")) for item in report_logs)
+    platforms = Counter(str(item.get("platform", "LINE") or "LINE") for item in report_logs)
+    quality_counts = Counter()
+    lead_intents = Counter()
+
+    for item in report_logs:
+        quality = str(item.get("quality", "") or "")
+        quality_counts[{
+            "good": "良好",
+            "fix": "待修",
+            "wrong": "錯誤",
+        }.get(quality, "未標記")] += 1
+
+        if bool(item.get("need_followup")) or int(item.get("lead_score") or 0) >= 35:
+            lead_intents[str(item.get("intent", "一般詢問") or "一般詢問")] += 1
+
     report_text = weekly_report_text(
         len(report_logs),
         len(unanswered),
@@ -151,18 +180,6 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             <div class="report-text" id="report-text">{e(report_text)}</div>
         </section>
     """ if generate else ""
-
-    source_rows = ""
-    for source, count in top_sources:
-        source_rows += f"""
-        <tr>
-            <td data-label="來源">{e(source)}</td>
-            <td data-label="次數">{e(count)}</td>
-        </tr>
-        """
-
-    if not source_rows:
-        source_rows = "<tr><td colspan='2'>尚無資料</td></tr>"
 
     health_rows = "".join(
         f"""
@@ -189,9 +206,9 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
     if not site_rows:
         site_rows = "<tr><td colspan='5'>尚未建立索引</td></tr>"
 
-    report_source_rows = "".join(
+    grouped_source_rows = "".join(
         f"<tr><td data-label='來源'>{e(source)}</td><td data-label='次數'>{count}</td></tr>"
-        for source, count in report_sources.most_common(8)
+        for source, count in grouped_sources.most_common(8)
     ) or "<tr><td colspan='2'>尚無資料</td></tr>"
     brand_rows = "".join(
         f"<tr><td data-label='品牌'>{e(brand)}</td><td data-label='提及次數'>{count}</td></tr>"
@@ -201,7 +218,10 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
         f"<tr><td data-label='問題'>{e(question)}</td><td data-label='次數'>{count}</td></tr>"
         for question, count in repeats[:8]
     ) or "<tr><td colspan='2'>尚無重複問題</td></tr>"
-    source_chart = chart_html(report_sources.most_common(8), chart)
+    platform_chart = chart_html(platforms.most_common(8), chart, "尚無平台資料")
+    source_chart = chart_html(grouped_sources.most_common(8), chart)
+    quality_chart = chart_html(quality_counts.most_common(8), chart, "尚無品質資料")
+    lead_chart = chart_html(lead_intents.most_common(8), chart, "尚無商機資料")
     brand_chart = chart_html(brands.most_common(8), chart, "尚無品牌資料")
 
     return HTMLResponse(f"""
@@ -434,31 +454,69 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
 
         <nav class="nav">{nav_html("Dashboard")}</nav>
 
+        <section class="toolbar">
+            <div>
+                <div class="label">統計期間</div>
+                <div class="tabs">{time_tabs(days, chart).replace('/weekly-report', '/')}</div>
+            </div>
+            <div>
+                <div class="label">圖表樣式</div>
+                <div class="tabs">{chart_tabs(days, chart).replace('/weekly-report', '/')}</div>
+            </div>
+        </section>
+
+        <section class="section-head">
+            <div>
+                <h2>營運總覽</h2>
+                <p class="subtitle">核心數字集中看，避免和明細資料混在一起。</p>
+            </div>
+        </section>
         <section class="grid">
             <div class="card">
                 <div class="label">今日對話</div>
-                <div class="value">{e(len(today_logs))}</div>
+                <div class="value">{e(len(today_logs))}<span>筆</span></div>
             </div>
             <div class="card">
-                <div class="label">總對話</div>
-                <div class="value">{e(len(logs))}</div>
+                <div class="label">{e(days_label(days))}對話</div>
+                <div class="value">{e(len(report_logs))}<span>筆</span></div>
             </div>
             <div class="card">
-                <div class="label">FAQ 筆數</div>
-                <div class="value">{e(len(faq))}</div>
-            </div>
-            <div class="card">
-                <div class="label">可能商機</div>
-                <div class="value">{e(len(lead_logs))}</div>
-            </div>
-            <div class="card">
-                <div class="label">待人工追蹤</div>
-                <div class="value">{e(len(pending_followups))}</div>
+                <div class="label">未回答 / 待修</div>
+                <div class="value">{e(len(unanswered))}<span>筆</span></div>
             </div>
             <div class="card">
                 <div class="label">平均延遲</div>
-                <div class="value">{e(avg_latency)}</div>
+                <div class="value">{e(avg_latency)}<span>秒</span></div>
             </div>
+            <div class="card">
+                <div class="label">FAQ 總數</div>
+                <div class="value">{e(len(faq))}<span>筆</span></div>
+            </div>
+            <div class="card">
+                <div class="label">索引段落</div>
+                <div class="value">{e(index_status.get("total_chunks", index_count()))}<span>段</span></div>
+            </div>
+            <div class="card">
+                <div class="label">可能商機</div>
+                <div class="value">{e(len(lead_logs))}<span>筆</span></div>
+            </div>
+            <div class="card">
+                <div class="label">待人工追蹤</div>
+                <div class="value">{e(len(pending_followups))}<span>筆</span></div>
+            </div>
+        </section>
+
+        <section class="section-head">
+            <div>
+                <h2>回答與品質分析</h2>
+                <p class="subtitle">同類資訊集中成圖表，快速看出來源、平台、品質與商機狀態。</p>
+            </div>
+        </section>
+        <section class="wide">
+            <div class="card"><h3>平台分布</h3><div class="bar-chart">{platform_chart}</div></div>
+            <div class="card"><h3>回答來源分布</h3><div class="bar-chart">{source_chart}</div></div>
+            <div class="card"><h3>品質狀態</h3><div class="bar-chart">{quality_chart}</div></div>
+            <div class="card"><h3>商機意圖</h3><div class="bar-chart">{lead_chart}</div></div>
         </section>
 
         <section class="card">
@@ -494,55 +552,22 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             </table>
         </section>
 
-        <section class="wide" style="margin-top:14px;">
-            <div class="card">
-                <div class="label">常見資料來源</div>
-                <table>
-                    <tr><th>來源</th><th>次數</th></tr>
-                    {source_rows}
-                </table>
-            </div>
-            <div class="card">
-                <div class="label">商機 / 追蹤狀態</div>
-                <p>可能商機：{e(len(lead_logs))} 筆</p>
-                <p>待人工追蹤：{e(len(pending_followups))} 筆</p>
-                <p class="subtitle">完整明細可到 LOGS 用「待追蹤」快速篩選查看。</p>
-            </div>
-        </section>
-
         <section class="section-head">
             <div>
-                <h2>AI 客服週報</h2>
-                <p class="subtitle">近 {e(days_label(days))} 客服營運摘要</p>
+                <h2>AI 客服週報與建議</h2>
+                <p class="subtitle">近 {e(days_label(days))} 的趨勢、品牌熱度與重複問題。</p>
             </div>
             <a class="primary-action" href="/?days={days}&chart={e(chart)}&generate=1">一鍵產生建議</a>
         </section>
-        <section class="toolbar">
-            <div>
-                <div class="label">統計期間</div>
-                <div class="tabs">{time_tabs(days, chart).replace('/weekly-report', '/')}</div>
-            </div>
-            <div>
-                <div class="label">圖表樣式</div>
-                <div class="tabs">{chart_tabs(days, chart).replace('/weekly-report', '/')}</div>
-            </div>
-        </section>
         {report_html}
-        <section class="grid">
-            <div class="card"><div class="label">{e(days_label(days))}對話</div><div class="value">{len(report_logs)}<span>筆</span></div></div>
-            <div class="card"><div class="label">未回答 / 待修</div><div class="value">{len(unanswered)}<span>筆</span></div></div>
-            <div class="card"><div class="label">FAQ 總數</div><div class="value">{len(faq)}<span>筆</span></div></div>
-            <div class="card"><div class="label">索引段落</div><div class="value">{e(index_status.get("total_chunks", index_count()))}<span>段</span></div></div>
-        </section>
         <section class="wide">
-            <div class="card"><h3>資料來源圖表</h3><div class="bar-chart">{source_chart}</div></div>
             <div class="card"><h3>品牌/產品圖表</h3><div class="bar-chart">{brand_chart}</div></div>
+            <div class="card"><h3>回答來源明細</h3><table><tr><th>來源</th><th>次數</th></tr>{grouped_source_rows}</table></div>
         </section>
         <section class="wide">
-            <div class="card"><h3>資料來源分布</h3><table><tr><th>來源</th><th>次數</th></tr>{report_source_rows}</table></div>
             <div class="card"><h3>品牌/產品熱度</h3><table><tr><th>品牌</th><th>提及次數</th></tr>{brand_rows}</table></div>
+            <div class="card"><h3>重複問題</h3><table><tr><th>問題</th><th>次數</th></tr>{repeat_rows}</table></div>
         </section>
-        <div class="card"><h3>重複問題</h3><table><tr><th>問題</th><th>次數</th></tr>{repeat_rows}</table></div>
         <script>
         if (window.location.search.includes("generate=1")) {{
             setTimeout(() => document.getElementById("generated-report")?.scrollIntoView({{behavior:"smooth", block:"start"}}), 120);
