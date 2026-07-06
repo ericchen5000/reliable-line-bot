@@ -61,9 +61,7 @@ def nav_html(active=""):
         ("/", "Dashboard"),
         ("/logs", "LOGS"),
         ("/faq", "FAQ"),
-        ("/weekly-report", "週報"),
         ("/test-chat", "測試"),
-        ("/health", "健康檢查"),
     ]
     links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
@@ -273,6 +271,8 @@ def weekly_report(generate: int = 0, days: int = 7, chart: str = "bar"):
     if chart not in {"bar", "pie"}:
         chart = "bar"
 
+    return RedirectResponse(f"/?days={days}&chart={chart}&generate={1 if generate else 0}", status_code=302)
+
     logs = load_json(LOG_PATH, []) if days == 0 else recent_logs(days)
     faq = load_json(FAQ_PATH, [])
     index_status = load_json(INDEX_STATUS_PATH, {})
@@ -394,4 +394,4 @@ def knowledge_gaps():
 
 @router.get("/brand-heat", response_class=HTMLResponse)
 def brand_heat():
-    return RedirectResponse("/weekly-report", status_code=302)
+    return RedirectResponse("/", status_code=302)
