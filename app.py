@@ -878,6 +878,26 @@ def save_log(user, message, reply, request: Request, platform, latency, source, 
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
 
+def get_line_profile(user_id):
+    if not user_id:
+        return {}
+
+    profile = {"line_user_id": user_id}
+
+    try:
+        line_profile = line_bot_api.get_profile(user_id)
+        profile.update({
+            "line_display_name": getattr(line_profile, "display_name", ""),
+            "line_picture_url": getattr(line_profile, "picture_url", ""),
+            "line_status_message": getattr(line_profile, "status_message", ""),
+            "line_language": getattr(line_profile, "language", "")
+        })
+    except Exception as exc:
+        profile["line_profile_error"] = str(exc)
+
+    return profile
+
+
 # =========================
 # LINE WEBHOOK
 # =========================
@@ -900,6 +920,7 @@ async def line_webhook(request: Request):
 
         user_msg = event["message"]["text"]
         user_id = event["source"].get("userId")
+        line_profile = get_line_profile(user_id)
 
         platform = detect_platform(request)
 
@@ -924,7 +945,8 @@ async def line_webhook(request: Request):
             platform,
             latency,
             source,
-            lead
+            lead,
+            line_profile
         )
 
     return {"status": "ok"}

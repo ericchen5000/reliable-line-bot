@@ -128,6 +128,37 @@ def contact_detail_html(item):
     """
 
 
+def line_profile_html(item):
+    fields = [
+        ("LINE 暱稱", item.get("line_display_name", "")),
+        ("LINE User ID", item.get("line_user_id", item.get("user", ""))),
+        ("語言", item.get("line_language", "")),
+        ("狀態訊息", item.get("line_status_message", "")),
+    ]
+    rows = "".join(
+        f"<div><b>{e(label)}</b><span>{e(value or '-')}</span></div>"
+        for label, value in fields
+    )
+    avatar = item.get("line_picture_url", "")
+    avatar_html = (
+        f'<img class="line-avatar" src="{e(avatar)}" alt="LINE 使用者頭像">'
+        if avatar else '<div class="line-avatar empty">LINE</div>'
+    )
+
+    if not any(value for _, value in fields):
+        return ""
+
+    return f"""
+    <div class="block">
+        <span class="pill-more"><b>LINE 使用者</b></span>
+        <div class="line-profile">
+            {avatar_html}
+            <div class="contact-grid">{rows}</div>
+        </div>
+    </div>
+    """
+
+
 def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
@@ -550,6 +581,7 @@ def logs_ui(
                     </div>
 
                     {contact_detail_html(l)}
+                    {line_profile_html(l)}
 
                     <div class="block">
                         <span class="pill-more"><b>品質</b></span>
@@ -1231,6 +1263,37 @@ def logs_ui(
         line-height:1.6;
     }
 
+    .line-profile {
+        display:flex;
+        align-items:flex-start;
+        gap:14px;
+        margin-top:12px;
+    }
+
+    .line-profile .contact-grid {
+        flex:1;
+        margin:0;
+    }
+
+    .line-avatar {
+        width:56px;
+        height:56px;
+        border-radius:999px;
+        object-fit:cover;
+        border:1px solid var(--border);
+        background:var(--panel-soft);
+        flex:0 0 auto;
+    }
+
+    .line-avatar.empty {
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:var(--accent-strong);
+        font-size:12px;
+        font-weight:900;
+    }
+
     .quality-row {
         display:flex;
         gap:10px;
@@ -1507,6 +1570,14 @@ def logs_ui(
             white-space:normal;
             overflow:visible;
             text-overflow:clip;
+        }
+
+        .line-profile {
+            flex-direction:column;
+        }
+
+        .line-profile .contact-grid {
+            width:100%;
         }
 
         .contact-grid {
