@@ -11,6 +11,8 @@ from urllib.parse import urlencode
 router = APIRouter()
 
 FAQ_PATH = "data/faq.json"
+URLS_PATH = "data/urls.json"
+KB_DIR = "knowledge/txt"
 
 
 # =========================
@@ -36,6 +38,53 @@ def save_faq(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def load_urls():
+    if not os.path.exists(URLS_PATH):
+        return []
+    try:
+        with open(URLS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except:
+        return []
+
+
+def save_urls(data):
+    os.makedirs(os.path.dirname(URLS_PATH), exist_ok=True)
+    with open(URLS_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def kb_files():
+    os.makedirs(KB_DIR, exist_ok=True)
+    files = []
+
+    for name in sorted(os.listdir(KB_DIR)):
+        path = os.path.join(KB_DIR, name)
+        if name.startswith(".") or not os.path.isfile(path) or not name.endswith(".txt"):
+            continue
+        try:
+            size = os.path.getsize(path)
+        except:
+            size = 0
+        files.append({"name": name, "size": size})
+
+    return files
+
+
+def safe_kb_filename(value):
+    name = os.path.basename(str(value or "").strip())
+    name = "".join(ch for ch in name if ch.isalnum() or ch in {"-", "_", "."})
+
+    if not name:
+        name = "kb"
+
+    if not name.endswith(".txt"):
+        name += ".txt"
+
+    return name
+
+
 def e(value):
     return html.escape(str(value))
 
@@ -44,7 +93,7 @@ def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
         ("/logs", "LOGS"),
-        ("/faq", "FAQ"),
+        ("/faq", "知識管理"),
         ("/test-chat", "測試"),
     ]
     links = "".join(
@@ -62,14 +111,20 @@ def normalize_question(value):
 # MAIN PAGE (ALL IN ONE)
 # =========================
 @router.get("/faq", response_class=HTMLResponse)
-def faq_page(edit_id: int = None, q: str = ""):
+def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
 
     faq = load_faq()
+    urls = load_urls()
+    files = kb_files()
     search_text = q.strip().lower()
 
     edit_item = None
     if edit_id is not None and 0 <= edit_id < len(faq):
         edit_item = faq[edit_id]
+
+    edit_url_item = None
+    if edit_url is not None and 0 <= edit_url < len(urls):
+        edit_url_item = urls[edit_url]
 
     rows = ""
 
@@ -112,6 +167,49 @@ def faq_page(edit_id: int = None, q: str = ""):
         btn_text = "更新"
         q_val = edit_item.get("question", "")
         a_val = edit_item.get("answer", "")
+
+    url_rows = ""
+    for i, item in enumerate(urls):
+        keywords = ", ".join(item.get("keywords", [])) if isinstance(item.get("keywords"), list) else str(item.get("keywords", ""))
+        url_rows += f"""
+        <tr>
+            <td data-label="網站">{e(item.get('title', '-'))}</td>
+            <td data-label="網址">{e(item.get('url', '-'))}</td>
+            <td data-label="關鍵字">{e(keywords)}</td>
+            <td data-label="操作" class="actions">
+                <a href="/faq?edit_url={i}" class="btn-edit">編輯</a>
+                <a href="/faq/urls/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這個網站索引嗎？')">刪除</a>
+            </td>
+        </tr>
+        """
+
+    if not url_rows:
+        url_rows = "<tr><td colspan='4'>尚未設定網站索引</td></tr>"
+
+    url_is_edit = edit_url_item is not None
+    url_form_action = f"/faq/urls/edit/{edit_url}" if url_is_edit else "/faq/urls/add"
+    url_form_title = "編輯網站索引" if url_is_edit else "新增網站索引"
+    url_btn_text = "更新網站" if url_is_edit else "新增網站"
+    url_title = edit_url_item.get("title", "") if url_is_edit else ""
+    url_value = edit_url_item.get("url", "") if url_is_edit else ""
+    url_keywords = edit_url_item.get("keywords", []) if url_is_edit else []
+    url_keywords_value = ", ".join(url_keywords) if isinstance(url_keywords, list) else str(url_keywords)
+
+    kb_rows = ""
+    for item in files:
+        name = item.get("name", "")
+        kb_rows += f"""
+        <tr>
+            <td data-label="檔名">{e(name)}</td>
+            <td data-label="大小">{e(item.get('size', 0))} bytes</td>
+            <td data-label="操作" class="actions">
+                <a href="/faq/kb/delete/{e(name)}" class="btn-del" onclick="return confirm('確定要刪除這個 KB 文件嗎？')">刪除</a>
+            </td>
+        </tr>
+        """
+
+    if not kb_rows:
+        kb_rows = "<tr><td colspan='3'>尚無 KB 文件</td></tr>"
 
     return HTMLResponse(f"""
     <html>
@@ -496,6 +594,48 @@ def faq_page(edit_id: int = None, q: str = ""):
             align-items:center;
         }}
 
+        .section-tabs {{
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+            margin:0 0 16px;
+        }}
+
+        .section-tabs a {{
+            min-height:36px;
+            padding:8px 12px;
+            border-radius:999px;
+            border:1px solid var(--border);
+            background:var(--panel);
+            color:var(--text);
+            text-decoration:none;
+            font-size:13px;
+            font-weight:700;
+        }}
+
+        .section-title {{
+            margin:22px 0 12px;
+        }}
+
+        .section-title h3 {{
+            margin:0;
+            font-size:20px;
+        }}
+
+        .management-grid {{
+            display:grid;
+            grid-template-columns:minmax(280px, 0.9fr) minmax(0, 1.6fr);
+            gap:16px;
+            align-items:start;
+        }}
+
+        .hint {{
+            color:var(--muted);
+            font-size:13px;
+            line-height:1.6;
+            margin:8px 0 0;
+        }}
+
         @media (max-width: 860px) {{
             body {{
                 padding:14px;
@@ -545,6 +685,15 @@ def faq_page(edit_id: int = None, q: str = ""):
             }}
 
             .layout {{
+                grid-template-columns:1fr;
+            }}
+
+            .management-grid {{
+                grid-template-columns:1fr;
+            }}
+
+            .section-tabs {{
+                display:grid;
                 grid-template-columns:1fr;
             }}
 
@@ -673,8 +822,8 @@ def faq_page(edit_id: int = None, q: str = ""):
 
     <header class="topbar">
         <div>
-            <h2>FAQ 管理中心</h2>
-            <p class="subtitle">管理 LINE 客服優先回答的常見問題</p>
+            <h2>知識管理中心</h2>
+            <p class="subtitle">集中管理 FAQ、網站索引與 KB 文件</p>
         </div>
         <label class="theme-control">
             <span>深夜模式</span>
@@ -685,8 +834,18 @@ def faq_page(edit_id: int = None, q: str = ""):
         </label>
     </header>
 
-    <nav class="nav">{nav_html("FAQ")}</nav>
+    <nav class="nav">{nav_html("知識管理")}</nav>
 
+    <div class="section-tabs">
+        <a href="#faq-manager">FAQ 管理</a>
+        <a href="#url-manager">網站索引管理</a>
+        <a href="#kb-manager">知識庫文件管理</a>
+    </div>
+
+    <div class="section-title" id="faq-manager">
+        <h3>FAQ 管理</h3>
+        <p class="subtitle">管理客服優先回答的常見問題。</p>
+    </div>
     <form class="card search-card" method="get" action="/faq">
         <input name="q" value="{e(q)}" placeholder="搜尋 FAQ 問題或答案">
         <button>搜尋</button>
@@ -735,6 +894,74 @@ def faq_page(edit_id: int = None, q: str = ""):
             </div>
         </div>
 
+    </div>
+
+    <div class="section-title" id="url-manager">
+        <h3>網站索引管理</h3>
+        <p class="subtitle">新增、編輯或刪除可被 AI 客服搜尋的指定網站。</p>
+    </div>
+    <div class="management-grid">
+        <div class="card">
+            <div class="top-title">{url_form_title}</div>
+            <form method="post" action="{e(url_form_action)}">
+                <input name="title" placeholder="網站名稱，例如：新聞中心" value="{e(url_title)}" required>
+                <input name="url" placeholder="網址，例如：https://www.reliable.com.tw/category/pr/" value="{e(url_value)}" required>
+                <textarea name="keywords" placeholder="關鍵字，用逗號分隔，例如：新聞, PR, 最新消息">{e(url_keywords_value)}</textarea>
+                <div class="form-actions">
+                    <button>{url_btn_text}</button>
+                    {"<a href='/faq#url-manager' class='cancel-link'>取消編輯</a>" if url_is_edit else ""}
+                </div>
+                <p class="hint">新增後如果要讓網站索引立即更新，請到 Dashboard 按「立即建立索引」。</p>
+            </form>
+        </div>
+        <div class="card">
+            <div class="top-title">網站索引清單</div>
+            <div class="table-wrap">
+            <table>
+                <tr>
+                    <th>網站</th>
+                    <th>網址</th>
+                    <th>關鍵字</th>
+                    <th>操作</th>
+                </tr>
+                {url_rows}
+            </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-title" id="kb-manager">
+        <h3>知識庫文件管理</h3>
+        <p class="subtitle">新增或刪除 KB 文字文件，AI 客服會搜尋 knowledge/txt 裡的 .txt 檔。</p>
+    </div>
+    <div class="management-grid">
+        <div class="card">
+            <div class="top-title">新增 KB 文件</div>
+            <form method="post" action="/faq/kb/add">
+                <input name="filename" placeholder="檔名，例如：array_license.txt" required>
+                <textarea name="content" placeholder="輸入 KB 內容" required></textarea>
+                <button>新增 KB</button>
+            </form>
+            <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+            <div class="top-title">上傳 KB TXT</div>
+            <form method="post" action="/faq/kb/upload" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".txt" required>
+                <button>上傳 KB</button>
+            </form>
+        </div>
+        <div class="card">
+            <div class="top-title">KB 文件清單</div>
+            <div class="table-wrap">
+            <table>
+                <tr>
+                    <th>檔名</th>
+                    <th>大小</th>
+                    <th>操作</th>
+                </tr>
+                {kb_rows}
+            </table>
+            </div>
+        </div>
     </div>
     </main>
 
@@ -857,3 +1084,101 @@ def delete(idx: int):
     save_faq(faq)
 
     return RedirectResponse("/faq", status_code=302)
+
+
+def parse_keywords(value):
+    return [item.strip() for item in str(value or "").split(",") if item.strip()]
+
+
+@router.post("/faq/urls/add")
+def add_url(
+    title: str = Form(...),
+    url: str = Form(...),
+    keywords: str = Form("")
+):
+    urls = load_urls()
+    url = url.strip()
+
+    if url and not any(item.get("url") == url for item in urls):
+        urls.append({
+            "title": title.strip(),
+            "url": url,
+            "keywords": parse_keywords(keywords),
+        })
+        save_urls(urls)
+
+    return RedirectResponse("/faq#url-manager", status_code=302)
+
+
+@router.post("/faq/urls/edit/{idx}")
+def edit_url(
+    idx: int,
+    title: str = Form(...),
+    url: str = Form(...),
+    keywords: str = Form("")
+):
+    urls = load_urls()
+
+    if 0 <= idx < len(urls):
+        urls[idx] = {
+            "title": title.strip(),
+            "url": url.strip(),
+            "keywords": parse_keywords(keywords),
+        }
+        save_urls(urls)
+
+    return RedirectResponse("/faq#url-manager", status_code=302)
+
+
+@router.get("/faq/urls/delete/{idx}")
+def delete_url(idx: int):
+    urls = load_urls()
+
+    if 0 <= idx < len(urls):
+        urls.pop(idx)
+        save_urls(urls)
+
+    return RedirectResponse("/faq#url-manager", status_code=302)
+
+
+@router.post("/faq/kb/add")
+def add_kb(
+    filename: str = Form(...),
+    content: str = Form(...)
+):
+    os.makedirs(KB_DIR, exist_ok=True)
+    name = safe_kb_filename(filename)
+    path = os.path.join(KB_DIR, name)
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content.strip() + "\n")
+
+    return RedirectResponse("/faq#kb-manager", status_code=302)
+
+
+@router.post("/faq/kb/upload")
+async def upload_kb(file: UploadFile = File(...)):
+    os.makedirs(KB_DIR, exist_ok=True)
+    name = safe_kb_filename(file.filename)
+    content = await file.read()
+
+    try:
+        text = content.decode("utf-8-sig")
+    except:
+        text = content.decode("utf-8", errors="ignore")
+
+    with open(os.path.join(KB_DIR, name), "w", encoding="utf-8") as f:
+        f.write(text.strip() + "\n")
+
+    return RedirectResponse("/faq#kb-manager", status_code=302)
+
+
+@router.get("/faq/kb/delete/{filename}")
+def delete_kb(filename: str):
+    name = safe_kb_filename(filename)
+    path = os.path.join(KB_DIR, name)
+
+    if os.path.exists(path) and os.path.isfile(path):
+        os.remove(path)
+
+    return RedirectResponse("/faq#kb-manager", status_code=302)

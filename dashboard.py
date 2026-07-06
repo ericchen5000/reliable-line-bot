@@ -33,7 +33,7 @@ def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
         ("/logs", "LOGS"),
-        ("/faq", "FAQ"),
+        ("/faq", "知識管理"),
         ("/test-chat", "測試"),
     ]
     links = "".join(
