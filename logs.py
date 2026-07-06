@@ -104,6 +104,30 @@ def lead_badge(item):
     return '<span class="lead-badge">一般</span>'
 
 
+def contact_detail_html(item):
+    fields = [
+        ("姓名", item.get("contact_name", "")),
+        ("公司", item.get("contact_company", "")),
+        ("電話", item.get("contact_phone", "")),
+        ("Email", item.get("contact_email", "")),
+        ("需求", item.get("contact_need", "")),
+    ]
+    rows = "".join(
+        f"<div><b>{e(label)}</b><span>{e(value or '-')}</span></div>"
+        for label, value in fields
+    )
+
+    if not any(value for _, value in fields):
+        return ""
+
+    return f"""
+    <div class="block">
+        <span class="pill-more"><b>聯絡資料</b></span>
+        <div class="contact-grid">{rows}</div>
+    </div>
+    """
+
+
 def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
@@ -353,6 +377,29 @@ def mark_quality(
     return RedirectResponse(return_to, status_code=302)
 
 
+@router.post("/logs/followup/{log_id}")
+def mark_followup(
+    log_id: int,
+    status: str = Form(...),
+    return_to: str = Form("/logs")
+):
+    allowed = {"pending", "done"}
+    logs = load_logs()
+
+    if status in allowed:
+        for item in logs:
+            if item.get("id") == log_id:
+                item["followup_status"] = status
+                item["need_followup"] = (status == "pending")
+                break
+        save_logs(logs)
+
+    if not return_to.startswith("/"):
+        return_to = "/logs"
+
+    return RedirectResponse(return_to, status_code=302)
+
+
 # =========================
 # UI
 # =========================
@@ -495,7 +542,14 @@ def logs_ui(
 狀態：{e(g(l, 'followup_status', 'none'))}
 原因：{e(g(l, 'lead_reason', '-'))}
                         </div>
+                        <form class="followup-form" method="post" action="/logs/followup/{e(log_id)}">
+                            <input type="hidden" name="return_to" value="{e(current_return_to)}">
+                            <button name="status" value="pending" class="quality-warn">待追蹤</button>
+                            <button name="status" value="done">已處理</button>
+                        </form>
                     </div>
+
+                    {contact_detail_html(l)}
 
                     <div class="block">
                         <span class="pill-more"><b>品質</b></span>
@@ -1150,6 +1204,33 @@ def logs_ui(
         border-color:#fecaca;
     }
 
+    .contact-grid {
+        margin:12px 0 0 0;
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:10px;
+    }
+
+    .contact-grid div {
+        padding:10px 12px;
+        border-radius:8px;
+        background:var(--panel);
+        border:1px solid var(--border);
+    }
+
+    .contact-grid b {
+        display:block;
+        color:var(--muted);
+        font-size:12px;
+        margin-bottom:5px;
+    }
+
+    .contact-grid span {
+        display:block;
+        overflow-wrap:anywhere;
+        line-height:1.6;
+    }
+
     .quality-row {
         display:flex;
         gap:10px;
@@ -1164,7 +1245,19 @@ def logs_ui(
         flex-wrap:wrap;
     }
 
+    .followup-form {
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin-top:10px;
+    }
+
     .quality-row button {
+        min-height:34px;
+        padding:7px 10px;
+    }
+
+    .followup-form button {
         min-height:34px;
         padding:7px 10px;
     }
@@ -1414,6 +1507,10 @@ def logs_ui(
             white-space:normal;
             overflow:visible;
             text-overflow:clip;
+        }
+
+        .contact-grid {
+            grid-template-columns:1fr;
         }
     }
     """

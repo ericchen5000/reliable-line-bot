@@ -697,6 +697,16 @@ def apply_handoff_message(reply, lead):
     return f"{reply}\n\n{handoff}"
 
 
+def contact_payload(payload):
+    return {
+        "contact_name": str(payload.get("name", "")).strip(),
+        "contact_company": str(payload.get("company", "")).strip(),
+        "contact_phone": str(payload.get("phone", "")).strip(),
+        "contact_email": str(payload.get("email", "")).strip(),
+        "contact_need": str(payload.get("need", "")).strip(),
+    }
+
+
 async def web_chat_response(request: Request):
     start = time.time()
 
@@ -749,6 +759,53 @@ async def web_chat_alias(request: Request):
     return await web_chat_response(request)
 
 
+@app.post("/web/lead")
+async def web_lead(request: Request):
+    start = time.time()
+
+    try:
+        payload = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="JSON 格式錯誤")
+
+    session_id = str(payload.get("session_id", "web")).strip() or "web"
+    contact = contact_payload(payload)
+
+    if not (contact["contact_phone"] or contact["contact_email"]):
+        raise HTTPException(status_code=400, detail="請至少留下電話或 Email")
+
+    need_text = contact["contact_need"] or "使用者留下聯絡資訊，請專人追蹤。"
+    message = "WEB 表單：使用者留下聯絡資訊"
+    reply = "已收到您的聯絡資訊，我們會請專人協助確認需求。"
+    lead = {
+        "intent": "業務聯絡",
+        "lead_score": 100,
+        "lead_reason": "使用者主動留下 WEB 聯絡表單",
+        "need_followup": True,
+        "followup_status": "pending"
+    }
+
+    save_log(
+        session_id,
+        message,
+        reply,
+        request,
+        "WEB",
+        round(time.time() - start, 3),
+        "WEB 表單",
+        lead,
+        {
+            **contact,
+            "contact_need": need_text,
+        }
+    )
+
+    return {
+        "ok": True,
+        "reply": reply
+    }
+
+
 @app.get("/health", response_class=HTMLResponse)
 def health_page():
     checks = [
@@ -777,7 +834,7 @@ def health_page():
 # =========================
 # LOG SAVE
 # =========================
-def save_log(user, message, reply, request: Request, platform, latency, source, lead=None):
+def save_log(user, message, reply, request: Request, platform, latency, source, lead=None, extra=None):
 
     os.makedirs("logs", exist_ok=True)
 
@@ -795,7 +852,7 @@ def save_log(user, message, reply, request: Request, platform, latency, source, 
 
     lead = lead or classify_lead(message, reply, source)
 
-    logs.append({
+    row = {
         "id": len(logs) + 1,
         "time": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         "user": user,
@@ -810,7 +867,12 @@ def save_log(user, message, reply, request: Request, platform, latency, source, 
         "lead_reason": lead.get("lead_reason", ""),
         "need_followup": lead.get("need_followup", False),
         "followup_status": lead.get("followup_status", "none")
-    })
+    }
+
+    if extra:
+        row.update(extra)
+
+    logs.append(row)
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
