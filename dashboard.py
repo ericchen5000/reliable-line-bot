@@ -242,6 +242,16 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             color:var(--text);
             font-size:16px;
         }}
+        body.dark {{
+            --bg:#0f172a;
+            --panel:#162033;
+            --panel-soft:#1e293b;
+            --text:#e5edf7;
+            --muted:#94a3b8;
+            --border:#334155;
+            --accent:#93c5fd;
+            --shadow:0 16px 40px rgba(0,0,0,0.28);
+        }}
         .page {{ max-width:1280px; margin:0 auto; }}
         .topbar {{
             display:flex;
@@ -250,6 +260,46 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             gap:16px;
             margin-bottom:18px;
         }}
+        .theme-control {{
+            flex:0 0 auto;
+            display:flex;
+            align-items:center;
+            gap:10px;
+            padding:8px 10px 8px 14px;
+            border-radius:999px;
+            border:1px solid var(--border);
+            background:var(--panel);
+            box-shadow:var(--shadow);
+            color:var(--muted);
+            font-size:13px;
+            font-weight:700;
+            cursor:pointer;
+            user-select:none;
+        }}
+        .switch {{ position:relative; width:52px; height:30px; flex:0 0 auto; }}
+        .switch input {{ position:absolute; opacity:0; width:0; height:0; }}
+        .slider {{
+            position:absolute;
+            inset:0;
+            border-radius:999px;
+            background:#cbd5e1;
+            transition:background 0.2s ease;
+            box-shadow:inset 0 1px 3px rgba(15,23,42,0.18);
+        }}
+        .slider::before {{
+            content:"";
+            position:absolute;
+            width:26px;
+            height:26px;
+            left:2px;
+            top:2px;
+            border-radius:50%;
+            background:#fff;
+            box-shadow:0 2px 8px rgba(15,23,42,0.25);
+            transition:transform 0.2s ease;
+        }}
+        .switch input:checked + .slider {{ background:linear-gradient(135deg,#60a5fa,#a78bfa); }}
+        .switch input:checked + .slider::before {{ transform:translateX(22px); }}
         h2 {{ margin:0; font-size:28px; }}
         .subtitle {{ margin:8px 0 0; color:var(--muted); font-size:13px; }}
         .nav {{ margin:0 0 18px; }}
@@ -294,6 +344,12 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             display:grid;
             grid-template-columns:1fr 1fr;
             gap:14px;
+        }}
+        .ops-grid {{
+            display:grid;
+            grid-template-columns:minmax(0,1.25fr) minmax(0,0.75fr);
+            gap:14px;
+            margin-top:18px;
         }}
         .section-head {{
             display:flex;
@@ -430,6 +486,7 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
         @media (max-width: 860px) {{
             body {{ padding:14px; }}
             .topbar {{ flex-direction:column; align-items:stretch; }}
+            .theme-control {{ width:100%; justify-content:space-between; }}
             .section-head, .report-head {{ flex-direction:column; align-items:stretch; }}
             .section-actions {{ justify-content:stretch; }}
             .section-actions .tab {{ flex:1; }}
@@ -440,7 +497,7 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             .index-head {{ flex-direction:column; }}
             .index-summary {{ grid-template-columns:1fr; }}
             button {{ width:100%; }}
-            .grid, .wide {{ grid-template-columns:1fr; }}
+            .grid, .wide, .ops-grid {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
             .pie-wrap {{ grid-template-columns:1fr; justify-items:center; }}
             .pie {{ width:min(220px, 72vw); }}
@@ -469,6 +526,13 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
                 <h2>AI 客服 Dashboard</h2>
                 <p class="subtitle">LINE 客服、FAQ、網站索引與回應品質總覽</p>
             </div>
+            <label class="theme-control">
+                <span>深夜模式</span>
+                <span class="switch">
+                    <input id="theme-toggle" type="checkbox" onchange="toggleTheme()">
+                    <span class="slider"></span>
+                </span>
+            </label>
         </header>
 
         <nav class="nav">{nav_html("Dashboard")}</nav>
@@ -536,54 +600,75 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             <div class="card"><h3>商機意圖</h3><div class="bar-chart">{lead_chart}</div></div>
         </section>
 
-        <section class="card">
-            <div class="index-head">
-                <div>
-                    <div class="label">網站索引管理</div>
-                    <p class="subtitle">網站索引狀態與各網站抓取結果集中在這裡。</p>
+        <section class="ops-grid">
+            <div class="card">
+                <div class="index-head">
+                    <div>
+                        <div class="label">網站索引管理</div>
+                        <p class="subtitle">網站索引狀態與各網站抓取結果集中在這裡。</p>
+                    </div>
+                    <div class="index-actions">
+                        <form method="post" action="/dashboard/site-index/rebuild">
+                            <button>立即建立索引</button>
+                        </form>
+                    </div>
                 </div>
-                <div class="index-actions">
-                    <form method="post" action="/dashboard/site-index/rebuild">
-                        <button>立即建立索引</button>
-                    </form>
+                <div class="index-summary">
+                    <div class="mini-stat">
+                        <div class="label">最後更新</div>
+                        <b>{e(index_status.get("last_run", "尚未建立"))}</b>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="label">索引段落數</div>
+                        <b>{e(index_status.get("total_chunks", index_count()))} 段</b>
+                    </div>
                 </div>
+                <table style="margin-top:14px;">
+                    <tr><th>網站</th><th>網址</th><th>抓取頁數</th><th>索引段落</th><th>失敗</th></tr>
+                    {site_rows}
+                </table>
+                <p class="subtitle">索引排程預設每 24 小時重建一次，也可以手動立即建立。</p>
             </div>
-            <div class="index-summary">
-                <div class="mini-stat">
-                    <div class="label">最後更新</div>
-                    <b>{e(index_status.get("last_run", "尚未建立"))}</b>
-                </div>
-                <div class="mini-stat">
-                    <div class="label">索引段落數</div>
-                    <b>{e(index_status.get("total_chunks", index_count()))} 段</b>
-                </div>
-            </div>
-            <table style="margin-top:14px;">
-                <tr><th>網站</th><th>網址</th><th>抓取頁數</th><th>索引段落</th><th>失敗</th></tr>
-                {site_rows}
-            </table>
-            <p class="subtitle">索引排程預設每 24 小時重建一次，也可以手動立即建立。</p>
-        </section>
 
-        <section class="card" style="margin-top:14px;">
-            <div class="label">健康檢查</div>
-            <p class="subtitle">確認服務設定與必要資料檔是否存在。</p>
-            <table style="margin-top:14px;">
-                <tr><th>項目</th><th>狀態</th></tr>
-                {health_rows}
-            </table>
+            <div class="card">
+                <div class="label">健康檢查</div>
+                <p class="subtitle">確認服務設定與必要資料檔是否存在。</p>
+                <table style="margin-top:14px;">
+                    <tr><th>項目</th><th>狀態</th></tr>
+                    {health_rows}
+                </table>
+            </div>
         </section>
 
         <section class="section-head">
             <div>
                 <h2>AI 客服週報與建議</h2>
-                <p class="subtitle">近 {e(days_label(days))} 的趨勢、品牌熱度與重複問題。</p>
             </div>
-            <a class="primary-action" href="/?days={days}&chart={e(chart)}&generate=1">一鍵產生建議</a>
         </section>
         {report_html}
         <div class="card"><h3>重複問題</h3><table><tr><th>問題</th><th>次數</th></tr>{repeat_rows}</table></div>
         <script>
+        (function(){{
+            const savedTheme = localStorage.getItem("dashboard-theme");
+            if(savedTheme === "dark"){{
+                document.body.classList.add("dark");
+            }}
+        }})();
+
+        document.addEventListener("DOMContentLoaded", function(){{
+            const toggle = document.getElementById("theme-toggle");
+            if(toggle){{
+                toggle.checked = document.body.classList.contains("dark");
+            }}
+        }});
+
+        function toggleTheme(){{
+            const toggle = document.getElementById("theme-toggle");
+            const isDark = toggle ? toggle.checked : !document.body.classList.contains("dark");
+            document.body.classList.toggle("dark", isDark);
+            localStorage.setItem("dashboard-theme", isDark ? "dark" : "light");
+        }}
+
         if (window.location.search.includes("generate=1")) {{
             setTimeout(() => document.getElementById("generated-report")?.scrollIntoView({{behavior:"smooth", block:"start"}}), 120);
         }}

@@ -488,9 +488,18 @@ def admin_css():
     :root { --bg:#f6f7fb; --panel:#fff; --panel-soft:#f1f5f9; --text:#172033; --muted:#64748b; --border:#e2e8f0; --button-bg:linear-gradient(135deg,#60a5fa,#a78bfa); --danger:#dc2626; --shadow:0 16px 40px rgba(15,23,42,0.08); }
     * { box-sizing:border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg); color:var(--text); padding:24px; }
+    body.dark { --bg:#0f172a; --panel:#162033; --panel-soft:#1e293b; --text:#e5edf7; --muted:#94a3b8; --border:#334155; --shadow:0 16px 40px rgba(0,0,0,0.28); }
     .page { max-width:1280px; margin:0 auto; }
+    .topbar { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:18px; }
     h2 { margin:0; font-size:28px; }
     .subtitle { color:var(--muted); font-size:13px; margin:8px 0 0; }
+    .theme-control { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:8px 10px 8px 14px; border-radius:999px; border:1px solid var(--border); background:var(--panel); box-shadow:var(--shadow); color:var(--muted); font-size:13px; font-weight:700; cursor:pointer; user-select:none; }
+    .switch { position:relative; width:52px; height:30px; flex:0 0 auto; }
+    .switch input { position:absolute; opacity:0; width:0; height:0; }
+    .slider { position:absolute; inset:0; border-radius:999px; background:#cbd5e1; transition:background 0.2s ease; box-shadow:inset 0 1px 3px rgba(15,23,42,0.18); }
+    .slider::before { content:""; position:absolute; width:26px; height:26px; left:2px; top:2px; border-radius:50%; background:#fff; box-shadow:0 2px 8px rgba(15,23,42,0.25); transition:transform 0.2s ease; }
+    .switch input:checked + .slider { background:linear-gradient(135deg,#60a5fa,#a78bfa); }
+    .switch input:checked + .slider::before { transform:translateX(22px); }
     .nav { margin:18px 0; }
     .nav-menu { display:flex; gap:8px; flex-wrap:wrap; }
     .nav-toggle { display:none; }
@@ -509,7 +518,7 @@ def admin_css():
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
     .miss { background:#fee2e2; color:#b91c1c; }
-    @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
     """
 
 
@@ -571,13 +580,47 @@ def test_chat_page(message: str = ""):
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
     <body><main class="page">
-    <h2>LINE 問答測試</h2><p class="subtitle">不用打開 LINE，直接測目前 AI 客服回答流程</p>
+    <header class="topbar">
+        <div>
+            <h2>LINE 問答測試</h2>
+            <p class="subtitle">不用打開 LINE，直接測目前 AI 客服回答流程</p>
+        </div>
+        <label class="theme-control">
+            <span>深夜模式</span>
+            <span class="switch">
+                <input id="theme-toggle" type="checkbox" onchange="toggleTheme()">
+                <span class="slider"></span>
+            </span>
+        </label>
+    </header>
     <nav class="nav">{admin_nav("測試")}</nav>
     <form class="card" method="get" action="/test-chat">
         <textarea name="message" placeholder="輸入測試問題">{html_escape(message)}</textarea>
         <button>送出測試</button>
     </form>
     {result_html}
+    <script>
+    (function(){{
+        const savedTheme = localStorage.getItem("test-theme");
+        if(savedTheme === "dark"){{
+            document.body.classList.add("dark");
+        }}
+    }})();
+
+    document.addEventListener("DOMContentLoaded", function(){{
+        const toggle = document.getElementById("theme-toggle");
+        if(toggle){{
+            toggle.checked = document.body.classList.contains("dark");
+        }}
+    }});
+
+    function toggleTheme(){{
+        const toggle = document.getElementById("theme-toggle");
+        const isDark = toggle ? toggle.checked : !document.body.classList.contains("dark");
+        document.body.classList.toggle("dark", isDark);
+        localStorage.setItem("test-theme", isDark ? "dark" : "light");
+    }}
+    </script>
     </main></body></html>
     """)
 
