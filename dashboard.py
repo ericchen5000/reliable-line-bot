@@ -383,8 +383,8 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             padding:7px 11px;
             border-radius:999px;
             border:1px solid var(--border);
-            color:var(--text);
-            background:var(--panel);
+            color:var(--muted);
+            background:var(--panel-soft);
             text-decoration:none;
             font-size:13px;
             font-weight:700;
@@ -392,7 +392,7 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             align-items:center;
             justify-content:center;
         }}
-        .tab.active {{ color:white; background:var(--button-bg); border-color:transparent; }}
+        .tab.active {{ color:var(--accent); background:var(--panel-soft); border-color:rgba(96,165,250,0.45); box-shadow:inset 0 0 0 1px rgba(96,165,250,0.18); }}
         .index-head {{
             display:flex;
             align-items:flex-start;

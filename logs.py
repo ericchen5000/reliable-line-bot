@@ -912,25 +912,25 @@ def logs_ui(
     }
 
     .quick-chip {
-        min-height:36px;
-        padding:8px 12px;
+        min-height:34px;
+        padding:7px 11px;
         border-radius:999px;
         border:1px solid var(--border);
-        background:var(--panel);
-        color:var(--text);
+        background:var(--panel-soft);
+        color:var(--muted);
         text-decoration:none;
         display:inline-flex;
         align-items:center;
         justify-content:center;
         font-size:13px;
         font-weight:700;
-        box-shadow:0 8px 24px rgba(15,23,42,0.05);
+        box-shadow:none;
     }
 
     .quick-chip.active {
-        color:white;
-        background:var(--button-bg);
-        border-color:transparent;
+        color:var(--accent-strong);
+        background:var(--accent-soft);
+        border-color:rgba(96,165,250,0.35);
     }
 
     input, select {

@@ -603,12 +603,12 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
         }}
 
         .section-tabs a {{
-            min-height:36px;
-            padding:8px 12px;
+            min-height:34px;
+            padding:7px 11px;
             border-radius:999px;
             border:1px solid var(--border);
-            background:var(--panel);
-            color:var(--text);
+            background:var(--panel-soft);
+            color:var(--muted);
             text-decoration:none;
             font-size:13px;
             font-weight:700;
