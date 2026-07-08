@@ -302,7 +302,7 @@ def run_tesseract_ocr(image_path):
         return {
             "ok": False,
             "text": "",
-            "detail": "找不到 tesseract 指令，請確認 VPS 已安裝並且 Uvicorn 服務的 PATH 找得到 tesseract。"
+            "detail": "目前尚未啟用圖片文字辨識功能，請稍後改用文字描述問題。"
         }
 
     languages = os.getenv("OCR_LANG", "chi_tra+eng")
@@ -318,7 +318,7 @@ def run_tesseract_ocr(image_path):
         return {
             "ok": False,
             "text": "",
-            "detail": f"tesseract 執行失敗：{exc}"
+            "detail": f"圖片文字辨識暫時無法使用：{exc}"
         }
 
     if result.returncode != 0:
@@ -326,7 +326,7 @@ def run_tesseract_ocr(image_path):
         return {
             "ok": False,
             "text": "",
-            "detail": f"tesseract 回傳錯誤：{error_text or '未知錯誤'}"
+            "detail": f"圖片文字辨識暫時無法使用：{error_text or '未知錯誤'}"
         }
 
     text = result.stdout.strip()
@@ -335,7 +335,7 @@ def run_tesseract_ocr(image_path):
         return {
             "ok": False,
             "text": "",
-            "detail": "tesseract 有執行，但沒有辨識出文字。可能圖片文字太小、太模糊，或圖片本身沒有文字。"
+            "detail": "沒有辨識出文字。可能圖片文字太小、太模糊，或圖片本身沒有文字。"
         }
 
     return {
@@ -397,7 +397,7 @@ def analyze_image(content, filename="", content_type="image/jpeg"):
     if vision_text:
         parts.append(f"圖片內容描述：\n{vision_text}")
     else:
-        notes.append("Vision API 未設定或沒有回傳圖片描述。")
+        notes.append("目前尚未啟用圖片內容描述功能。")
 
     if not parts:
         return {
