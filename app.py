@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
 import asyncio
@@ -30,6 +31,7 @@ from config import (
 from deepseek import ask_deepseek
 
 app = FastAPI(title="AI Assistant")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 WEB_CHAT_ALLOWED_ORIGINS = [
     origin.strip()
