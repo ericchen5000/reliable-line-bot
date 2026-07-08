@@ -1550,6 +1550,14 @@ def save_log(user, message, reply, request: Request, platform, latency, source, 
         "followup_status": lead.get("followup_status", "none")
     }
 
+    if str(platform).upper() == "WEB":
+        row.update({
+            "web_session_id": user,
+            "browser": detect_browser(request),
+            "device": detect_device(request),
+            "user_agent": request.headers.get("user-agent", ""),
+        })
+
     if extra:
         row.update(extra)
 

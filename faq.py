@@ -1117,7 +1117,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
                 <input type="file" name="file" accept=".txt,.pdf,.docx,.pptx" required>
                 <button>上傳並轉成 KB</button>
             </form>
-            <p class="hint">支援 TXT、DOCX、PPTX；PDF 需伺服器安裝 pypdf 才能抽文字。</p>
+            <p class="hint">支援 TXT、DOCX、PPTX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt；原始 PPTX 本身用 nano 打開會是亂碼，這是正常的。</p>
         </div>
         <div class="card">
             <div class="top-title">KB 文件清單</div>
@@ -1393,7 +1393,7 @@ async def upload_kb(request: Request, file: UploadFile = File(...)):
         f.write(text.strip() + "\n")
     admin_tools.log_admin_activity(request, "KB 上傳", name, file.filename or "")
 
-    return RedirectResponse(kb_notice_url(f"已轉成 KB：{name}"), status_code=302)
+    return RedirectResponse(kb_notice_url(f"已轉成 KB：knowledge/txt/{name}，請查看這個 .txt 檔，不是原始上傳檔。"), status_code=302)
 
 
 @router.get("/faq/kb/delete/{filename}")

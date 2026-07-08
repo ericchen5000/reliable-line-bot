@@ -129,7 +129,30 @@ def contact_detail_html(item):
     """
 
 
-def line_profile_html(item):
+def user_profile_html(item):
+    platform = str(item.get("platform", "")).upper()
+
+    if platform == "WEB":
+        fields = [
+            ("WEB Session ID", item.get("web_session_id", item.get("user", ""))),
+            ("瀏覽器", item.get("browser", "")),
+            ("裝置", item.get("device", "")),
+            ("User Agent", item.get("user_agent", "")),
+        ]
+        rows = "".join(
+            f"<div><b>{e(label)}</b><span>{e(value or '-')}</span></div>"
+            for label, value in fields
+        )
+        return f"""
+        <div class="block">
+            <span class="pill-more"><b>WEB 訪客</b></span>
+            <div class="line-profile">
+                <div class="line-avatar empty">WEB</div>
+                <div class="contact-grid">{rows}</div>
+            </div>
+        </div>
+        """
+
     fields = [
         ("LINE 暱稱", item.get("line_display_name", "")),
         ("LINE User ID", item.get("line_user_id", item.get("user", ""))),
@@ -602,7 +625,7 @@ def logs_ui(
                     </div>
 
                     {contact_detail_html(l)}
-                    {line_profile_html(l)}
+                    {user_profile_html(l)}
                     {image_detail_html(l)}
 
                     <div class="block">
