@@ -6,7 +6,7 @@ def admin_bar_html():
             <a class="admin-brand" href="/">定承資訊AI客服管理後台</a>
             <div class="admin-actions">
                 <a class="admin-identity" href="/admin/users" title="帳號管理">
-                    <span class="admin-avatar" aria-hidden="true">人</span>
+                    <span class="admin-avatar" id="admin-avatar" aria-hidden="true">管</span>
                     <b id="admin-name">管理員</b>
                 </a>
                 <a class="admin-logout" href="/logout">登出</a>
@@ -25,9 +25,14 @@ def admin_bar_html():
             }
             return "";
         }
+        var display = cookieValue("admin_display") || "管理員";
         var target = document.getElementById("admin-name");
+        var avatar = document.getElementById("admin-avatar");
         if(target){
-            target.textContent = cookieValue("admin_display") || "管理員";
+            target.textContent = display;
+        }
+        if(avatar){
+            avatar.textContent = display.trim().charAt(0).toUpperCase() || "管";
         }
     })();
     </script>
@@ -111,6 +116,7 @@ def admin_bar_css():
         align-items:center;
         justify-content:center;
         box-shadow:0 8px 18px rgba(79,70,229,0.22);
+        line-height:1;
     }
 
     .admin-logout {
