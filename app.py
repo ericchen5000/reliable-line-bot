@@ -447,6 +447,27 @@ def search_faq(question):
     return None, None
 
 
+def handle_official_brand_query(question):
+    text = str(question or "").lower()
+    brand_terms = ["代理", "品牌", "產品", "product", "brand"]
+    ask_terms = ["哪些", "有什麼", "有哪些", "介紹", "list", "what"]
+
+    if not any(term in text for term in brand_terms):
+        return None, None
+
+    if not any(term in text for term in ask_terms) and "代理" not in text:
+        return None, None
+
+    reply = (
+        "定承資訊目前主要代理以下四個品牌：\n\n"
+        "1. Penguin Solutions（Stratus）：高可用與容錯運算平台\n"
+        "2. Neverfail：營運持續與應用不中斷備援\n"
+        "3. VATES：XCP-ng / Xen Orchestra 虛擬化平台\n"
+        "4. Array Networks：VPN、應用交付與安全存取解決方案"
+    )
+    return reply, "RULE"
+
+
 # =========================
 # SITEMAP
 # =========================
@@ -733,6 +754,10 @@ def ai_fallback(user_message, context=""):
 # ROUTER (FINAL STABLE VERSION)
 # =========================
 def ai_reply(user_message):
+
+    official_brand, official_brand_source = handle_official_brand_query(user_message)
+    if official_brand:
+        return official_brand, official_brand_source
 
     faq, _ = search_faq(user_message)
     if faq:
