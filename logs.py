@@ -1616,6 +1616,17 @@ def logs_ui(
     <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <script>
+    (function(){{
+        var theme = localStorage.getItem("admin-theme")
+            || localStorage.getItem("logs-theme")
+            || "light";
+        if(theme === "dark"){{
+            document.documentElement.classList.add("dark");
+        }}
+    }})();
+    </script>
+    <style>{css}</style>
     </head>
 
     <body>
@@ -1702,8 +1713,6 @@ def logs_ui(
     </div>
 
     {js}
-
-    <style>{css}</style>
 
     </body>
     </html>

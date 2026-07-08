@@ -96,6 +96,16 @@ def admin_bar_html():
 
 def admin_bar_css():
     return """
+    html.dark body {
+        --bg:#0f172a;
+        --panel:#162033;
+        --panel-soft:#1e293b;
+        --text:#e5edf7;
+        --muted:#94a3b8;
+        --border:#334155;
+        --shadow:0 16px 40px rgba(0,0,0,0.28);
+    }
+
     .admin-bar {
         position:fixed;
         top:0;
@@ -110,7 +120,8 @@ def admin_bar_css():
         box-shadow:0 10px 28px rgba(15,23,42,0.08);
     }
 
-    body.dark .admin-bar {
+    body.dark .admin-bar,
+    html.dark body .admin-bar {
         background:rgba(22,32,51,0.94);
     }
 
