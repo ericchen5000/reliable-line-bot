@@ -10,6 +10,7 @@ from datetime import datetime
 from urllib.parse import urlencode
 from xml.etree import ElementTree
 from admin_ui import admin_bar_css, admin_bar_html
+import admin_tools
 
 router = APIRouter()
 
@@ -56,6 +57,25 @@ def save_urls(data):
     os.makedirs(os.path.dirname(URLS_PATH), exist_ok=True)
     with open(URLS_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def current_admin_name(request):
+    username = admin_tools.current_admin(request)
+    return admin_tools.admin_display_name(username) if username else "管理員"
+
+
+def audit_text(item):
+    updated_by = item.get("updated_by") or item.get("created_by") or "-"
+    updated_at = item.get("updated_at") or item.get("created_at") or "-"
+    return f"{updated_by}<br><span class='meta-time'>{updated_at}</span>"
+
+
+def kb_last_activity(filename):
+    activities = admin_tools.load_json(admin_tools.ADMIN_ACTIVITY_PATH, [])
+    for item in reversed(activities):
+        if item.get("target") == filename and str(item.get("action", "")).startswith("KB"):
+            return f"{item.get('display') or item.get('admin') or '-'}<br><span class='meta-time'>{item.get('time', '-')}</span>"
+    return "-"
 
 
 def kb_files():
@@ -258,6 +278,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
             <td data-label="ID">{i+1}</td>
             <td data-label="問題" class="question-cell">{e(item.get('question',''))}</td>
             <td data-label="答案" class="answer-cell">{e(item.get('answer',''))}</td>
+            <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
 
             <td data-label="操作" class="actions">
                 <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
@@ -293,6 +314,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
             <td data-label="網站">{e(item.get('title', '-'))}</td>
             <td data-label="網址">{e(item.get('url', '-'))}</td>
             <td data-label="關鍵字">{e(keywords)}</td>
+            <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
             <td data-label="操作" class="actions">
                 <a href="/faq?edit_url={i}" class="btn-edit">編輯</a>
                 <a href="/faq/urls/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這個網站索引嗎？')">刪除</a>
@@ -301,7 +323,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
         """
 
     if not url_rows:
-        url_rows = "<tr><td colspan='4'>尚未設定網站索引</td></tr>"
+        url_rows = "<tr><td colspan='5'>尚未設定網站索引</td></tr>"
 
     url_is_edit = edit_url_item is not None
     url_form_action = f"/faq/urls/edit/{edit_url}" if url_is_edit else "/faq/urls/add"
@@ -319,6 +341,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
         <tr>
             <td data-label="檔名">{e(name)}</td>
             <td data-label="大小">{e(item.get('size', 0))} bytes</td>
+            <td data-label="最後修改" class="meta-cell">{kb_last_activity(name)}</td>
             <td data-label="操作" class="actions">
                 <a href="/faq/kb/delete/{e(name)}" class="btn-del" onclick="return confirm('確定要刪除這個 KB 文件嗎？')">刪除</a>
             </td>
@@ -326,7 +349,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
         """
 
     if not kb_rows:
-        kb_rows = "<tr><td colspan='3'>尚無 KB 文件</td></tr>"
+        kb_rows = "<tr><td colspan='4'>尚無 KB 文件</td></tr>"
 
     return HTMLResponse(f"""
     <html>
@@ -656,6 +679,19 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
         .answer-cell {{
             color:var(--muted);
             white-space:pre-wrap;
+        }}
+
+        .meta-cell {{
+            min-width:110px;
+            color:var(--text);
+            font-size:13px;
+            font-weight:700;
+        }}
+
+        .meta-time {{
+            color:var(--muted);
+            font-size:12px;
+            font-weight:600;
         }}
 
         .actions {{
@@ -1018,6 +1054,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
                     <th>ID</th>
                     <th>問題</th>
                     <th>答案</th>
+                    <th>最後修改</th>
                     <th>操作</th>
                 </tr>
                 {rows}
@@ -1053,6 +1090,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
                     <th>網站</th>
                     <th>網址</th>
                     <th>關鍵字</th>
+                    <th>最後修改</th>
                     <th>操作</th>
                 </tr>
                 {url_rows}
@@ -1088,6 +1126,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
                 <tr>
                     <th>檔名</th>
                     <th>大小</th>
+                    <th>最後修改</th>
                     <th>操作</th>
                 </tr>
                 {kb_rows}
@@ -1107,6 +1146,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
 # =========================
 @router.post("/faq/add")
 def add(
+    request: Request,
     question: str = Form(...),
     answer: str = Form(...),
     return_to: str = Form("/faq")
@@ -1120,12 +1160,19 @@ def add(
     )
 
     if not exists:
+        admin_name = current_admin_name(request)
+        now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         faq.append({
             "question": question,
-            "answer": answer
+            "answer": answer,
+            "created_by": admin_name,
+            "created_at": now,
+            "updated_by": admin_name,
+            "updated_at": now,
         })
 
         save_faq(faq)
+        admin_tools.log_admin_activity(request, "新增 FAQ", question)
 
     if not return_to.startswith("/"):
         return_to = "/faq"
@@ -1153,7 +1200,7 @@ def export_faq():
 
 
 @router.post("/faq/import")
-async def import_faq(file: UploadFile = File(...)):
+async def import_faq(request: Request, file: UploadFile = File(...)):
     content = await file.read()
     text = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(text))
@@ -1169,6 +1216,10 @@ async def import_faq(file: UploadFile = File(...)):
             if len(row) >= 2:
                 rows.append((row[0], row[1]))
 
+    admin_name = current_admin_name(request)
+    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    imported = 0
+
     for question, answer in rows:
         question = str(question).strip()
         answer = str(answer).strip()
@@ -1176,10 +1227,19 @@ async def import_faq(file: UploadFile = File(...)):
         if not question or normalize_question(question) in questions:
             continue
 
-        faq.append({"question": question, "answer": answer})
+        faq.append({
+            "question": question,
+            "answer": answer,
+            "created_by": admin_name,
+            "created_at": now,
+            "updated_by": admin_name,
+            "updated_at": now,
+        })
         questions.add(normalize_question(question))
+        imported += 1
 
     save_faq(faq)
+    admin_tools.log_admin_activity(request, "匯入 FAQ", file.filename or "CSV", f"{imported} 筆")
     return RedirectResponse("/faq", status_code=302)
 
 
@@ -1187,15 +1247,22 @@ async def import_faq(file: UploadFile = File(...)):
 # EDIT
 # =========================
 @router.post("/faq/edit/{idx}")
-def edit(idx: int, question: str = Form(...), answer: str = Form(...)):
+def edit(request: Request, idx: int, question: str = Form(...), answer: str = Form(...)):
 
     faq = load_faq()
 
     if 0 <= idx < len(faq):
+        original = faq[idx]
+        admin_name = current_admin_name(request)
         faq[idx] = {
             "question": question,
-            "answer": answer
+            "answer": answer,
+            "created_by": original.get("created_by", ""),
+            "created_at": original.get("created_at", ""),
+            "updated_by": admin_name,
+            "updated_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         }
+        admin_tools.log_admin_activity(request, "編輯 FAQ", question)
 
     save_faq(faq)
 
@@ -1206,12 +1273,13 @@ def edit(idx: int, question: str = Form(...), answer: str = Form(...)):
 # DELETE
 # =========================
 @router.get("/faq/delete/{idx}")
-def delete(idx: int):
+def delete(request: Request, idx: int):
 
     faq = load_faq()
 
     if 0 <= idx < len(faq):
-        faq.pop(idx)
+        removed = faq.pop(idx)
+        admin_tools.log_admin_activity(request, "刪除 FAQ", removed.get("question", f"#{idx + 1}"))
 
     save_faq(faq)
 
@@ -1224,6 +1292,7 @@ def parse_keywords(value):
 
 @router.post("/faq/urls/add")
 def add_url(
+    request: Request,
     title: str = Form(...),
     url: str = Form(...),
     keywords: str = Form("")
@@ -1232,18 +1301,26 @@ def add_url(
     url = url.strip()
 
     if url and not any(item.get("url") == url for item in urls):
+        admin_name = current_admin_name(request)
+        now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         urls.append({
             "title": title.strip(),
             "url": url,
             "keywords": parse_keywords(keywords),
+            "created_by": admin_name,
+            "created_at": now,
+            "updated_by": admin_name,
+            "updated_at": now,
         })
         save_urls(urls)
+        admin_tools.log_admin_activity(request, "新增網站索引", url)
 
     return RedirectResponse("/faq#url-manager", status_code=302)
 
 
 @router.post("/faq/urls/edit/{idx}")
 def edit_url(
+    request: Request,
     idx: int,
     title: str = Form(...),
     url: str = Form(...),
@@ -1252,29 +1329,38 @@ def edit_url(
     urls = load_urls()
 
     if 0 <= idx < len(urls):
+        original = urls[idx]
+        admin_name = current_admin_name(request)
         urls[idx] = {
             "title": title.strip(),
             "url": url.strip(),
             "keywords": parse_keywords(keywords),
+            "created_by": original.get("created_by", ""),
+            "created_at": original.get("created_at", ""),
+            "updated_by": admin_name,
+            "updated_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         }
         save_urls(urls)
+        admin_tools.log_admin_activity(request, "編輯網站索引", url.strip())
 
     return RedirectResponse("/faq#url-manager", status_code=302)
 
 
 @router.get("/faq/urls/delete/{idx}")
-def delete_url(idx: int):
+def delete_url(request: Request, idx: int):
     urls = load_urls()
 
     if 0 <= idx < len(urls):
-        urls.pop(idx)
+        removed = urls.pop(idx)
         save_urls(urls)
+        admin_tools.log_admin_activity(request, "刪除網站索引", removed.get("url", f"#{idx + 1}"))
 
     return RedirectResponse("/faq#url-manager", status_code=302)
 
 
 @router.post("/faq/kb/add")
 def add_kb(
+    request: Request,
     filename: str = Form(...),
     content: str = Form(...)
 ):
@@ -1284,12 +1370,13 @@ def add_kb(
 
     with open(path, "w", encoding="utf-8") as f:
         f.write(content.strip() + "\n")
+    admin_tools.log_admin_activity(request, "KB 新增", name)
 
     return RedirectResponse("/faq#kb-manager", status_code=302)
 
 
 @router.post("/faq/kb/upload")
-async def upload_kb(file: UploadFile = File(...)):
+async def upload_kb(request: Request, file: UploadFile = File(...)):
     os.makedirs(KB_DIR, exist_ok=True)
     name = converted_kb_filename(file.filename)
     content = await file.read()
@@ -1304,16 +1391,18 @@ async def upload_kb(file: UploadFile = File(...)):
 
     with open(os.path.join(KB_DIR, name), "w", encoding="utf-8") as f:
         f.write(text.strip() + "\n")
+    admin_tools.log_admin_activity(request, "KB 上傳", name, file.filename or "")
 
     return RedirectResponse(kb_notice_url(f"已轉成 KB：{name}"), status_code=302)
 
 
 @router.get("/faq/kb/delete/{filename}")
-def delete_kb(filename: str):
+def delete_kb(request: Request, filename: str):
     name = safe_kb_filename(filename)
     path = os.path.join(KB_DIR, name)
 
     if os.path.exists(path) and os.path.isfile(path):
         os.remove(path)
+        admin_tools.log_admin_activity(request, "KB 刪除", name)
 
     return RedirectResponse("/faq#kb-manager", status_code=302)

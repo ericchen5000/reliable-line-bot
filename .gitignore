@@ -4,3 +4,7 @@ __pycache__/
 .env
 data.db
 *.log
+data/admin_users.json
+logs/admin_activity.json
+logs/admin_sessions.json
+logs/images/

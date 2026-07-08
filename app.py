@@ -57,6 +57,7 @@ from analytics import router as analytics_router
 from services.search_index import build_all_indexes
 from services.retriever import retrieve
 from admin_ui import admin_bar_css, admin_bar_html
+import admin_tools
 
 app.include_router(dashboard_router)
 app.include_router(logs_router)
@@ -72,10 +73,10 @@ LOG_PATH = "logs/chat_logs.json"
 URLS_FILE = "data/urls.json"
 SITE_INDEX_FILE = "data/site_index.json"
 SITE_INDEX_INTERVAL_HOURS = int(os.getenv("SITE_INDEX_INTERVAL_HOURS", "24"))
-ADMIN_USERS_PATH = "data/admin_users.json"
-AUTH_COOKIE = "reliable_admin"
-AUTH_MAX_AGE = 60 * 60 * 12
-AUTH_SECRET = os.getenv("ADMIN_AUTH_SECRET") or LINE_CHANNEL_SECRET or secrets.token_hex(32)
+ADMIN_USERS_PATH = admin_tools.ADMIN_USERS_PATH
+AUTH_COOKIE = admin_tools.AUTH_COOKIE
+AUTH_MAX_AGE = admin_tools.AUTH_MAX_AGE
+AUTH_SECRET = admin_tools.AUTH_SECRET
 IMAGE_UPLOAD_DIR = "logs/images"
 VISION_API_URL = os.getenv("VISION_API_URL", "").strip()
 VISION_API_KEY = os.getenv("VISION_API_KEY", "").strip()
@@ -207,6 +208,7 @@ async def admin_auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     if current_admin(request):
+        admin_tools.touch_admin_session(request)
         return await call_next(request)
 
     return RedirectResponse("/login", status_code=302)
@@ -867,7 +869,7 @@ def login_page(error: str = ""):
 
 
 @app.post("/login")
-def login(username: str = Form(...), password: str = Form(...)):
+def login(request: Request, username: str = Form(...), password: str = Form(...)):
     username = username.strip()
     users = load_admin_users()
 
@@ -897,19 +899,29 @@ def login(username: str = Form(...), password: str = Form(...)):
     )
     response.set_cookie(
         "admin_display",
-        username,
+        admin_tools.admin_display_name(username),
         max_age=AUTH_MAX_AGE,
         httponly=False,
+        samesite="lax",
+    )
+    session_id = admin_tools.start_admin_session(request, username)
+    response.set_cookie(
+        admin_tools.ADMIN_SESSION_COOKIE,
+        session_id,
+        max_age=AUTH_MAX_AGE,
+        httponly=True,
         samesite="lax",
     )
     return response
 
 
 @app.get("/logout")
-def logout():
+def logout(request: Request):
+    admin_tools.end_admin_session(request)
     response = RedirectResponse("/login", status_code=302)
     response.delete_cookie(AUTH_COOKIE)
     response.delete_cookie("admin_display")
+    response.delete_cookie(admin_tools.ADMIN_SESSION_COOKIE)
     return response
 
 
@@ -921,6 +933,7 @@ def admin_users_page(request: Request):
 
     for user in users:
         username = user.get("username", "")
+        nickname = user.get("nickname", "")
         can_delete = len(users) > 1 and username != admin
         delete_html = (
             f'<a class="bad" href="/admin/users/delete/{html_escape(username)}" '
@@ -930,12 +943,50 @@ def admin_users_page(request: Request):
         rows += f"""
         <tr>
             <td data-label="帳號">{html_escape(username)}</td>
+            <td data-label="暱稱">{html_escape(nickname or "-")}</td>
             <td data-label="建立時間">{html_escape(user.get('created_at', '-'))}</td>
             <td data-label="操作">
+                <form method="post" action="/admin/users/nickname" style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start;">
+                    <input type="hidden" name="username" value="{html_escape(username)}">
+                    <input name="nickname" value="{html_escape(nickname)}" placeholder="暱稱">
+                    <button>更新</button>
+                </form>
                 {delete_html}
             </td>
         </tr>
         """
+
+    sessions = admin_tools.load_json(admin_tools.ADMIN_SESSIONS_PATH, [])
+    session_rows = ""
+    for item in reversed(sessions[-30:]):
+        session_rows += f"""
+        <tr>
+            <td data-label="管理者">{html_escape(item.get('display') or item.get('admin') or '-')}</td>
+            <td data-label="登入時間">{html_escape(item.get('login_at', '-'))}</td>
+            <td data-label="最後活動">{html_escape(item.get('last_seen_at', '-'))}</td>
+            <td data-label="登出時間">{html_escape(item.get('logout_at') or '尚未登出')}</td>
+            <td data-label="停留時間">{html_escape(item.get('duration') or '-')}</td>
+            <td data-label="裝置">{html_escape(item.get('device', '-'))}</td>
+            <td data-label="IP">{html_escape(item.get('ip', '-'))}</td>
+        </tr>
+        """
+    if not session_rows:
+        session_rows = "<tr><td colspan='7'>尚無登入紀錄</td></tr>"
+
+    activities = admin_tools.load_json(admin_tools.ADMIN_ACTIVITY_PATH, [])
+    activity_rows = ""
+    for item in reversed(activities[-40:]):
+        activity_rows += f"""
+        <tr>
+            <td data-label="時間">{html_escape(item.get('time', '-'))}</td>
+            <td data-label="管理者">{html_escape(item.get('display') or item.get('admin') or '-')}</td>
+            <td data-label="動作">{html_escape(item.get('action', '-'))}</td>
+            <td data-label="目標">{html_escape(item.get('target', '-'))}</td>
+            <td data-label="IP">{html_escape(item.get('ip', '-'))}</td>
+        </tr>
+        """
+    if not activity_rows:
+        activity_rows = "<tr><td colspan='5'>尚無操作紀錄</td></tr>"
 
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
@@ -965,14 +1016,22 @@ def admin_users_page(request: Request):
     </section>
     <section class="card">
         <h3>管理員清單</h3>
-        <table><tr><th>帳號</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
+        <table><tr><th>帳號</th><th>暱稱</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
+    </section>
+    <section class="card">
+        <h3>管理者登入資訊</h3>
+        <table><tr><th>管理者</th><th>登入時間</th><th>最後活動</th><th>登出時間</th><th>停留時間</th><th>裝置</th><th>IP</th></tr>{session_rows}</table>
+    </section>
+    <section class="card">
+        <h3>最近操作紀錄</h3>
+        <table><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>IP</th></tr>{activity_rows}</table>
     </section>
     </main></body></html>
     """)
 
 
 @app.post("/admin/users/add")
-def add_admin_user(username: str = Form(...), password: str = Form(...)):
+def add_admin_user(request: Request, username: str = Form(...), password: str = Form(...)):
     username = username.strip()
     users = load_admin_users()
 
@@ -983,6 +1042,33 @@ def add_admin_user(username: str = Form(...), password: str = Form(...)):
             "created_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         })
         save_admin_users(users)
+        admin_tools.log_admin_activity(request, "新增管理者", username)
+
+    return RedirectResponse("/admin/users", status_code=302)
+
+
+@app.post("/admin/users/nickname")
+def update_admin_nickname(request: Request, username: str = Form(...), nickname: str = Form("")):
+    admin = current_admin(request)
+    users = load_admin_users()
+
+    for user in users:
+        if user.get("username") == username:
+            user["nickname"] = nickname.strip()
+            save_admin_users(users)
+            admin_tools.log_admin_activity(request, "更新管理者暱稱", username, nickname.strip())
+
+            if username == admin:
+                response = RedirectResponse("/admin/users", status_code=302)
+                response.set_cookie(
+                    "admin_display",
+                    admin_tools.admin_display_name(username),
+                    max_age=AUTH_MAX_AGE,
+                    httponly=False,
+                    samesite="lax",
+                )
+                return response
+            break
 
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -1000,6 +1086,7 @@ def change_admin_password(
         if user.get("username") == admin and verify_password(old_password, user.get("password_hash", "")) and len(new_password) >= 8:
             user["password_hash"] = hash_password(new_password)
             save_admin_users(users)
+            admin_tools.log_admin_activity(request, "更新密碼", admin, "管理者修改自己的密碼")
             break
 
     return RedirectResponse("/admin/users", status_code=302)
@@ -1013,6 +1100,7 @@ def delete_admin_user(request: Request, username: str):
     if username != admin and len(users) > 1:
         users = [user for user in users if user.get("username") != username]
         save_admin_users(users)
+        admin_tools.log_admin_activity(request, "刪除管理者", username)
 
     return RedirectResponse("/admin/users", status_code=302)
 
