@@ -5,6 +5,7 @@ import html
 import io
 import json
 import os
+import re
 import zipfile
 from datetime import datetime
 from urllib.parse import urlencode
@@ -126,15 +127,35 @@ def decode_text(content):
         return content.decode("utf-8", errors="ignore")
 
 
-def xml_text_from_bytes(content):
+def clean_extracted_text(value):
+    text = str(value or "")
+    text = text.replace("\x00", "")
+    text = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f]", "", text)
+    lines = []
+
+    for line in text.splitlines():
+        line = re.sub(r"[ \t]+", " ", line).strip()
+        if line:
+            lines.append(line)
+
+    return "\n".join(lines)
+
+
+def local_name(tag):
+    return str(tag).rsplit("}", 1)[-1]
+
+
+def xml_text_from_bytes(content, allowed_tags=None):
     root = ElementTree.fromstring(content)
     parts = []
 
     for node in root.iter():
+        if allowed_tags and local_name(node.tag) not in allowed_tags:
+            continue
         if node.text and node.text.strip():
             parts.append(node.text.strip())
 
-    return "\n".join(parts)
+    return clean_extracted_text("\n".join(parts))
 
 
 def extract_docx_text(content):
@@ -153,33 +174,13 @@ def extract_docx_text(content):
 
         for name in names:
             try:
-                text = xml_text_from_bytes(archive.read(name))
+                text = xml_text_from_bytes(archive.read(name), {"t"})
                 if text:
                     parts.append(text)
             except:
                 pass
 
     return "\n\n".join(parts)
-
-
-def extract_pptx_text(content):
-    slides = []
-
-    with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        names = sorted(
-            name for name in archive.namelist()
-            if name.startswith("ppt/slides/slide") and name.endswith(".xml")
-        )
-
-        for index, name in enumerate(names, start=1):
-            try:
-                text = xml_text_from_bytes(archive.read(name))
-                if text:
-                    slides.append(f"第 {index} 頁\n{text}")
-            except:
-                pass
-
-    return "\n\n".join(slides)
 
 
 def extract_pdf_text(content):
@@ -208,13 +209,10 @@ def extract_kb_text(filename, content):
     if ext == ".docx":
         return extract_docx_text(content)
 
-    if ext == ".pptx":
-        return extract_pptx_text(content)
-
     if ext == ".pdf":
         return extract_pdf_text(content)
 
-    raise ValueError("目前支援 TXT、PDF、DOCX、PPTX")
+    raise ValueError("目前支援 TXT、PDF、DOCX")
 
 
 def kb_notice_url(message):
@@ -1114,10 +1112,10 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
             <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
             <div class="top-title">上傳文件轉 KB</div>
             <form method="post" action="/faq/kb/upload" enctype="multipart/form-data">
-                <input type="file" name="file" accept=".txt,.pdf,.docx,.pptx" required>
+                <input type="file" name="file" accept=".txt,.pdf,.docx" required>
                 <button>上傳並轉成 KB</button>
             </form>
-            <p class="hint">支援 TXT、DOCX、PPTX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt；原始 PPTX 本身用 nano 打開會是亂碼，這是正常的。</p>
+            <p class="hint">支援 TXT、DOCX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt。</p>
         </div>
         <div class="card">
             <div class="top-title">KB 文件清單</div>
