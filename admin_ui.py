@@ -4,7 +4,7 @@ def admin_bar_html():
     <div class="admin-bar">
         <div class="admin-bar-inner">
             <a class="admin-brand" href="/">
-                <img src="https://www.reliable.com.tw/favicon.ico" alt="">
+                <img src="https://www.reliable.com.tw/wp-content/uploads/2024/07/cropped-定承LOGO@bx.png" alt="">
                 <span>定承資訊AI客服管理後台</span>
             </a>
             <nav class="admin-nav-menu" aria-label="後台導覽">
