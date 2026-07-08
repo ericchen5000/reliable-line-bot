@@ -5,8 +5,10 @@ import html
 import io
 import json
 import os
+import zipfile
 from datetime import datetime
 from urllib.parse import urlencode
+from xml.etree import ElementTree
 
 router = APIRouter()
 
@@ -85,6 +87,119 @@ def safe_kb_filename(value):
     return name
 
 
+def converted_kb_filename(value):
+    name = os.path.basename(str(value or "").strip())
+    stem = os.path.splitext(name)[0] or "kb"
+    stem = "".join(ch for ch in stem if ch.isalnum() or ch in {"-", "_", "."})
+
+    if not stem:
+        stem = "kb"
+
+    return stem + ".txt"
+
+
+def decode_text(content):
+    try:
+        return content.decode("utf-8-sig")
+    except:
+        return content.decode("utf-8", errors="ignore")
+
+
+def xml_text_from_bytes(content):
+    root = ElementTree.fromstring(content)
+    parts = []
+
+    for node in root.iter():
+        if node.text and node.text.strip():
+            parts.append(node.text.strip())
+
+    return "\n".join(parts)
+
+
+def extract_docx_text(content):
+    parts = []
+
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        names = [
+            name for name in archive.namelist()
+            if name.startswith("word/") and name.endswith(".xml")
+            and (
+                name == "word/document.xml"
+                or name.startswith("word/header")
+                or name.startswith("word/footer")
+            )
+        ]
+
+        for name in names:
+            try:
+                text = xml_text_from_bytes(archive.read(name))
+                if text:
+                    parts.append(text)
+            except:
+                pass
+
+    return "\n\n".join(parts)
+
+
+def extract_pptx_text(content):
+    slides = []
+
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        names = sorted(
+            name for name in archive.namelist()
+            if name.startswith("ppt/slides/slide") and name.endswith(".xml")
+        )
+
+        for index, name in enumerate(names, start=1):
+            try:
+                text = xml_text_from_bytes(archive.read(name))
+                if text:
+                    slides.append(f"第 {index} 頁\n{text}")
+            except:
+                pass
+
+    return "\n\n".join(slides)
+
+
+def extract_pdf_text(content):
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        raise ValueError("PDF 轉文字需要安裝 pypdf：pip install pypdf")
+
+    reader = PdfReader(io.BytesIO(content))
+    pages = []
+
+    for index, page in enumerate(reader.pages, start=1):
+        text = page.extract_text() or ""
+        if text.strip():
+            pages.append(f"第 {index} 頁\n{text.strip()}")
+
+    return "\n\n".join(pages)
+
+
+def extract_kb_text(filename, content):
+    ext = os.path.splitext(str(filename or "").lower())[1]
+
+    if ext == ".txt":
+        return decode_text(content)
+
+    if ext == ".docx":
+        return extract_docx_text(content)
+
+    if ext == ".pptx":
+        return extract_pptx_text(content)
+
+    if ext == ".pdf":
+        return extract_pdf_text(content)
+
+    raise ValueError("目前支援 TXT、PDF、DOCX、PPTX")
+
+
+def kb_notice_url(message):
+    return "/faq?" + urlencode({"notice": message}) + "#kb-manager"
+
+
 def e(value):
     return html.escape(str(value))
 
@@ -111,7 +226,7 @@ def normalize_question(value):
 # MAIN PAGE (ALL IN ONE)
 # =========================
 @router.get("/faq", response_class=HTMLResponse)
-def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
+def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str = ""):
 
     faq = load_faq()
     urls = load_urls()
@@ -637,6 +752,14 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
             margin:8px 0 0;
         }}
 
+        .notice {{
+            margin-bottom:16px;
+            color:var(--accent-strong);
+            background:var(--accent-soft);
+            border-color:rgba(96,165,250,0.35);
+            font-weight:700;
+        }}
+
         @media (max-width: 860px) {{
             body {{
                 padding:14px;
@@ -843,6 +966,8 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
         <a href="#kb-manager">知識庫文件管理</a>
     </div>
 
+    {f'<div class="card notice">{e(notice)}</div>' if notice else ''}
+
     <div class="section-title" id="faq-manager">
         <h3>FAQ 管理</h3>
         <p class="subtitle">管理客服優先回答的常見問題。</p>
@@ -944,11 +1069,12 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = ""):
                 <button>新增 KB</button>
             </form>
             <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-            <div class="top-title">上傳 KB TXT</div>
+            <div class="top-title">上傳文件轉 KB</div>
             <form method="post" action="/faq/kb/upload" enctype="multipart/form-data">
-                <input type="file" name="file" accept=".txt" required>
-                <button>上傳 KB</button>
+                <input type="file" name="file" accept=".txt,.pdf,.docx,.pptx" required>
+                <button>上傳並轉成 KB</button>
             </form>
+            <p class="hint">支援 TXT、DOCX、PPTX；PDF 需伺服器安裝 pypdf 才能抽文字。</p>
         </div>
         <div class="card">
             <div class="top-title">KB 文件清單</div>
@@ -1160,18 +1286,21 @@ def add_kb(
 @router.post("/faq/kb/upload")
 async def upload_kb(file: UploadFile = File(...)):
     os.makedirs(KB_DIR, exist_ok=True)
-    name = safe_kb_filename(file.filename)
+    name = converted_kb_filename(file.filename)
     content = await file.read()
 
     try:
-        text = content.decode("utf-8-sig")
-    except:
-        text = content.decode("utf-8", errors="ignore")
+        text = extract_kb_text(file.filename, content)
+    except Exception as exc:
+        return RedirectResponse(kb_notice_url(str(exc)), status_code=302)
+
+    if not text.strip():
+        return RedirectResponse(kb_notice_url("轉換後沒有可讀取的文字內容"), status_code=302)
 
     with open(os.path.join(KB_DIR, name), "w", encoding="utf-8") as f:
         f.write(text.strip() + "\n")
 
-    return RedirectResponse("/faq#kb-manager", status_code=302)
+    return RedirectResponse(kb_notice_url(f"已轉成 KB：{name}"), status_code=302)
 
 
 @router.get("/faq/kb/delete/{filename}")
