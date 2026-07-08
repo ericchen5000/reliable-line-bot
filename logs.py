@@ -8,6 +8,7 @@ import os
 from datetime import datetime, time
 from urllib.parse import urlencode
 from deepseek import ask_deepseek
+from admin_ui import admin_bar_css, admin_bar_html
 
 router = APIRouter()
 
@@ -1425,6 +1426,8 @@ def logs_ui(
         color:var(--muted);
     }
 
+    """ + admin_bar_css() + """
+
     @media (max-width: 760px) {
         body {
             padding:14px;
@@ -1616,6 +1619,7 @@ def logs_ui(
     </head>
 
     <body>
+    """ + admin_bar_html() + """
     <main class="page">
 
     <header class="topbar">
@@ -1753,9 +1757,10 @@ def log_summary(log_id: int):
     .page {{ max-width:900px; margin:0 auto; }}
     .card {{ background:white; border:1px solid #e2e8f0; border-radius:8px; padding:16px; box-shadow:0 16px 40px rgba(15,23,42,0.08); margin-bottom:14px; }}
     .text {{ white-space:pre-wrap; line-height:1.7; }}
+    {admin_bar_css()}
     </style>
     </head>
-    <body><main class="page">
+    <body>{admin_bar_html()}<main class="page">
     <div class="card"><h2>LOG #{e(log_id)} AI 摘要</h2></div>
     <div class="card"><div class="text">{e(summary)}</div></div>
     </main></body></html>

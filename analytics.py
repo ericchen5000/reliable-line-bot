@@ -6,6 +6,8 @@ import html
 import json
 import os
 
+from admin_ui import admin_bar_css, admin_bar_html
+
 router = APIRouter()
 
 LOG_PATH = "logs/chat_logs.json"
@@ -118,6 +120,7 @@ def base_css():
     .report-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
     .report-head h3 { margin:0; }
     .report-text { padding:14px; border-radius:8px; background:var(--panel-soft); border:1px solid var(--border); white-space:pre-wrap; line-height:1.8; }
+    """ + admin_bar_css() + """
     @media (max-width:860px) { body { padding:14px; } h2 { font-size:24px; } .report-top,.report-head { align-items:stretch; flex-direction:column; } .primary-action,.report-box button { width:100%; } .toolbar { display:grid; grid-template-columns:1fr; } .tabs { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); } .tab { width:100%; } .grid,.wide { grid-template-columns:1fr; } .pie-wrap { grid-template-columns:1fr; justify-items:center; } .pie { width:min(220px, 72vw); } .pie-legend { width:100%; } .pie-name { white-space:normal; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } .bar-row { grid-template-columns:1fr 64px; } .bar-name { grid-column:1 / -1; white-space:normal; } table,tbody,tr,td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:90px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
     """
 
@@ -321,7 +324,7 @@ def weekly_report(generate: int = 0, days: int = 7, chart: str = "bar"):
 
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{base_css()}</style></head>
-    <body><main class="page">
+    <body>{admin_bar_html()}<main class="page">
     <header class="topbar report-top">
         <div><h2>AI 客服週報</h2><p class="subtitle">近 {e(days_label(days))} 客服營運摘要</p></div>
         <a class="primary-action" href="/weekly-report?days={days}&chart={e(chart)}&generate=1">一鍵產生建議</a>
@@ -385,7 +388,7 @@ def knowledge_gaps():
 
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{base_css()}</style></head>
-    <body><main class="page">
+    <body>{admin_bar_html()}<main class="page">
     <header class="topbar"><h2>知識庫缺口分析</h2><p class="subtitle">找出 AI 常答不好或資料不足的問題</p></header>
     <nav class="nav">{nav_html("知識缺口")}</nav>
     <div class="card"><table><tr><th>問題</th><th>次數</th><th>最近時間</th><th>建議</th></tr>{rows}</table></div>

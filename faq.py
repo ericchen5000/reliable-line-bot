@@ -9,6 +9,7 @@ import zipfile
 from datetime import datetime
 from urllib.parse import urlencode
 from xml.etree import ElementTree
+from admin_ui import admin_bar_css, admin_bar_html
 
 router = APIRouter()
 
@@ -761,6 +762,8 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
             font-weight:700;
         }}
 
+        {admin_bar_css()}
+
         @media (max-width: 860px) {{
             body {{
                 padding:14px;
@@ -943,6 +946,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
     </head>
 
     <body>
+    {admin_bar_html()}
     <main class="page">
 
     <header class="topbar">

@@ -7,6 +7,7 @@ from collections import Counter
 from datetime import datetime
 
 from services.search_index import INDEX_FILE, build_all_indexes, load_status
+from admin_ui import admin_bar_css, admin_bar_html
 from analytics import (
     brand_counter,
     chart_html,
@@ -485,6 +486,7 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
         table {{ width:100%; border-collapse:collapse; }}
         th, td {{ padding:12px; border-top:1px solid var(--border); text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; }}
         th {{ color:var(--muted); background:var(--panel-soft); }}
+        {admin_bar_css()}
         @media (max-width: 860px) {{
             body {{ padding:14px; }}
             .topbar {{ flex-direction:column; align-items:stretch; }}
@@ -522,6 +524,7 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
     </style>
     </head>
     <body>
+    {admin_bar_html()}
     <main class="page">
         <header class="topbar">
             <div>

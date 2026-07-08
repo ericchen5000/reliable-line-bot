@@ -56,6 +56,7 @@ from insights import router as insights_router
 from analytics import router as analytics_router
 from services.search_index import build_all_indexes
 from services.retriever import retrieve
+from admin_ui import admin_bar_css, admin_bar_html
 
 app.include_router(dashboard_router)
 app.include_router(logs_router)
@@ -836,6 +837,7 @@ def admin_css():
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
     .miss { background:#fee2e2; color:#b91c1c; }
+    """ + admin_bar_css() + """
     @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
     """
 
@@ -893,6 +895,13 @@ def login(username: str = Form(...), password: str = Form(...)):
         httponly=True,
         samesite="lax",
     )
+    response.set_cookie(
+        "admin_display",
+        username,
+        max_age=AUTH_MAX_AGE,
+        httponly=False,
+        samesite="lax",
+    )
     return response
 
 
@@ -900,6 +909,7 @@ def login(username: str = Form(...), password: str = Form(...)):
 def logout():
     response = RedirectResponse("/login", status_code=302)
     response.delete_cookie(AUTH_COOKIE)
+    response.delete_cookie("admin_display")
     return response
 
 
@@ -929,7 +939,7 @@ def admin_users_page(request: Request):
 
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
-    <body><main class="page">
+    <body>{admin_bar_html()}<main class="page">
     <header class="topbar">
         <div>
             <h2>帳號管理</h2>
@@ -1065,7 +1075,7 @@ def test_chat_page(message: str = ""):
 
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
-    <body><main class="page">
+    <body>{admin_bar_html()}<main class="page">
     <header class="topbar">
         <div>
             <h2>LINE 問答測試</h2>
@@ -1400,7 +1410,7 @@ def health_page():
     )
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
-    <body><main class="page">
+    <body>{admin_bar_html()}<main class="page">
     <h2>健康檢查</h2><p class="subtitle">確認服務設定與必要資料檔是否存在</p>
     <nav class="nav">{admin_nav("健康檢查")}</nav>
     <div class="card"><table><tr><th>項目</th><th>狀態</th></tr>{rows}</table></div>

@@ -5,6 +5,7 @@ import json
 import os
 
 from services.search_index import INDEX_FILE, load_status, build_all_indexes
+from admin_ui import admin_bar_css, admin_bar_html
 
 router = APIRouter()
 
@@ -179,6 +180,7 @@ def site_index_page():
             color:var(--muted);
             background:var(--panel-soft);
         }}
+        {admin_bar_css()}
         @media (max-width:860px) {{
             body {{ padding:14px; }}
             h2 {{ font-size:24px; }}
@@ -196,6 +198,7 @@ def site_index_page():
     </style>
     </head>
     <body>
+    {admin_bar_html()}
     <main class="page">
         <header class="topbar">
             <div>
