@@ -20,7 +20,11 @@ def admin_bar_html():
             for(var i = 0; i < items.length; i++){
                 var item = items[i].trim();
                 if(item.indexOf(name + "=") === 0){
-                    return decodeURIComponent(item.substring(name.length + 1));
+                    var value = item.substring(name.length + 1);
+                    if(value.length >= 2 && value.charAt(0) === '"' && value.charAt(value.length - 1) === '"'){
+                        value = value.substring(1, value.length - 1);
+                    }
+                    return decodeURIComponent(value);
                 }
             }
             return "";

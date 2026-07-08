@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 import time
 from datetime import datetime
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -899,7 +899,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
     )
     response.set_cookie(
         "admin_display",
-        admin_tools.admin_display_name(username),
+        quote(admin_tools.admin_display_name(username), safe=""),
         max_age=AUTH_MAX_AGE,
         httponly=False,
         samesite="lax",
@@ -1062,7 +1062,7 @@ def update_admin_nickname(request: Request, username: str = Form(...), nickname:
                 response = RedirectResponse("/admin/users", status_code=302)
                 response.set_cookie(
                     "admin_display",
-                    admin_tools.admin_display_name(username),
+                    quote(admin_tools.admin_display_name(username), safe=""),
                     max_age=AUTH_MAX_AGE,
                     httponly=False,
                     samesite="lax",
