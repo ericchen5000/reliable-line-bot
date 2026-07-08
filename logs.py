@@ -1619,7 +1619,7 @@ def logs_ui(
     </head>
 
     <body>
-    """ + admin_bar_html() + """
+    {admin_bar_html()}
     <main class="page">
 
     <header class="topbar">

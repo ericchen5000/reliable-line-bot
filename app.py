@@ -945,7 +945,6 @@ def admin_users_page(request: Request):
             <h2>帳號管理</h2>
             <p class="subtitle">管理後台登入帳號，目前登入：{html_escape(admin)}</p>
         </div>
-        <a class="nav-link" href="/logout">登出</a>
     </header>
     <nav class="nav">{admin_nav("帳號管理")}</nav>
     <section class="card">
