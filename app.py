@@ -837,12 +837,17 @@ def admin_css():
     th { background:var(--panel-soft); color:var(--muted); }
     .ok { color:#16a34a; font-weight:800; }
     .bad { color:var(--danger); font-weight:800; }
+    .admin-user-actions { display:grid; grid-template-columns:minmax(180px, 1fr) auto auto; gap:8px; align-items:start; }
+    .admin-user-actions input { margin-bottom:0; }
+    .admin-user-actions button, .admin-user-actions a, .disabled-btn { min-height:40px; padding:8px 14px; border-radius:8px; font-size:13px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; white-space:nowrap; }
+    .delete-btn { color:white; background:var(--danger); border:1px solid transparent; }
+    .disabled-btn { color:var(--muted); background:var(--panel-soft); border:1px solid var(--border); cursor:not-allowed; }
     .step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
     .miss { background:#fee2e2; color:#b91c1c; }
     """ + admin_bar_css() + """
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -938,9 +943,9 @@ def admin_users_page(request: Request):
         nickname = user.get("nickname", "")
         can_delete = len(users) > 1 and username != admin
         delete_html = (
-            f'<a class="bad" href="/admin/users/delete/{html_escape(username)}" '
+            f'<a class="delete-btn" href="/admin/users/delete/{html_escape(username)}" '
             f'onclick="return confirm(\'確定要刪除這個管理員嗎？\')">刪除</a>'
-            if can_delete else "-"
+            if can_delete else '<span class="disabled-btn">不可刪</span>'
         )
         rows += f"""
         <tr>
@@ -948,12 +953,12 @@ def admin_users_page(request: Request):
             <td data-label="暱稱">{html_escape(nickname or "-")}</td>
             <td data-label="建立時間">{html_escape(user.get('created_at', '-'))}</td>
             <td data-label="操作">
-                <form method="post" action="/admin/users/nickname" style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start;">
+                <form class="admin-user-actions" method="post" action="/admin/users/nickname">
                     <input type="hidden" name="username" value="{html_escape(username)}">
                     <input name="nickname" value="{html_escape(nickname)}" placeholder="暱稱">
                     <button>更新</button>
+                    {delete_html}
                 </form>
-                {delete_html}
             </td>
         </tr>
         """
