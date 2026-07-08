@@ -159,6 +159,27 @@ def line_profile_html(item):
     """
 
 
+def image_detail_html(item):
+    if item.get("attachment_type") != "image":
+        return ""
+
+    fields = [
+        ("圖片路徑", item.get("attachment_path", "")),
+        ("辨識內容", item.get("image_text", "")),
+    ]
+    rows = "".join(
+        f"<div><b>{e(label)}</b><span>{e(value or '-')}</span></div>"
+        for label, value in fields
+    )
+
+    return f"""
+    <div class="block">
+        <span class="pill-more"><b>圖片辨識</b></span>
+        <div class="contact-grid">{rows}</div>
+    </div>
+    """
+
+
 def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
@@ -581,6 +602,7 @@ def logs_ui(
 
                     {contact_detail_html(l)}
                     {line_profile_html(l)}
+                    {image_detail_html(l)}
 
                     <div class="block">
                         <span class="pill-more"><b>品質</b></span>

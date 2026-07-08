@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Form
+from fastapi import FastAPI, Request, HTTPException, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from linebot import LineBotApi, WebhookHandler
@@ -10,6 +10,9 @@ import hmac
 import json
 import os
 import secrets
+import shutil
+import subprocess
+import tempfile
 import time
 from datetime import datetime
 from urllib.parse import urljoin, urlparse
@@ -72,6 +75,10 @@ ADMIN_USERS_PATH = "data/admin_users.json"
 AUTH_COOKIE = "reliable_admin"
 AUTH_MAX_AGE = 60 * 60 * 12
 AUTH_SECRET = os.getenv("ADMIN_AUTH_SECRET") or LINE_CHANNEL_SECRET or secrets.token_hex(32)
+IMAGE_UPLOAD_DIR = "logs/images"
+VISION_API_URL = os.getenv("VISION_API_URL", "").strip()
+VISION_API_KEY = os.getenv("VISION_API_KEY", "").strip()
+VISION_MODEL = os.getenv("VISION_MODEL", "gpt-4o-mini").strip()
 
 
 async def site_index_scheduler():
@@ -185,6 +192,7 @@ def is_public_path(path):
         "/logout",
         "/chat",
         "/web/chat",
+        "/web/image",
         "/web/lead",
         "/line/webhook",
     }
@@ -254,6 +262,132 @@ def detect_browser(request: Request):
     if "line" in ua:
         return "line-app"
     return "unknown"
+
+
+# =========================
+# IMAGE RECOGNITION
+# =========================
+def image_ext(content_type="", filename=""):
+    ext = os.path.splitext(str(filename or ""))[1].lower()
+
+    if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp"}:
+        return ext
+
+    if "png" in content_type:
+        return ".png"
+    if "webp" in content_type:
+        return ".webp"
+    if "gif" in content_type:
+        return ".gif"
+
+    return ".jpg"
+
+
+def save_image_bytes(content, filename="", content_type=""):
+    os.makedirs(IMAGE_UPLOAD_DIR, exist_ok=True)
+    ext = image_ext(content_type, filename)
+    name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(4)}{ext}"
+    path = os.path.join(IMAGE_UPLOAD_DIR, name)
+
+    with open(path, "wb") as f:
+        f.write(content)
+
+    return path
+
+
+def run_tesseract_ocr(image_path):
+    tesseract = shutil.which("tesseract")
+
+    if not tesseract:
+        return ""
+
+    languages = os.getenv("OCR_LANG", "chi_tra+eng")
+
+    try:
+        result = subprocess.run(
+            [tesseract, image_path, "stdout", "-l", languages],
+            capture_output=True,
+            text=True,
+            timeout=25
+        )
+    except:
+        return ""
+
+    if result.returncode != 0:
+        return ""
+
+    return result.stdout.strip()
+
+
+def call_vision_api(image_bytes, content_type="image/jpeg"):
+    if not VISION_API_URL or not VISION_API_KEY:
+        return ""
+
+    encoded = base64.b64encode(image_bytes).decode("utf-8")
+    data_url = f"data:{content_type or 'image/jpeg'};base64,{encoded}"
+    headers = {
+        "Authorization": f"Bearer {VISION_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": VISION_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "你是企業客服圖片辨識助手。請用繁體中文描述圖片內容，特別留意錯誤訊息、產品名稱、授權資訊、畫面文字與使用者可能需要的協助。"
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "請辨識這張圖片，整理成客服可用的文字描述。"},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ]
+            }
+        ],
+        "temperature": 0.2,
+    }
+
+    try:
+        response = requests.post(VISION_API_URL, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()
+    except:
+        return ""
+
+
+def analyze_image(content, filename="", content_type="image/jpeg"):
+    image_path = save_image_bytes(content, filename, content_type)
+    ocr_text = run_tesseract_ocr(image_path)
+    vision_text = call_vision_api(content, content_type)
+    parts = []
+
+    if ocr_text:
+        parts.append(f"圖片 OCR 文字：\n{ocr_text}")
+
+    if vision_text:
+        parts.append(f"圖片內容描述：\n{vision_text}")
+
+    if not parts:
+        return {
+            "ok": False,
+            "image_path": image_path,
+            "text": "",
+            "message": "已收到圖片，但目前尚未設定圖片辨識引擎。請在 VPS 安裝 tesseract OCR，或設定 VISION_API_URL / VISION_API_KEY。"
+        }
+
+    text = "\n\n".join(parts)
+    return {
+        "ok": True,
+        "image_path": image_path,
+        "text": text,
+        "message": text
+    }
+
+
+def answer_image_question(image_text):
+    question = f"使用者傳了一張圖片，圖片辨識結果如下：\n\n{image_text}\n\n請根據圖片內容，用客服口吻協助判斷使用者可能遇到的問題，並提供下一步建議。"
+    reply, source = ai_reply(question)
+    return reply, source, question
 
 
 # =========================
@@ -1095,6 +1229,56 @@ async def web_chat_alias(request: Request):
     return await web_chat_response(request)
 
 
+@app.post("/web/image")
+async def web_image(
+    request: Request,
+    file: UploadFile = File(...),
+    session_id: str = Form("web")
+):
+    start = time.time()
+    content = await file.read()
+
+    if not content:
+        raise HTTPException(status_code=400, detail="圖片內容是空的")
+
+    analysis = analyze_image(content, file.filename, file.content_type or "image/jpeg")
+
+    if analysis["ok"]:
+        reply, source, message = answer_image_question(analysis["text"])
+    else:
+        reply = analysis["message"]
+        source = "IMAGE"
+        message = "使用者上傳圖片，但圖片辨識尚未設定。"
+
+    latency = round(time.time() - start, 3)
+    lead = classify_lead(message, reply, source)
+    reply = apply_handoff_message(reply, lead)
+
+    save_log(
+        session_id or "web",
+        message,
+        reply,
+        request,
+        "WEB",
+        latency,
+        source,
+        lead,
+        {
+            "attachment_type": "image",
+            "attachment_path": analysis.get("image_path", ""),
+            "image_text": analysis.get("text", ""),
+        }
+    )
+
+    return {
+        "reply": reply,
+        "source": source,
+        "image_text": analysis.get("text", ""),
+        "image_ready": analysis["ok"],
+        "latency": latency
+    }
+
+
 @app.post("/web/lead")
 async def web_lead(request: Request):
     start = time.time()
@@ -1251,16 +1435,42 @@ async def line_webhook(request: Request):
         if event.get("type") != "message":
             continue
 
-        if event["message"]["type"] != "text":
-            continue
-
-        user_msg = event["message"]["text"]
+        message_type = event["message"].get("type")
         user_id = event["source"].get("userId")
         line_profile = get_line_profile(user_id)
 
         platform = detect_platform(request)
 
-        reply, source = ai_reply(user_msg)
+        if message_type == "text":
+            user_msg = event["message"]["text"]
+            reply, source = ai_reply(user_msg)
+            image_extra = {}
+        elif message_type == "image":
+            message_id = event["message"].get("id")
+            image_content = line_bot_api.get_message_content(message_id)
+            chunks = []
+
+            for chunk in image_content.iter_content():
+                chunks.append(chunk)
+
+            content = b"".join(chunks)
+            analysis = analyze_image(content, f"line_{message_id}.jpg", "image/jpeg")
+
+            if analysis["ok"]:
+                reply, source, user_msg = answer_image_question(analysis["text"])
+            else:
+                reply = analysis["message"]
+                source = "IMAGE"
+                user_msg = "使用者傳送圖片，但圖片辨識尚未設定。"
+
+            image_extra = {
+                "attachment_type": "image",
+                "attachment_path": analysis.get("image_path", ""),
+                "image_text": analysis.get("text", ""),
+            }
+        else:
+            continue
+
         lead = classify_lead(user_msg, reply, source)
         reply = apply_handoff_message(reply, lead)
 
@@ -1273,6 +1483,10 @@ async def line_webhook(request: Request):
             TextSendMessage(text=final_reply[:1000])
         )
 
+        extra = {}
+        extra.update(line_profile)
+        extra.update(image_extra)
+
         save_log(
             user_id,
             user_msg,
@@ -1282,7 +1496,7 @@ async def line_webhook(request: Request):
             latency,
             source,
             lead,
-            line_profile
+            extra
         )
 
     return {"status": "ok"}
