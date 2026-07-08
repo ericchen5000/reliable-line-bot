@@ -1,11 +1,15 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from linebot import LineBotApi, WebhookHandler
 from linebot.models import TextSendMessage
 import asyncio
+import base64
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import time
 from datetime import datetime
 from urllib.parse import urljoin, urlparse
@@ -64,6 +68,10 @@ LOG_PATH = "logs/chat_logs.json"
 URLS_FILE = "data/urls.json"
 SITE_INDEX_FILE = "data/site_index.json"
 SITE_INDEX_INTERVAL_HOURS = int(os.getenv("SITE_INDEX_INTERVAL_HOURS", "24"))
+ADMIN_USERS_PATH = "data/admin_users.json"
+AUTH_COOKIE = "reliable_admin"
+AUTH_MAX_AGE = 60 * 60 * 12
+AUTH_SECRET = os.getenv("ADMIN_AUTH_SECRET") or LINE_CHANNEL_SECRET or secrets.token_hex(32)
 
 
 async def site_index_scheduler():
@@ -75,6 +83,124 @@ async def site_index_scheduler():
 @app.on_event("startup")
 async def start_site_index_scheduler():
     asyncio.create_task(site_index_scheduler())
+
+
+# =========================
+# ADMIN AUTH
+# =========================
+def load_admin_users():
+    if not os.path.exists(ADMIN_USERS_PATH):
+        return []
+
+    try:
+        with open(ADMIN_USERS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except:
+        return []
+
+
+def save_admin_users(users):
+    os.makedirs(os.path.dirname(ADMIN_USERS_PATH), exist_ok=True)
+    with open(ADMIN_USERS_PATH, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
+
+
+def hash_password(password, salt=None):
+    salt = salt or secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        str(password).encode("utf-8"),
+        salt.encode("utf-8"),
+        120000
+    ).hex()
+    return f"pbkdf2_sha256${salt}${digest}"
+
+
+def verify_password(password, stored):
+    try:
+        method, salt, digest = str(stored).split("$", 2)
+    except ValueError:
+        return False
+
+    if method != "pbkdf2_sha256":
+        return False
+
+    expected = hash_password(password, salt).split("$", 2)[2]
+    return hmac.compare_digest(expected, digest)
+
+
+def sign_value(value):
+    return hmac.new(
+        AUTH_SECRET.encode("utf-8"),
+        value.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+
+
+def make_auth_token(username):
+    expires = int(time.time()) + AUTH_MAX_AGE
+    payload = f"{username}|{expires}"
+    signature = sign_value(payload)
+    token = f"{payload}|{signature}".encode("utf-8")
+    return base64.urlsafe_b64encode(token).decode("utf-8")
+
+
+def read_auth_token(token):
+    if not token:
+        return None
+
+    try:
+        decoded = base64.urlsafe_b64decode(token.encode("utf-8")).decode("utf-8")
+        username, expires, signature = decoded.rsplit("|", 2)
+    except:
+        return None
+
+    payload = f"{username}|{expires}"
+
+    if not hmac.compare_digest(sign_value(payload), signature):
+        return None
+
+    try:
+        if int(expires) < int(time.time()):
+            return None
+    except:
+        return None
+
+    users = load_admin_users()
+
+    if not any(user.get("username") == username for user in users):
+        return None
+
+    return username
+
+
+def current_admin(request: Request):
+    return read_auth_token(request.cookies.get(AUTH_COOKIE))
+
+
+def is_public_path(path):
+    public_exact = {
+        "/login",
+        "/logout",
+        "/chat",
+        "/web/chat",
+        "/web/lead",
+        "/line/webhook",
+    }
+    public_prefixes = ()
+    return path in public_exact or any(path.startswith(prefix) for prefix in public_prefixes)
+
+
+@app.middleware("http")
+async def admin_auth_middleware(request: Request, call_next):
+    if request.method == "OPTIONS" or is_public_path(request.url.path):
+        return await call_next(request)
+
+    if current_admin(request):
+        return await call_next(request)
+
+    return RedirectResponse("/login", status_code=302)
 
 
 # =========================
@@ -475,6 +601,7 @@ def admin_nav(active=""):
         ("/logs", "LOGS"),
         ("/faq", "知識管理"),
         ("/test-chat", "測試"),
+        ("/admin/users", "帳號管理"),
     ]
     links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
@@ -520,6 +647,174 @@ def admin_css():
     .miss { background:#fee2e2; color:#b91c1c; }
     @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } }
     """
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(error: str = ""):
+    has_users = bool(load_admin_users())
+    title = "後台登入" if has_users else "建立第一位管理員"
+    button = "登入" if has_users else "建立管理員"
+    hint = "請輸入管理員帳號密碼。" if has_users else "目前尚未建立管理員，請先建立第一位管理員。"
+
+    return HTMLResponse(f"""
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
+    <body><main class="page" style="max-width:460px;">
+    <div class="card" style="margin-top:12vh;">
+        <h2>{html_escape(title)}</h2>
+        <p class="subtitle">{html_escape(hint)}</p>
+        {f'<p class="bad">{html_escape(error)}</p>' if error else ''}
+        <form method="post" action="/login" style="margin-top:18px;">
+            <input name="username" placeholder="帳號" autocomplete="username" required>
+            <input name="password" type="password" placeholder="密碼" autocomplete="current-password" required>
+            <button style="width:100%;">{html_escape(button)}</button>
+        </form>
+    </div>
+    </main></body></html>
+    """)
+
+
+@app.post("/login")
+def login(username: str = Form(...), password: str = Form(...)):
+    username = username.strip()
+    users = load_admin_users()
+
+    if not users:
+        if len(username) < 3 or len(password) < 8:
+            return RedirectResponse("/login?error=帳號至少 3 碼，密碼至少 8 碼", status_code=302)
+
+        users.append({
+            "username": username,
+            "password_hash": hash_password(password),
+            "created_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+        })
+        save_admin_users(users)
+    else:
+        matched = next((user for user in users if user.get("username") == username), None)
+
+        if not matched or not verify_password(password, matched.get("password_hash", "")):
+            return RedirectResponse("/login?error=帳號或密碼錯誤", status_code=302)
+
+    response = RedirectResponse("/", status_code=302)
+    response.set_cookie(
+        AUTH_COOKIE,
+        make_auth_token(username),
+        max_age=AUTH_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@app.get("/logout")
+def logout():
+    response = RedirectResponse("/login", status_code=302)
+    response.delete_cookie(AUTH_COOKIE)
+    return response
+
+
+@app.get("/admin/users", response_class=HTMLResponse)
+def admin_users_page(request: Request):
+    admin = current_admin(request) or "-"
+    users = load_admin_users()
+    rows = ""
+
+    for user in users:
+        username = user.get("username", "")
+        can_delete = len(users) > 1 and username != admin
+        delete_html = (
+            f'<a class="bad" href="/admin/users/delete/{html_escape(username)}" '
+            f'onclick="return confirm(\'確定要刪除這個管理員嗎？\')">刪除</a>'
+            if can_delete else "-"
+        )
+        rows += f"""
+        <tr>
+            <td data-label="帳號">{html_escape(username)}</td>
+            <td data-label="建立時間">{html_escape(user.get('created_at', '-'))}</td>
+            <td data-label="操作">
+                {delete_html}
+            </td>
+        </tr>
+        """
+
+    return HTMLResponse(f"""
+    <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
+    <body><main class="page">
+    <header class="topbar">
+        <div>
+            <h2>帳號管理</h2>
+            <p class="subtitle">管理後台登入帳號，目前登入：{html_escape(admin)}</p>
+        </div>
+        <a class="nav-link" href="/logout">登出</a>
+    </header>
+    <nav class="nav">{admin_nav("帳號管理")}</nav>
+    <section class="card">
+        <h3>新增管理員</h3>
+        <form method="post" action="/admin/users/add">
+            <input name="username" placeholder="帳號" required>
+            <input name="password" type="password" placeholder="密碼，至少 8 碼" required>
+            <button>新增管理員</button>
+        </form>
+    </section>
+    <section class="card">
+        <h3>修改我的密碼</h3>
+        <form method="post" action="/admin/users/password">
+            <input name="old_password" type="password" placeholder="目前密碼" required>
+            <input name="new_password" type="password" placeholder="新密碼，至少 8 碼" required>
+            <button>更新密碼</button>
+        </form>
+    </section>
+    <section class="card">
+        <h3>管理員清單</h3>
+        <table><tr><th>帳號</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
+    </section>
+    </main></body></html>
+    """)
+
+
+@app.post("/admin/users/add")
+def add_admin_user(username: str = Form(...), password: str = Form(...)):
+    username = username.strip()
+    users = load_admin_users()
+
+    if len(username) >= 3 and len(password) >= 8 and not any(user.get("username") == username for user in users):
+        users.append({
+            "username": username,
+            "password_hash": hash_password(password),
+            "created_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+        })
+        save_admin_users(users)
+
+    return RedirectResponse("/admin/users", status_code=302)
+
+
+@app.post("/admin/users/password")
+def change_admin_password(
+    request: Request,
+    old_password: str = Form(...),
+    new_password: str = Form(...)
+):
+    admin = current_admin(request)
+    users = load_admin_users()
+
+    for user in users:
+        if user.get("username") == admin and verify_password(old_password, user.get("password_hash", "")) and len(new_password) >= 8:
+            user["password_hash"] = hash_password(new_password)
+            save_admin_users(users)
+            break
+
+    return RedirectResponse("/admin/users", status_code=302)
+
+
+@app.get("/admin/users/delete/{username}")
+def delete_admin_user(request: Request, username: str):
+    admin = current_admin(request)
+    users = load_admin_users()
+
+    if username != admin and len(users) > 1:
+        users = [user for user in users if user.get("username") != username]
+        save_admin_users(users)
+
+    return RedirectResponse("/admin/users", status_code=302)
 
 
 def trace_reply_flow(message):

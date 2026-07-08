@@ -62,6 +62,7 @@ def nav_html(active=""):
         ("/logs", "LOGS"),
         ("/faq", "知識管理"),
         ("/test-chat", "測試"),
+        ("/admin/users", "帳號管理"),
     ]
     links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
