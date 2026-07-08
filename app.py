@@ -299,7 +299,11 @@ def run_tesseract_ocr(image_path):
     tesseract = shutil.which("tesseract")
 
     if not tesseract:
-        return ""
+        return {
+            "ok": False,
+            "text": "",
+            "detail": "找不到 tesseract 指令，請確認 VPS 已安裝並且 Uvicorn 服務的 PATH 找得到 tesseract。"
+        }
 
     languages = os.getenv("OCR_LANG", "chi_tra+eng")
 
@@ -310,13 +314,35 @@ def run_tesseract_ocr(image_path):
             text=True,
             timeout=25
         )
-    except:
-        return ""
+    except Exception as exc:
+        return {
+            "ok": False,
+            "text": "",
+            "detail": f"tesseract 執行失敗：{exc}"
+        }
 
     if result.returncode != 0:
-        return ""
+        error_text = (result.stderr or result.stdout or "").strip()
+        return {
+            "ok": False,
+            "text": "",
+            "detail": f"tesseract 回傳錯誤：{error_text or '未知錯誤'}"
+        }
 
-    return result.stdout.strip()
+    text = result.stdout.strip()
+
+    if not text:
+        return {
+            "ok": False,
+            "text": "",
+            "detail": "tesseract 有執行，但沒有辨識出文字。可能圖片文字太小、太模糊，或圖片本身沒有文字。"
+        }
+
+    return {
+        "ok": True,
+        "text": text,
+        "detail": f"tesseract OCR 成功，語言：{languages}"
+    }
 
 
 def call_vision_api(image_bytes, content_type="image/jpeg"):
@@ -357,22 +383,28 @@ def call_vision_api(image_bytes, content_type="image/jpeg"):
 
 def analyze_image(content, filename="", content_type="image/jpeg"):
     image_path = save_image_bytes(content, filename, content_type)
-    ocr_text = run_tesseract_ocr(image_path)
+    ocr_result = run_tesseract_ocr(image_path)
+    ocr_text = ocr_result.get("text", "")
     vision_text = call_vision_api(content, content_type)
     parts = []
+    notes = []
 
     if ocr_text:
         parts.append(f"圖片 OCR 文字：\n{ocr_text}")
+    else:
+        notes.append(ocr_result.get("detail", "OCR 未取得文字"))
 
     if vision_text:
         parts.append(f"圖片內容描述：\n{vision_text}")
+    else:
+        notes.append("Vision API 未設定或沒有回傳圖片描述。")
 
     if not parts:
         return {
             "ok": False,
             "image_path": image_path,
             "text": "",
-            "message": "已收到圖片，但目前尚未設定圖片辨識引擎。請在 VPS 安裝 tesseract OCR，或設定 VISION_API_URL / VISION_API_KEY。"
+            "message": "已收到圖片，但目前沒有取得可用的圖片辨識結果。\n\n" + "\n".join(f"- {note}" for note in notes)
         }
 
     text = "\n\n".join(parts)
