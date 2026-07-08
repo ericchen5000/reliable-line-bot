@@ -3,13 +3,30 @@ def admin_bar_html():
     <script>document.body.classList.add("has-admin-bar");</script>
     <div class="admin-bar">
         <div class="admin-bar-inner">
-            <a class="admin-brand" href="/">定承資訊AI客服管理後台</a>
+            <a class="admin-brand" href="/">
+                <img src="https://www.reliable.com.tw/favicon.ico" alt="">
+                <span>定承資訊AI客服管理後台</span>
+            </a>
+            <nav class="admin-nav-menu" aria-label="後台導覽">
+                <a class="admin-nav-link" data-path="/" href="/">Dashboard</a>
+                <a class="admin-nav-link" data-path="/logs" href="/logs">LOGS</a>
+                <a class="admin-nav-link" data-path="/faq" href="/faq">知識管理</a>
+                <a class="admin-nav-link" data-path="/test-chat" href="/test-chat">測試</a>
+                <a class="admin-nav-link" data-path="/admin/users" href="/admin/users">帳號管理</a>
+            </nav>
             <div class="admin-actions">
                 <a class="admin-identity" href="/admin/users" title="帳號管理">
                     <span class="admin-avatar" id="admin-avatar" aria-hidden="true">管</span>
                     <b id="admin-name">管理員</b>
                 </a>
                 <a class="admin-logout" href="/logout">登出</a>
+                <label class="admin-theme-control" title="切換深夜模式">
+                    <span>深夜模式</span>
+                    <span class="admin-switch">
+                        <input id="admin-theme-toggle" type="checkbox">
+                        <span class="admin-slider"></span>
+                    </span>
+                </label>
             </div>
         </div>
     </div>
@@ -38,6 +55,40 @@ def admin_bar_html():
         if(avatar){
             avatar.textContent = display.trim().charAt(0).toUpperCase() || "管";
         }
+
+        var path = window.location.pathname || "/";
+        document.querySelectorAll(".admin-nav-link").forEach(function(link){
+            var target = link.getAttribute("data-path") || "/";
+            var active = target === "/" ? path === "/" : path.indexOf(target) === 0;
+            link.classList.toggle("active", active);
+        });
+
+        var themeToggle = document.getElementById("admin-theme-toggle");
+        var storedTheme = localStorage.getItem("admin-theme")
+            || localStorage.getItem("dashboard-theme")
+            || localStorage.getItem("logs-theme")
+            || localStorage.getItem("faq-theme")
+            || localStorage.getItem("test-theme")
+            || "light";
+
+        function applyTheme(isDark){
+            document.body.classList.toggle("dark", isDark);
+            if(themeToggle){
+                themeToggle.checked = isDark;
+            }
+            var value = isDark ? "dark" : "light";
+            ["admin-theme", "dashboard-theme", "logs-theme", "faq-theme", "test-theme"].forEach(function(key){
+                localStorage.setItem(key, value);
+            });
+        }
+
+        applyTheme(storedTheme === "dark");
+
+        if(themeToggle){
+            themeToggle.addEventListener("change", function(){
+                applyTheme(themeToggle.checked);
+            });
+        }
     })();
     </script>
     """
@@ -64,14 +115,19 @@ def admin_bar_css():
     }
 
     body.has-admin-bar {
-        padding-top:76px !important;
+        padding-top:82px !important;
+    }
+
+    body.has-admin-bar main.page > nav.nav,
+    body.has-admin-bar .topbar .theme-control {
+        display:none !important;
     }
 
     .admin-bar-inner {
         width:100%;
-        min-height:52px;
+        min-height:58px;
         margin:0 auto;
-        padding:8px 24px;
+        padding:8px 18px;
         display:flex;
         align-items:center;
         justify-content:space-between;
@@ -85,9 +141,50 @@ def admin_bar_css():
         font-weight:900;
         letter-spacing:0;
         white-space:nowrap;
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        min-width:max-content;
+    }
+
+    .admin-brand img {
+        width:24px;
+        height:24px;
+        border-radius:6px;
+        object-fit:contain;
+    }
+
+    .admin-nav-menu {
+        flex:1 1 auto;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        min-width:0;
+    }
+
+    .admin-nav-link {
+        min-height:34px;
+        padding:7px 11px;
+        border-radius:8px;
+        color:var(--muted);
+        text-decoration:none;
+        font-size:13px;
+        font-weight:800;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        white-space:nowrap;
+    }
+
+    .admin-nav-link.active {
+        color:white;
+        background:linear-gradient(135deg,#60a5fa,#a78bfa);
+        box-shadow:0 8px 18px rgba(79,70,229,0.18);
     }
 
     .admin-actions {
+        flex:0 0 auto;
         display:flex;
         align-items:center;
         gap:10px;
@@ -132,15 +229,72 @@ def admin_bar_css():
         color:var(--text);
     }
 
+    .admin-theme-control {
+        flex:0 0 auto;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        color:var(--muted);
+        font-size:13px;
+        font-weight:800;
+        cursor:pointer;
+        user-select:none;
+    }
+
+    .admin-switch {
+        position:relative;
+        width:46px;
+        height:26px;
+        flex:0 0 auto;
+    }
+
+    .admin-switch input {
+        position:absolute;
+        opacity:0;
+        width:0;
+        height:0;
+    }
+
+    .admin-slider {
+        position:absolute;
+        inset:0;
+        border-radius:999px;
+        background:#cbd5e1;
+        transition:background 0.2s ease;
+        box-shadow:inset 0 1px 3px rgba(15,23,42,0.18);
+    }
+
+    .admin-slider::before {
+        content:"";
+        position:absolute;
+        width:22px;
+        height:22px;
+        left:2px;
+        top:2px;
+        border-radius:50%;
+        background:#fff;
+        box-shadow:0 2px 8px rgba(15,23,42,0.25);
+        transition:transform 0.2s ease;
+    }
+
+    .admin-switch input:checked + .admin-slider {
+        background:linear-gradient(135deg,#60a5fa,#a78bfa);
+    }
+
+    .admin-switch input:checked + .admin-slider::before {
+        transform:translateX(20px);
+    }
+
     @media (max-width:860px) {
         body.has-admin-bar {
-            padding-top:92px !important;
+            padding-top:164px !important;
         }
 
         .admin-bar-inner {
-            min-height:68px;
+            min-height:140px;
             padding:10px 14px;
             align-items:stretch;
+            flex-direction:column;
             gap:8px;
         }
 
@@ -150,6 +304,31 @@ def admin_bar_css():
 
         .admin-actions {
             justify-content:space-between;
+            gap:8px;
+        }
+
+        .admin-nav-menu {
+            display:grid;
+            grid-template-columns:repeat(3, minmax(0, 1fr));
+            gap:6px;
+        }
+
+        .admin-nav-link {
+            width:100%;
+            min-height:32px;
+            padding:6px 8px;
+            font-size:12px;
+        }
+
+        .admin-theme-control span:first-child {
+            display:none;
+        }
+
+        .admin-identity b {
+            max-width:110px;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
         }
     }
     """
