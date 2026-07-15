@@ -829,6 +829,26 @@ def admin_css():
     .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
     .nav-link.active { color:white; background:var(--button-bg); border:1px solid transparent; }
     .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+    .admin-metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
+    .metric-card { background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:16px; min-height:118px; display:flex; flex-direction:column; justify-content:space-between; }
+    .metric-card strong { display:block; font-size:32px; line-height:1.1; letter-spacing:-0.02em; color:var(--text); }
+    .metric-card .metric-time { font-size:16px; line-height:1.35; letter-spacing:0; overflow-wrap:anywhere; }
+    .metric-label { color:var(--muted); font-size:13px; font-weight:800; }
+    .metric-card small { color:var(--muted); font-size:12px; line-height:1.35; }
+    .admin-manage-layout { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:14px; align-items:start; }
+    .admin-main-column, .admin-side-column { min-width:0; }
+    .admin-side-column { position:sticky; top:84px; }
+    .admin-card { padding:0; overflow:hidden; }
+    .section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px 18px 14px; border-bottom:1px solid var(--border); }
+    .section-heading h3, .tool-heading h3, .admin-note-card h3 { margin:0; font-size:18px; }
+    .section-heading p, .tool-heading p, .admin-note-card p { margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
+    .table-scroll { overflow-x:auto; }
+    .admin-tool-card { padding:16px; }
+    .tool-heading { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+    .tool-icon { width:32px; height:32px; border-radius:10px; color:white; background:var(--button-bg); display:inline-flex; align-items:center; justify-content:center; font-weight:900; flex:0 0 auto; }
+    .admin-tool-card label { display:block; margin:10px 0 6px; color:var(--muted); font-size:12px; font-weight:800; }
+    .full-btn { width:100%; margin-top:4px; }
+    .admin-note-card { background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel); }
     textarea, input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
     textarea { min-height:120px; resize:vertical; }
     button { min-height:40px; padding:8px 14px; border:none; border-radius:8px; color:white; background:var(--button-bg); font-weight:700; cursor:pointer; }
@@ -847,7 +867,8 @@ def admin_css():
     .hit { background:#dcfce7; color:#15803d; }
     .miss { background:#fee2e2; color:#b91c1c; }
     """ + admin_bar_css() + """
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-bottom:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
+    @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -995,43 +1016,120 @@ def admin_users_page(request: Request):
     if not activity_rows:
         activity_rows = "<tr><td colspan='5'>尚無操作紀錄</td></tr>"
 
+    active_sessions = [item for item in sessions if not item.get("logout_at")]
+    latest_login = sessions[-1].get("login_at", "-") if sessions else "-"
+    latest_activity = activities[-1].get("time", "-") if activities else "-"
+
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
     <body>{admin_bar_html()}<main class="page">
     <header class="topbar">
         <div>
             <h2>帳號管理</h2>
-            <p class="subtitle">管理後台登入帳號，目前登入：{html_escape(admin)}</p>
+            <p class="subtitle">管理後台登入權限、管理者暱稱、登入紀錄與重要操作軌跡</p>
         </div>
     </header>
     <nav class="nav">{admin_nav("帳號管理")}</nav>
-    <section class="card">
-        <h3>新增管理員</h3>
-        <form method="post" action="/admin/users/add">
-            <input name="username" placeholder="帳號" required>
-            <input name="password" type="password" placeholder="密碼，至少 8 碼" required>
-            <button>新增管理員</button>
-        </form>
+    <section class="admin-metrics">
+        <div class="metric-card">
+            <span class="metric-label">管理員數</span>
+            <strong>{len(users)}</strong>
+            <small>可登入後台的帳號</small>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">目前登入</span>
+            <strong>{len(active_sessions)}</strong>
+            <small>尚未登出的工作階段</small>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">最近登入</span>
+            <strong class="metric-time">{html_escape(latest_login)}</strong>
+            <small>最後一筆登入紀錄</small>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">最近操作</span>
+            <strong class="metric-time">{html_escape(latest_activity)}</strong>
+            <small>FAQ / KB / 帳號等變動</small>
+        </div>
     </section>
-    <section class="card">
-        <h3>修改我的密碼</h3>
-        <form method="post" action="/admin/users/password">
-            <input name="old_password" type="password" placeholder="目前密碼" required>
-            <input name="new_password" type="password" placeholder="新密碼，至少 8 碼" required>
-            <button>更新密碼</button>
-        </form>
-    </section>
-    <section class="card">
-        <h3>管理員清單</h3>
-        <table><tr><th>帳號</th><th>暱稱</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
-    </section>
-    <section class="card">
-        <h3>管理者登入資訊</h3>
-        <table><tr><th>管理者</th><th>登入時間</th><th>最後活動</th><th>登出時間</th><th>停留時間</th><th>裝置</th><th>IP</th></tr>{session_rows}</table>
-    </section>
-    <section class="card">
-        <h3>最近操作紀錄</h3>
-        <table><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>IP</th></tr>{activity_rows}</table>
+
+    <section class="admin-manage-layout">
+        <div class="admin-main-column">
+            <section class="card admin-card">
+                <div class="section-heading">
+                    <div>
+                        <h3>管理員清單</h3>
+                        <p>管理暱稱、刪除停用帳號，並保留目前登入帳號不可刪除的保護。</p>
+                    </div>
+                </div>
+                <table><tr><th>帳號</th><th>暱稱</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
+            </section>
+
+            <section class="card admin-card">
+                <div class="section-heading">
+                    <div>
+                        <h3>管理者登入資訊</h3>
+                        <p>追蹤登入時間、最後活動、登出時間、停留時間、裝置與 IP。</p>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table><tr><th>管理者</th><th>登入時間</th><th>最後活動</th><th>登出時間</th><th>停留時間</th><th>裝置</th><th>IP</th></tr>{session_rows}</table>
+                </div>
+            </section>
+
+            <section class="card admin-card">
+                <div class="section-heading">
+                    <div>
+                        <h3>最近操作紀錄</h3>
+                        <p>記錄管理者對 FAQ、網站索引、KB 文件與帳號做過的重要變更。</p>
+                    </div>
+                </div>
+                <div class="table-scroll">
+                    <table><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>IP</th></tr>{activity_rows}</table>
+                </div>
+            </section>
+        </div>
+
+        <aside class="admin-side-column">
+            <section class="card admin-tool-card">
+                <div class="tool-heading">
+                    <span class="tool-icon">＋</span>
+                    <div>
+                        <h3>新增管理員</h3>
+                        <p>建立新的後台登入帳號。</p>
+                    </div>
+                </div>
+                <form method="post" action="/admin/users/add">
+                    <label>帳號</label>
+                    <input name="username" placeholder="至少 3 個字元" required>
+                    <label>密碼</label>
+                    <input name="password" type="password" placeholder="至少 8 碼" required>
+                    <button class="full-btn">新增管理員</button>
+                </form>
+            </section>
+
+            <section class="card admin-tool-card">
+                <div class="tool-heading">
+                    <span class="tool-icon">●</span>
+                    <div>
+                        <h3>修改我的密碼</h3>
+                        <p>只會更新目前登入帳號。</p>
+                    </div>
+                </div>
+                <form method="post" action="/admin/users/password">
+                    <label>目前密碼</label>
+                    <input name="old_password" type="password" placeholder="輸入目前密碼" required>
+                    <label>新密碼</label>
+                    <input name="new_password" type="password" placeholder="至少 8 碼" required>
+                    <button class="full-btn">更新密碼</button>
+                </form>
+            </section>
+
+            <section class="card admin-note-card">
+                <h3>管理建議</h3>
+                <p>離職或不再維護系統的帳號應刪除；多人共用帳號會讓操作紀錄失去追蹤意義。</p>
+            </section>
+        </aside>
     </section>
     </main></body></html>
     """)
