@@ -911,14 +911,19 @@ def admin_nav(active=""):
     return f'<button type="button" class="nav-toggle" onclick="this.closest(\'nav\').classList.toggle(\'open\')">☰ 選單</button><div class="nav-menu">{links}</div>'
 
 
-def get_deepseek_balance_status():
+def get_deepseek_ai_integration():
     api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not api_key:
-        return {
-            "ok": False,
-            "message": "尚未設定 DEEPSEEK_API_KEY",
-            "items": [],
-        }
+        return None
+
+    result = {
+        "name": "DeepSeek",
+        "model": os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+        "ok": False,
+        "message": "尚未取得額度資訊",
+        "balances": [],
+        "usage_note": "Token 用量紀錄尚未啟用",
+    }
 
     try:
         response = requests.get(
@@ -928,54 +933,69 @@ def get_deepseek_balance_status():
         )
         response.raise_for_status()
         data = response.json()
+        result["ok"] = bool(data.get("is_available"))
+        result["message"] = "API 可正常呼叫" if data.get("is_available") else "餘額可能不足或帳號不可用"
+        result["balances"] = data.get("balance_infos") if isinstance(data.get("balance_infos"), list) else []
     except Exception as exc:
-        return {
-            "ok": False,
-            "message": f"查詢失敗：{exc}",
-            "items": [],
-        }
+        result["message"] = f"查詢失敗：{exc}"
 
-    return {
-        "ok": bool(data.get("is_available")),
-        "message": "API 可正常呼叫" if data.get("is_available") else "餘額可能不足或帳號不可用",
-        "items": data.get("balance_infos") if isinstance(data.get("balance_infos"), list) else [],
-    }
+    return result
 
 
-def deepseek_balance_card():
-    status = get_deepseek_balance_status()
-    rows = ""
-    for item in status["items"]:
-        currency = html_escape(item.get("currency", "-"))
-        total = html_escape(item.get("total_balance", "0"))
-        topped = html_escape(item.get("topped_up_balance", "0"))
-        granted = html_escape(item.get("granted_balance", "0"))
-        rows += f"""
-        <div class="balance-row">
-            <span>{currency}</span>
-            <b>{total}</b>
-            <small>儲值 {topped} ｜ 贈送 {granted}</small>
+def ai_integrations_card():
+    integrations = []
+    deepseek_status = get_deepseek_ai_integration()
+    if deepseek_status:
+        integrations.append(deepseek_status)
+
+    if not integrations:
+        return ""
+
+    cards = ""
+    for item in integrations:
+        rows = ""
+        for balance in item["balances"]:
+            currency = html_escape(balance.get("currency", "-"))
+            total = html_escape(balance.get("total_balance", "0"))
+            topped = html_escape(balance.get("topped_up_balance", "0"))
+            granted = html_escape(balance.get("granted_balance", "0"))
+            rows += f"""
+            <div class="ai-balance-row">
+                <span>{currency}</span>
+                <b>{total}</b>
+                <small>儲值 {topped} ｜ 贈送 {granted}</small>
+            </div>
+            """
+        if not rows:
+            rows = "<div class='ai-empty'>目前沒有取得餘額資料。</div>"
+
+        state_class = "ok" if item["ok"] else "bad"
+        state_text = "可用" if item["ok"] else "需確認"
+        cards += f"""
+        <div class="ai-provider-card">
+            <div class="ai-provider-head">
+                <div>
+                    <b>{html_escape(item["name"])}</b>
+                    <small>模型：{html_escape(item["model"])}</small>
+                </div>
+                <span class="badge {state_class}">{state_text}</span>
+            </div>
+            <p class="ai-provider-message">{html_escape(item["message"])}</p>
+            <div class="ai-balance-list">{rows}</div>
+            <div class="ai-usage-note">{html_escape(item["usage_note"])}</div>
         </div>
         """
-    if not rows:
-        rows = "<div class='balance-empty'>目前沒有取得餘額資料。</div>"
 
-    state_class = "ok" if status["ok"] else "bad"
-    state_text = "可用" if status["ok"] else "需確認"
     return f"""
     <section class="card admin-tool-card">
         <div class="tool-heading">
-            <span class="tool-icon">¥</span>
+            <span class="tool-icon">AI</span>
             <div>
-                <h3>DeepSeek 額度狀態</h3>
-                <p>查詢 API 帳戶餘額，不會顯示金鑰內容。</p>
+                <h3>AI 串接狀態</h3>
+                <p>集中查看已串接模型、可用狀態與剩餘額度；不顯示 API Key。</p>
             </div>
         </div>
-        <div class="balance-status">
-            <span class="badge {state_class}">{state_text}</span>
-            <span>{html_escape(status["message"])}</span>
-        </div>
-        <div class="balance-list">{rows}</div>
+        <div class="ai-provider-list">{cards}</div>
         <a class="small-link" href="/admin/users">重新整理</a>
     </section>
     """
@@ -1063,15 +1083,20 @@ def admin_css():
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
     .miss { background:#fee2e2; color:#b91c1c; }
-    .balance-status { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; line-height:1.5; margin-bottom:10px; }
-    .balance-list { display:grid; gap:8px; }
-    .balance-row { padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); display:grid; gap:4px; }
-    .balance-row span { color:var(--muted); font-size:12px; font-weight:800; }
-    .balance-row b { color:var(--text); font-size:22px; line-height:1.15; }
-    .balance-row small, .balance-empty { color:var(--muted); font-size:12px; line-height:1.45; }
+    .ai-provider-list { display:grid; gap:10px; }
+    .ai-provider-card { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); display:grid; gap:8px; }
+    .ai-provider-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .ai-provider-head b { display:block; font-size:15px; color:var(--text); }
+    .ai-provider-head small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
+    .ai-provider-message, .ai-usage-note { margin:0; color:var(--muted); font-size:12px; line-height:1.45; }
+    .ai-balance-list { display:grid; gap:8px; }
+    .ai-balance-row { padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); display:grid; gap:4px; }
+    .ai-balance-row span { color:var(--muted); font-size:12px; font-weight:800; }
+    .ai-balance-row b { color:var(--text); font-size:22px; line-height:1.15; }
+    .ai-balance-row small, .ai-empty { color:var(--muted); font-size:12px; line-height:1.45; }
     .small-link { display:inline-flex; margin-top:10px; color:#3730a3; font-size:12px; font-weight:800; text-decoration:none; }
     body.dark .small-link { color:#93c5fd; }
-    body.style-console .balance-row { border-radius:0; }
+    body.style-console .ai-provider-card, body.style-console .ai-balance-row { border-radius:0; }
     """ + admin_bar_css() + """
     @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
     @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
@@ -1345,7 +1370,7 @@ def admin_users_page(request: Request, notice: str = ""):
                 </div>
             </section>
 
-            {deepseek_balance_card()}
+            {ai_integrations_card()}
 
             <section class="card admin-tool-card">
                 <div class="tool-heading">
