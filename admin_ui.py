@@ -220,6 +220,50 @@ def admin_bar_css():
     html.style-console body .admin-nav-link.active,
     body.style-console .admin-nav-link.active {
         background:var(--button-bg) !important;
+        color:#ffffff !important;
+        border-color:transparent !important;
+        box-shadow:none !important;
+    }
+
+    html.style-console body .clear-link,
+    body.style-console .clear-link {
+        background:#dc2626 !important;
+        color:#ffffff !important;
+    }
+
+    html.style-console body .quality-warn,
+    body.style-console .quality-warn,
+    html.style-console body .btn-toggle,
+    body.style-console .btn-toggle {
+        background:#b7791f !important;
+        color:#ffffff !important;
+    }
+
+    html.style-console body .quality-danger,
+    body.style-console .quality-danger,
+    html.style-console body .btn-del,
+    body.style-console .btn-del,
+    html.style-console body .delete-btn,
+    body.style-console .delete-btn {
+        background:#b91c1c !important;
+        color:#ffffff !important;
+    }
+
+    html.style-console body .btn-toggle.toggle-on,
+    body.style-console .btn-toggle.toggle-on {
+        background:#047857 !important;
+        color:#ffffff !important;
+    }
+
+    html.style-console body .faq-added-pill,
+    body.style-console .faq-added-pill,
+    html.style-console body .quality-pill,
+    body.style-console .quality-pill,
+    html.style-console body .status-pill,
+    body.style-console .status-pill,
+    html.style-console body .role-pill,
+    body.style-console .role-pill {
+        border-radius:0 !important;
         box-shadow:none !important;
     }
 
