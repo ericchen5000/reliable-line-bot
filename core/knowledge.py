@@ -8,6 +8,8 @@ def search_knowledge(user_message):
         return None
 
     for root, dirs, files in os.walk(base_path):
+        dirs[:] = [d for d in dirs if d not in {"txt_disabled", "disabled"}]
+
         for file in files:
             if not file.endswith(".txt"):
                 continue

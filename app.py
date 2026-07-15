@@ -478,6 +478,9 @@ def search_faq(question):
     q = question.strip().lower()
 
     for item in faq:
+        if item.get("active", True) is False:
+            continue
+
         faq_q = item.get("question", "").strip().lower()
         faq_a = item.get("answer", "")
 
@@ -572,6 +575,9 @@ def search_urls(user_message):
     msg = user_message.lower()
 
     for item in urls:
+        if item.get("active", True) is False:
+            continue
+
         keywords = item.get("keywords", [])
         url = item.get("url", "")
 
@@ -705,6 +711,8 @@ def search_knowledge(user_message):
     results = []
 
     for root, dirs, files in os.walk(kb_path):
+        dirs[:] = [d for d in dirs if d not in {"txt_disabled", "disabled"}]
+
         for file in files:
             if file.endswith(".txt"):
                 path = os.path.join(root, file)
@@ -727,8 +735,70 @@ def search_knowledge(user_message):
 # =========================
 # SITE INDEX
 # =========================
+def url_prefix(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    parsed = urlparse(text)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+
+    normalized = parsed._replace(query="", fragment="").geturl().rstrip("/")
+    return normalized + "/"
+
+
+def load_index_url_rules():
+    if not os.path.exists(URLS_FILE):
+        return [], []
+
+    try:
+        with open(URLS_FILE, "r", encoding="utf-8") as f:
+            urls = json.load(f)
+    except:
+        return [], []
+
+    active = []
+    disabled = []
+
+    for item in urls:
+        prefix = url_prefix(item.get("url"))
+        if not prefix:
+            continue
+        if item.get("active", True) is False:
+            disabled.append(prefix)
+        else:
+            active.append(prefix)
+
+    return active, disabled
+
+
+def is_page_allowed_by_index_rules(page_url, active_prefixes, disabled_prefixes):
+    if not active_prefixes and not disabled_prefixes:
+        return True
+
+    page = url_prefix(page_url)
+    if not page:
+        return False
+
+    matching_disabled = [prefix for prefix in disabled_prefixes if prefix != url_prefix(normalize_site_base(prefix)) and page.startswith(prefix)]
+    matching_active = [prefix for prefix in active_prefixes if page.startswith(prefix)]
+
+    if matching_disabled:
+        longest_disabled = max(len(prefix) for prefix in matching_disabled)
+        longest_active = max([len(prefix) for prefix in matching_active], default=0)
+        return longest_active > longest_disabled
+
+    return bool(matching_active)
+
+
 def search_site_index(user_message):
     pages = retrieve(user_message, top_k=3)
+    active_prefixes, disabled_prefixes = load_index_url_rules()
+    pages = [
+        page for page in pages
+        if is_page_allowed_by_index_rules(page.get("url") or page.get("site_base"), active_prefixes, disabled_prefixes)
+    ]
 
     if not pages:
         return None, None
@@ -864,6 +934,7 @@ def admin_css():
     .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
     .nav-link.active { color:white; background:var(--button-bg); border:1px solid transparent; }
     .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+    .notice-card { color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; font-weight:800; }
     .admin-metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
     .metric-card { background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:16px; min-height:118px; display:flex; flex-direction:column; justify-content:space-between; }
     .metric-card strong { display:block; font-size:32px; line-height:1.1; letter-spacing:-0.02em; color:var(--text); }
@@ -994,7 +1065,7 @@ def logout(request: Request):
 
 
 @app.get("/admin/users", response_class=HTMLResponse)
-def admin_users_page(request: Request):
+def admin_users_page(request: Request, notice: str = ""):
     admin = current_admin(request) or "-"
     admin_tools.expire_stale_admin_sessions()
     users = load_admin_users()
@@ -1086,6 +1157,7 @@ def admin_users_page(request: Request):
         </div>
     </header>
     <nav class="nav">{admin_nav("帳號管理")}</nav>
+    {f'<section class="card notice-card">{html_escape(notice)}</section>' if notice else ''}
     <section class="admin-metrics">
         <div class="metric-card">
             <span class="metric-label">管理員數</span>
@@ -1216,8 +1288,9 @@ def add_admin_user(
         })
         save_admin_users(users)
         admin_tools.log_admin_activity(request, "新增管理者", username, admin_tools.role_label(role))
+        return RedirectResponse("/admin/users?notice=管理員已新增", status_code=302)
 
-    return RedirectResponse("/admin/users", status_code=302)
+    return RedirectResponse("/admin/users?notice=管理員未新增，請確認帳號未重複且密碼至少 8 碼", status_code=302)
 
 
 @app.post("/admin/users/nickname")
@@ -1240,7 +1313,7 @@ def update_admin_nickname(
             admin_tools.log_admin_activity(request, "更新管理者資料", username, f"{nickname.strip()} / {admin_tools.role_label(role)}")
 
             if username == admin:
-                response = RedirectResponse("/admin/users", status_code=302)
+                response = RedirectResponse("/admin/users?notice=管理者資料已更新", status_code=302)
                 response.set_cookie(
                     "admin_display",
                     quote(admin_tools.admin_display_name(username), safe=""),
@@ -1251,7 +1324,7 @@ def update_admin_nickname(
                 return response
             break
 
-    return RedirectResponse("/admin/users", status_code=302)
+    return RedirectResponse("/admin/users?notice=管理者資料已更新", status_code=302)
 
 
 @app.post("/admin/users/password")
@@ -1268,9 +1341,9 @@ def change_admin_password(
             user["password_hash"] = hash_password(new_password)
             save_admin_users(users)
             admin_tools.log_admin_activity(request, "更新密碼", admin, "管理者修改自己的密碼")
-            break
+            return RedirectResponse("/admin/users?notice=密碼已更新", status_code=302)
 
-    return RedirectResponse("/admin/users", status_code=302)
+    return RedirectResponse("/admin/users?notice=密碼未更新，請確認目前密碼與新密碼長度", status_code=302)
 
 
 @app.get("/admin/users/delete/{username}")
@@ -1282,8 +1355,9 @@ def delete_admin_user(request: Request, username: str):
         users = [user for user in users if user.get("username") != username]
         save_admin_users(users)
         admin_tools.log_admin_activity(request, "刪除管理者", username)
+        return RedirectResponse("/admin/users?notice=管理員已刪除", status_code=302)
 
-    return RedirectResponse("/admin/users", status_code=302)
+    return RedirectResponse("/admin/users?notice=管理員未刪除，目前帳號或最後一位管理員不能刪除", status_code=302)
 
 
 def trace_reply_flow(message):

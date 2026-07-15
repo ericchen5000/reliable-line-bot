@@ -18,6 +18,7 @@ router = APIRouter()
 FAQ_PATH = "data/faq.json"
 URLS_PATH = "data/urls.json"
 KB_DIR = "knowledge/txt"
+KB_DISABLED_DIR = "knowledge/txt_disabled"
 
 
 # =========================
@@ -71,6 +72,30 @@ def audit_text(item):
     return f"{updated_by}<br><span class='meta-time'>{updated_at}</span>"
 
 
+def is_active_item(item):
+    return item.get("active", True) is not False
+
+
+def status_badge(active):
+    label = "啟用" if active else "停用"
+    css = "status-on" if active else "status-off"
+    return f"<span class='status-pill {css}'>{label}</span>"
+
+
+def redirect_with_notice(url, message):
+    if not str(url or "").startswith("/"):
+        url = "/faq"
+
+    base, marker, fragment = str(url).partition("#")
+    sep = "&" if "?" in base else "?"
+    next_url = f"{base}{sep}{urlencode({'notice': message})}"
+
+    if marker:
+        next_url += f"#{fragment}"
+
+    return RedirectResponse(next_url, status_code=302)
+
+
 def kb_last_activity(filename):
     activities = admin_tools.load_json(admin_tools.ADMIN_ACTIVITY_PATH, [])
     for item in reversed(activities):
@@ -81,17 +106,19 @@ def kb_last_activity(filename):
 
 def kb_files():
     os.makedirs(KB_DIR, exist_ok=True)
+    os.makedirs(KB_DISABLED_DIR, exist_ok=True)
     files = []
 
-    for name in sorted(os.listdir(KB_DIR)):
-        path = os.path.join(KB_DIR, name)
-        if name.startswith(".") or not os.path.isfile(path) or not name.endswith(".txt"):
-            continue
-        try:
-            size = os.path.getsize(path)
-        except:
-            size = 0
-        files.append({"name": name, "size": size})
+    for base_dir, active in [(KB_DIR, True), (KB_DISABLED_DIR, False)]:
+        for name in sorted(os.listdir(base_dir)):
+            path = os.path.join(base_dir, name)
+            if name.startswith(".") or not os.path.isfile(path) or not name.endswith(".txt"):
+                continue
+            try:
+                size = os.path.getsize(path)
+            except:
+                size = 0
+            files.append({"name": name, "size": size, "active": active})
 
     return files
 
@@ -270,19 +297,21 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             if search_text not in haystack:
                 continue
 
+        active = is_active_item(item)
         edit_query = urlencode({"edit_id": i, "q": q}) if q else urlencode({"edit_id": i})
         action_html = (
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
             f"""
                 <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
-                <a href="/faq/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這筆 FAQ 嗎？')">刪除</a>
+                <a href="/faq/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
             """
         )
 
         rows += f"""
         <tr>
             <td data-label="ID">{i+1}</td>
+            <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="問題" class="question-cell">{e(item.get('question',''))}</td>
             <td data-label="答案" class="answer-cell">{e(item.get('answer',''))}</td>
             <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
@@ -315,16 +344,18 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
     url_rows = ""
     for i, item in enumerate(urls):
         keywords = ", ".join(item.get("keywords", [])) if isinstance(item.get("keywords"), list) else str(item.get("keywords", ""))
+        active = is_active_item(item)
         url_action_html = (
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
             f"""
                 <a href="/faq?edit_url={i}" class="btn-edit">編輯</a>
-                <a href="/faq/urls/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這個網站索引嗎？')">刪除</a>
+                <a href="/faq/urls/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
             """
         )
         url_rows += f"""
         <tr>
+            <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="網站">{e(item.get('title', '-'))}</td>
             <td data-label="網址">{e(item.get('url', '-'))}</td>
             <td data-label="關鍵字">{e(keywords)}</td>
@@ -350,13 +381,15 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
     kb_rows = ""
     for item in files:
         name = item.get("name", "")
+        active = item.get("active", True)
         kb_action_html = (
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
-            f'<a href="/faq/kb/delete/{e(name)}" class="btn-del" onclick="return confirm(\'確定要刪除這個 KB 文件嗎？\')">刪除</a>'
+            f'<a href="/faq/kb/toggle/{e(name)}?active={"1" if active else "0"}" class="btn-toggle {"toggle-off" if active else "toggle-on"}">{"停用" if active else "啟用"}</a>'
         )
         kb_rows += f"""
         <tr>
+            <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="檔名">{e(name)}</td>
             <td data-label="大小">{e(item.get('size', 0))} bytes</td>
             <td data-label="最後修改" class="meta-cell">{kb_last_activity(name)}</td>
@@ -368,6 +401,13 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
 
     if not kb_rows:
         kb_rows = "<tr><td colspan='4'>尚無 KB 文件</td></tr>"
+
+    readonly_card = """
+        <div class="card readonly-panel">
+            <div class="top-title">唯讀模式</div>
+            <p class="hint">目前帳號只能查看資料，不能新增、編輯、停用、啟用、匯入或上傳。</p>
+        </div>
+    """
 
     return HTMLResponse(f"""
     <html>
@@ -389,6 +429,8 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             --button-bg: linear-gradient(135deg,#60a5fa,#a78bfa);
             --button-bg-hover: linear-gradient(135deg,#3b82f6,#8b5cf6);
             --danger: #dc2626;
+            --warning: #d97706;
+            --success: #16a34a;
             --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
         }}
 
@@ -422,6 +464,8 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             --button-bg: linear-gradient(135deg,#60a5fa,#a78bfa);
             --button-bg-hover: linear-gradient(135deg,#3b82f6,#8b5cf6);
             --danger: #fb7185;
+            --warning: #fbbf24;
+            --success: #4ade80;
             --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
         }}
 
@@ -719,7 +763,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             white-space:nowrap;
         }}
 
-        .btn-edit, .btn-del, .cancel-link, .export-link {{
+        .btn-edit, .btn-del, .btn-toggle, .cancel-link, .export-link {{
             min-height:32px;
             padding:7px 30px;
             color:white;
@@ -739,6 +783,39 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
 
         .btn-del {{
             background:var(--danger);
+        }}
+
+        .btn-toggle {{
+            background:var(--warning);
+        }}
+
+        .btn-toggle.toggle-on {{
+            background:var(--success);
+        }}
+
+        .status-pill {{
+            min-height:28px;
+            padding:5px 10px;
+            border-radius:999px;
+            font-size:12px;
+            font-weight:900;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            border:1px solid transparent;
+            white-space:nowrap;
+        }}
+
+        .status-on {{
+            color:#15803d;
+            background:#dcfce7;
+            border-color:#bbf7d0;
+        }}
+
+        .status-off {{
+            color:#92400e;
+            background:#fef3c7;
+            border-color:#fde68a;
         }}
 
         .readonly-pill {{
@@ -828,6 +905,10 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             background:var(--accent-soft);
             border-color:rgba(96,165,250,0.35);
             font-weight:700;
+        }}
+
+        .readonly-panel {{
+            background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel);
         }}
 
         {admin_bar_css()}
@@ -981,7 +1062,8 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             }}
 
             .actions .btn-edit,
-            .actions .btn-del {{
+            .actions .btn-del,
+            .actions .btn-toggle {{
                 width:100%;
             }}
         }}
@@ -1051,6 +1133,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
         <a href="/faq" class="cancel-link">清空</a>
     </form>
 
+    {'' if readonly else f'''
     <div class="card tool-row">
         
         <form method="post" action="/faq/import" enctype="multipart/form-data">
@@ -1059,10 +1142,12 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
         </form>
     </div>
+    '''}
 
     <div class="layout">
 
         <!-- LEFT: FORM -->
+        {readonly_card if readonly else f'''
         <div class="card">
             <div class="top-title">{form_title}</div>
 
@@ -1076,6 +1161,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
                 </div>
             </form>
         </div>
+        '''}
 
         <!-- RIGHT: TABLE -->
         <div class="card">
@@ -1084,6 +1170,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             <table>
                 <tr>
                     <th>ID</th>
+                    <th>狀態</th>
                     <th>問題</th>
                     <th>答案</th>
                     <th>最後修改</th>
@@ -1101,6 +1188,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
         <p class="subtitle">新增、編輯或刪除可被 AI 客服搜尋的指定網站。</p>
     </div>
     <div class="management-grid">
+        {readonly_card if readonly else f'''
         <div class="card">
             <div class="top-title">{url_form_title}</div>
             <form method="post" action="{e(url_form_action)}">
@@ -1114,11 +1202,13 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
                 <p class="hint">新增後如果要讓網站索引立即更新，請到 Dashboard 按「立即建立索引」。</p>
             </form>
         </div>
+        '''}
         <div class="card">
             <div class="top-title">網站索引清單</div>
             <div class="table-wrap">
             <table>
                 <tr>
+                    <th>狀態</th>
                     <th>網站</th>
                     <th>網址</th>
                     <th>關鍵字</th>
@@ -1136,6 +1226,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
         <p class="subtitle">新增或刪除 KB 文字文件，AI 客服會搜尋 knowledge/txt 裡的 .txt 檔。</p>
     </div>
     <div class="management-grid">
+        {readonly_card if readonly else '''
         <div class="card">
             <div class="top-title">新增 KB 文件</div>
             <form method="post" action="/faq/kb/add">
@@ -1151,11 +1242,13 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             </form>
             <p class="hint">支援 TXT、DOCX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt。</p>
         </div>
+        '''}
         <div class="card">
             <div class="top-title">KB 文件清單</div>
             <div class="table-wrap">
             <table>
                 <tr>
+                    <th>狀態</th>
                     <th>檔名</th>
                     <th>大小</th>
                     <th>最後修改</th>
@@ -1201,15 +1294,19 @@ def add(
             "created_at": now,
             "updated_by": admin_name,
             "updated_at": now,
+            "active": True,
         })
 
         save_faq(faq)
         admin_tools.log_admin_activity(request, "新增 FAQ", question)
+        notice = "FAQ 已新增"
+    else:
+        notice = "FAQ 已存在，未重複新增"
 
     if not return_to.startswith("/"):
         return_to = "/faq"
 
-    return RedirectResponse(return_to, status_code=302)
+    return redirect_with_notice(return_to, notice)
 
 
 @router.get("/faq/export")
@@ -1266,13 +1363,14 @@ async def import_faq(request: Request, file: UploadFile = File(...)):
             "created_at": now,
             "updated_by": admin_name,
             "updated_at": now,
+            "active": True,
         })
         questions.add(normalize_question(question))
         imported += 1
 
     save_faq(faq)
     admin_tools.log_admin_activity(request, "匯入 FAQ", file.filename or "CSV", f"{imported} 筆")
-    return RedirectResponse("/faq", status_code=302)
+    return redirect_with_notice("/faq", f"FAQ 匯入完成，共新增 {imported} 筆")
 
 
 # =========================
@@ -1293,12 +1391,31 @@ def edit(request: Request, idx: int, question: str = Form(...), answer: str = Fo
             "created_at": original.get("created_at", ""),
             "updated_by": admin_name,
             "updated_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+            "active": original.get("active", True),
         }
         admin_tools.log_admin_activity(request, "編輯 FAQ", question)
 
     save_faq(faq)
 
-    return RedirectResponse("/faq", status_code=302)
+    return redirect_with_notice("/faq", "FAQ 已更新")
+
+
+@router.get("/faq/toggle/{idx}")
+def toggle_faq(request: Request, idx: int):
+    faq = load_faq()
+
+    if 0 <= idx < len(faq):
+        item = faq[idx]
+        next_active = not is_active_item(item)
+        item["active"] = next_active
+        item["updated_by"] = current_admin_name(request)
+        item["updated_at"] = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        save_faq(faq)
+        action = "啟用 FAQ" if next_active else "停用 FAQ"
+        admin_tools.log_admin_activity(request, action, item.get("question", f"#{idx + 1}"))
+        return redirect_with_notice("/faq", f"FAQ 已{'啟用' if next_active else '停用'}")
+
+    return redirect_with_notice("/faq", "找不到指定 FAQ")
 
 
 # =========================
@@ -1343,11 +1460,13 @@ def add_url(
             "created_at": now,
             "updated_by": admin_name,
             "updated_at": now,
+            "active": True,
         })
         save_urls(urls)
         admin_tools.log_admin_activity(request, "新增網站索引", url)
+        return redirect_with_notice("/faq#url-manager", "網站索引已新增")
 
-    return RedirectResponse("/faq#url-manager", status_code=302)
+    return redirect_with_notice("/faq#url-manager", "網站索引已存在，未重複新增")
 
 
 @router.post("/faq/urls/edit/{idx}")
@@ -1371,11 +1490,30 @@ def edit_url(
             "created_at": original.get("created_at", ""),
             "updated_by": admin_name,
             "updated_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+            "active": original.get("active", True),
         }
         save_urls(urls)
         admin_tools.log_admin_activity(request, "編輯網站索引", url.strip())
 
-    return RedirectResponse("/faq#url-manager", status_code=302)
+    return redirect_with_notice("/faq#url-manager", "網站索引已更新")
+
+
+@router.get("/faq/urls/toggle/{idx}")
+def toggle_url(request: Request, idx: int):
+    urls = load_urls()
+
+    if 0 <= idx < len(urls):
+        item = urls[idx]
+        next_active = not is_active_item(item)
+        item["active"] = next_active
+        item["updated_by"] = current_admin_name(request)
+        item["updated_at"] = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        save_urls(urls)
+        action = "啟用網站索引" if next_active else "停用網站索引"
+        admin_tools.log_admin_activity(request, action, item.get("url", f"#{idx + 1}"))
+        return redirect_with_notice("/faq#url-manager", f"網站索引已{'啟用' if next_active else '停用'}")
+
+    return redirect_with_notice("/faq#url-manager", "找不到指定網站索引")
 
 
 @router.get("/faq/urls/delete/{idx}")
@@ -1404,7 +1542,7 @@ def add_kb(
         f.write(content.strip() + "\n")
     admin_tools.log_admin_activity(request, "KB 新增", name)
 
-    return RedirectResponse("/faq#kb-manager", status_code=302)
+    return redirect_with_notice("/faq#kb-manager", "KB 已新增")
 
 
 @router.post("/faq/kb/upload")
@@ -1425,7 +1563,28 @@ async def upload_kb(request: Request, file: UploadFile = File(...)):
         f.write(text.strip() + "\n")
     admin_tools.log_admin_activity(request, "KB 上傳", name, file.filename or "")
 
-    return RedirectResponse(kb_notice_url(f"已轉成 KB：knowledge/txt/{name}，請查看這個 .txt 檔，不是原始上傳檔。"), status_code=302)
+    return RedirectResponse(kb_notice_url(f"KB 已上傳並轉換完成：knowledge/txt/{name}"), status_code=302)
+
+
+@router.get("/faq/kb/toggle/{filename}")
+def toggle_kb(request: Request, filename: str, active: int = 1):
+    name = safe_kb_filename(filename)
+    source_dir = KB_DIR if active else KB_DISABLED_DIR
+    target_dir = KB_DISABLED_DIR if active else KB_DIR
+    source_path = os.path.join(source_dir, name)
+    target_path = os.path.join(target_dir, name)
+
+    os.makedirs(target_dir, exist_ok=True)
+
+    if os.path.exists(source_path) and os.path.isfile(source_path):
+        if os.path.exists(target_path):
+            os.remove(target_path)
+        os.rename(source_path, target_path)
+        action = "KB 停用" if active else "KB 啟用"
+        admin_tools.log_admin_activity(request, action, name)
+        return redirect_with_notice("/faq#kb-manager", f"KB 已{'停用' if active else '啟用'}")
+
+    return redirect_with_notice("/faq#kb-manager", "找不到指定 KB 文件")
 
 
 @router.get("/faq/kb/delete/{filename}")

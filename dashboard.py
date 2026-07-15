@@ -104,7 +104,7 @@ def source_group(value):
 
 
 @router.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "bar"):
+def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "bar", notice: str = ""):
     readonly = admin_tools.is_readonly_admin(request)
     if days not in {0, 7, 14, 30, 90}:
         days = 7
@@ -495,6 +495,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         .pie-dot {{ width:10px; height:10px; border-radius:50%; }}
         .pie-name {{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
         .report-box {{ background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }}
+        .notice-card {{ color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; font-weight:800; }}
         .report-head {{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }}
         .report-head h3 {{ margin:0; }}
         .report-text {{ padding:14px; border-radius:8px; background:var(--panel-soft); border:1px solid var(--border); white-space:pre-wrap; line-height:1.8; }}
@@ -556,6 +557,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         </header>
 
         <nav class="nav">{nav_html("Dashboard")}</nav>
+        {f'<section class="card notice-card">{e(notice)}</section>' if notice else ''}
 
         <section class="section-head">
             <div>
@@ -700,4 +702,4 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
 @router.post("/dashboard/site-index/rebuild")
 def rebuild_site_index_from_dashboard(background_tasks: BackgroundTasks):
     background_tasks.add_task(build_all_indexes)
-    return RedirectResponse("/", status_code=302)
+    return RedirectResponse("/?notice=網站索引已開始建立，稍後可查看最後更新時間", status_code=302)

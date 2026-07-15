@@ -82,7 +82,7 @@ def load_sites():
     except:
         return []
 
-    return [site for site in sites if site.get("url")]
+    return [site for site in sites if site.get("url") and site.get("active", True) is not False]
 
 
 # =========================

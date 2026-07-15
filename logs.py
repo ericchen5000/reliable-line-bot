@@ -396,7 +396,8 @@ def export_logs(
     date_from: str = "",
     date_to: str = "",
     sort_by: str = "time",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    notice: str = ""
 ):
     logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
 
@@ -964,6 +965,17 @@ def logs_ui(
         gap:8px;
         flex-wrap:wrap;
         margin:0 0 16px;
+    }
+
+    .notice-card {
+        background:#e0e7ff;
+        border:1px solid #c7d2fe;
+        color:#3730a3;
+        border-radius:8px;
+        box-shadow:var(--shadow);
+        padding:14px 16px;
+        margin-bottom:16px;
+        font-weight:800;
     }
 
     .quick-chip {
@@ -1679,6 +1691,7 @@ def logs_ui(
     </header>
 
     <nav class="nav">{nav_html("LOGS")}</nav>
+    {f'<section class="notice-card">{e(notice)}</section>' if notice else ''}
 
     <div class="quick-filters">{quick_buttons}</div>
 
