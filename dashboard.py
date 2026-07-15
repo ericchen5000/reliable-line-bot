@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 import html
 import json
@@ -8,6 +8,7 @@ from datetime import datetime
 
 from services.search_index import INDEX_FILE, build_all_indexes, load_status
 from admin_ui import admin_bar_css, admin_bar_html
+import admin_tools
 from analytics import (
     brand_counter,
     chart_html,
@@ -103,7 +104,8 @@ def source_group(value):
 
 
 @router.get("/", response_class=HTMLResponse)
-def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
+def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "bar"):
+    readonly = admin_tools.is_readonly_admin(request)
     if days not in {0, 7, 14, 30, 90}:
         days = 7
 
@@ -408,6 +410,19 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
             flex-wrap:wrap;
             align-items:center;
         }}
+        .muted-pill {{
+            min-height:36px;
+            padding:8px 12px;
+            border-radius:8px;
+            background:var(--panel-soft);
+            border:1px solid var(--border);
+            color:var(--muted);
+            font-size:13px;
+            font-weight:800;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+        }}
         .index-summary {{
             display:grid;
             grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -613,9 +628,7 @@ def dashboard(generate: int = 0, days: int = 7, chart: str = "bar"):
                         <p class="subtitle">網站索引狀態與各網站抓取結果集中在這裡。</p>
                     </div>
                     <div class="index-actions">
-                        <form method="post" action="/dashboard/site-index/rebuild">
-                            <button>立即建立索引</button>
-                        </form>
+                        {('<span class="muted-pill">唯讀模式</span>' if readonly else '<form method="post" action="/dashboard/site-index/rebuild"><button>立即建立索引</button></form>')}
                     </div>
                 </div>
                 <div class="index-summary">

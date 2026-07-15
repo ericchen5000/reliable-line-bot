@@ -57,6 +57,22 @@ def admin_display_name(username):
     return username or "管理員"
 
 
+def admin_role(username):
+    for user in load_admin_users():
+        if user.get("username") == username:
+            return str(user.get("role") or "admin").strip() or "admin"
+    return "admin"
+
+
+def is_readonly_admin(request):
+    username = current_admin(request)
+    return admin_role(username) == "viewer"
+
+
+def role_label(role):
+    return "唯讀" if role == "viewer" else "管理者"
+
+
 def sign_value(value):
     return hmac.new(
         AUTH_SECRET.encode("utf-8"),

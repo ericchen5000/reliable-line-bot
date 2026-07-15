@@ -246,12 +246,13 @@ def normalize_question(value):
 # MAIN PAGE (ALL IN ONE)
 # =========================
 @router.get("/faq", response_class=HTMLResponse)
-def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str = ""):
+def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str = "", notice: str = ""):
 
     faq = load_faq()
     urls = load_urls()
     files = kb_files()
     search_text = q.strip().lower()
+    readonly = admin_tools.is_readonly_admin(request)
 
     edit_item = None
     if edit_id is not None and 0 <= edit_id < len(faq):
@@ -270,6 +271,14 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
                 continue
 
         edit_query = urlencode({"edit_id": i, "q": q}) if q else urlencode({"edit_id": i})
+        action_html = (
+            '<span class="readonly-pill">唯讀</span>'
+            if readonly else
+            f"""
+                <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
+                <a href="/faq/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這筆 FAQ 嗎？')">刪除</a>
+            """
+        )
 
         rows += f"""
         <tr>
@@ -279,8 +288,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
             <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
 
             <td data-label="操作" class="actions">
-                <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
-                <a href="/faq/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這筆 FAQ 嗎？')">刪除</a>
+                {action_html}
             </td>
         </tr>
         """
@@ -307,6 +315,14 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
     url_rows = ""
     for i, item in enumerate(urls):
         keywords = ", ".join(item.get("keywords", [])) if isinstance(item.get("keywords"), list) else str(item.get("keywords", ""))
+        url_action_html = (
+            '<span class="readonly-pill">唯讀</span>'
+            if readonly else
+            f"""
+                <a href="/faq?edit_url={i}" class="btn-edit">編輯</a>
+                <a href="/faq/urls/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這個網站索引嗎？')">刪除</a>
+            """
+        )
         url_rows += f"""
         <tr>
             <td data-label="網站">{e(item.get('title', '-'))}</td>
@@ -314,8 +330,7 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
             <td data-label="關鍵字">{e(keywords)}</td>
             <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
             <td data-label="操作" class="actions">
-                <a href="/faq?edit_url={i}" class="btn-edit">編輯</a>
-                <a href="/faq/urls/delete/{i}" class="btn-del" onclick="return confirm('確定要刪除這個網站索引嗎？')">刪除</a>
+                {url_action_html}
             </td>
         </tr>
         """
@@ -335,13 +350,18 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
     kb_rows = ""
     for item in files:
         name = item.get("name", "")
+        kb_action_html = (
+            '<span class="readonly-pill">唯讀</span>'
+            if readonly else
+            f'<a href="/faq/kb/delete/{e(name)}" class="btn-del" onclick="return confirm(\'確定要刪除這個 KB 文件嗎？\')">刪除</a>'
+        )
         kb_rows += f"""
         <tr>
             <td data-label="檔名">{e(name)}</td>
             <td data-label="大小">{e(item.get('size', 0))} bytes</td>
             <td data-label="最後修改" class="meta-cell">{kb_last_activity(name)}</td>
             <td data-label="操作" class="actions">
-                <a href="/faq/kb/delete/{e(name)}" class="btn-del" onclick="return confirm('確定要刪除這個 KB 文件嗎？')">刪除</a>
+                {kb_action_html}
             </td>
         </tr>
         """
@@ -719,6 +739,20 @@ def faq_page(edit_id: int = None, edit_url: int = None, q: str = "", notice: str
 
         .btn-del {{
             background:var(--danger);
+        }}
+
+        .readonly-pill {{
+            min-height:32px;
+            padding:7px 12px;
+            border-radius:8px;
+            background:var(--panel-soft);
+            border:1px solid var(--border);
+            color:var(--muted);
+            font-size:12px;
+            font-weight:800;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
         }}
 
         .cancel-link {{

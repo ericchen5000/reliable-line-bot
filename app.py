@@ -204,12 +204,41 @@ def is_public_path(path):
     return path in public_exact or any(path.startswith(prefix) for prefix in public_prefixes)
 
 
+def is_write_path(request: Request):
+    path = request.url.path
+
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        return path not in {"/chat", "/web/chat", "/web/image", "/web/lead", "/line/webhook"}
+
+    write_get_prefixes = (
+        "/faq/delete/",
+        "/faq/urls/delete/",
+        "/faq/kb/delete/",
+        "/admin/users/delete/",
+    )
+    return any(path.startswith(prefix) for prefix in write_get_prefixes)
+
+
 @app.middleware("http")
 async def admin_auth_middleware(request: Request, call_next):
     if request.method == "OPTIONS" or is_public_path(request.url.path):
         return await call_next(request)
 
-    if current_admin(request):
+    admin = current_admin(request)
+
+    if admin:
+        if admin_tools.admin_role(admin) == "viewer" and is_write_path(request):
+            return HTMLResponse(
+                """
+                <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <style>
+                body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";background:#f6f7fb;color:#172033;padding:40px;}
+                .box{max-width:560px;margin:10vh auto;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:28px;box-shadow:0 16px 40px rgba(15,23,42,.08);}
+                h1{margin:0 0 12px;font-size:26px;} p{color:#64748b;line-height:1.7;} a{display:inline-flex;margin-top:12px;color:white;background:linear-gradient(135deg,#60a5fa,#a78bfa);padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:800;}
+                </style></head><body><div class="box"><h1>唯讀帳號無法執行修改</h1><p>目前登入帳號只有查看權限，因此不能新增、編輯、刪除、匯入、重建索引或修改帳號設定。</p><a href="/">回 Dashboard</a></div></body></html>
+                """,
+                status_code=403
+            )
         admin_tools.touch_admin_session(request)
         return await call_next(request)
 
@@ -849,7 +878,7 @@ def admin_css():
     .admin-tool-card label { display:block; margin:10px 0 6px; color:var(--muted); font-size:12px; font-weight:800; }
     .full-btn { width:100%; margin-top:4px; }
     .admin-note-card { background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel); }
-    textarea, input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
+    textarea, input, select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
     textarea { min-height:120px; resize:vertical; }
     button { min-height:40px; padding:8px 14px; border:none; border-radius:8px; color:white; background:var(--button-bg); font-weight:700; cursor:pointer; }
     table { width:100%; border-collapse:collapse; }
@@ -857,11 +886,14 @@ def admin_css():
     th { background:var(--panel-soft); color:var(--muted); }
     .ok { color:#16a34a; font-weight:800; }
     .bad { color:var(--danger); font-weight:800; }
-    .admin-user-actions { display:grid; grid-template-columns:minmax(180px, 1fr) auto auto; gap:8px; align-items:start; }
-    .admin-user-actions input { margin-bottom:0; }
+    .admin-user-actions { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(120px, 150px) auto auto; gap:8px; align-items:start; }
+    .admin-user-actions input, .admin-user-actions select { margin-bottom:0; }
     .admin-user-actions button, .admin-user-actions a, .disabled-btn { min-height:40px; padding:8px 14px; border-radius:8px; font-size:13px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; white-space:nowrap; }
     .delete-btn { color:white; background:var(--danger); border:1px solid transparent; }
     .disabled-btn { color:var(--muted); background:var(--panel-soft); border:1px solid var(--border); cursor:not-allowed; }
+    .role-pill { display:inline-flex; align-items:center; justify-content:center; min-width:58px; padding:5px 9px; border-radius:999px; font-size:12px; font-weight:900; }
+    .role-admin { color:#1d4ed8; background:#dbeafe; }
+    .role-viewer { color:#475569; background:#e2e8f0; }
     .step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
@@ -908,6 +940,7 @@ def login(request: Request, username: str = Form(...), password: str = Form(...)
         users.append({
             "username": username,
             "password_hash": hash_password(password),
+            "role": "admin",
             "created_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         })
         save_admin_users(users)
@@ -962,6 +995,16 @@ def admin_users_page(request: Request):
     for user in users:
         username = user.get("username", "")
         nickname = user.get("nickname", "")
+        role = user.get("role") or "admin"
+        role_options = "".join(
+            f'<option value="{value}" {"selected" if role == value else ""}>{label}</option>'
+            for value, label in [("admin", "管理者"), ("viewer", "唯讀")]
+        )
+        role_input = (
+            f'<select name="role">{role_options}</select>'
+            if username != admin else
+            f'<select disabled>{role_options}</select><input type="hidden" name="role" value="{html_escape(role)}">'
+        )
         can_delete = len(users) > 1 and username != admin
         delete_html = (
             f'<a class="delete-btn" href="/admin/users/delete/{html_escape(username)}" '
@@ -972,11 +1015,13 @@ def admin_users_page(request: Request):
         <tr>
             <td data-label="帳號">{html_escape(username)}</td>
             <td data-label="暱稱">{html_escape(nickname or "-")}</td>
+            <td data-label="權限"><span class="role-pill role-{html_escape(role)}">{admin_tools.role_label(role)}</span></td>
             <td data-label="建立時間">{html_escape(user.get('created_at', '-'))}</td>
             <td data-label="操作">
                 <form class="admin-user-actions" method="post" action="/admin/users/nickname">
                     <input type="hidden" name="username" value="{html_escape(username)}">
                     <input name="nickname" value="{html_escape(nickname)}" placeholder="暱稱">
+                    {role_input}
                     <button>更新</button>
                     {delete_html}
                 </form>
@@ -1062,7 +1107,7 @@ def admin_users_page(request: Request):
                         <p>管理暱稱、刪除停用帳號，並保留目前登入帳號不可刪除的保護。</p>
                     </div>
                 </div>
-                <table><tr><th>帳號</th><th>暱稱</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
+                <table><tr><th>帳號</th><th>暱稱</th><th>權限</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
             </section>
 
             <section class="card admin-card">
@@ -1104,6 +1149,11 @@ def admin_users_page(request: Request):
                     <input name="username" placeholder="至少 3 個字元" required>
                     <label>密碼</label>
                     <input name="password" type="password" placeholder="至少 8 碼" required>
+                    <label>權限</label>
+                    <select name="role">
+                        <option value="admin">管理者：可查看與編輯</option>
+                        <option value="viewer">唯讀：只能查看，不能修改</option>
+                    </select>
                     <button class="full-btn">新增管理員</button>
                 </form>
             </section>
@@ -1136,32 +1186,47 @@ def admin_users_page(request: Request):
 
 
 @app.post("/admin/users/add")
-def add_admin_user(request: Request, username: str = Form(...), password: str = Form(...)):
+def add_admin_user(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    role: str = Form("admin")
+):
     username = username.strip()
+    role = role if role in {"admin", "viewer"} else "admin"
     users = load_admin_users()
 
     if len(username) >= 3 and len(password) >= 8 and not any(user.get("username") == username for user in users):
         users.append({
             "username": username,
             "password_hash": hash_password(password),
+            "role": role,
             "created_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
         })
         save_admin_users(users)
-        admin_tools.log_admin_activity(request, "新增管理者", username)
+        admin_tools.log_admin_activity(request, "新增管理者", username, admin_tools.role_label(role))
 
     return RedirectResponse("/admin/users", status_code=302)
 
 
 @app.post("/admin/users/nickname")
-def update_admin_nickname(request: Request, username: str = Form(...), nickname: str = Form("")):
+def update_admin_nickname(
+    request: Request,
+    username: str = Form(...),
+    nickname: str = Form(""),
+    role: str = Form("admin")
+):
     admin = current_admin(request)
+    role = role if role in {"admin", "viewer"} else "admin"
     users = load_admin_users()
 
     for user in users:
         if user.get("username") == username:
             user["nickname"] = nickname.strip()
+            if username != admin:
+                user["role"] = role
             save_admin_users(users)
-            admin_tools.log_admin_activity(request, "更新管理者暱稱", username, nickname.strip())
+            admin_tools.log_admin_activity(request, "更新管理者資料", username, f"{nickname.strip()} / {admin_tools.role_label(role)}")
 
             if username == admin:
                 response = RedirectResponse("/admin/users", status_code=302)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 import csv
 import html
@@ -9,6 +9,7 @@ from datetime import datetime, time
 from urllib.parse import urlencode
 from deepseek import ask_deepseek
 from admin_ui import admin_bar_css, admin_bar_html
+import admin_tools
 
 router = APIRouter()
 
@@ -480,6 +481,7 @@ def mark_followup(
 # =========================
 @router.get("/logs", response_class=HTMLResponse)
 def logs_ui(
+    request: Request,
     page: int = 1,
     size: int = 10,
     keyword: str = "",
@@ -493,6 +495,7 @@ def logs_ui(
 ):
 
     logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
+    readonly = admin_tools.is_readonly_admin(request)
 
     # =========================
     # PAGINATION
@@ -541,14 +544,19 @@ def logs_ui(
             "wrong": "錯誤",
         }.get(quality, "未標記")
         is_faq = str(message).strip().lower() in faq_questions
-        transfer_html = '<span class="faq-added-pill">已轉 FAQ</span>' if is_faq else f"""
+        if is_faq:
+            transfer_html = '<span class="faq-added-pill">已轉 FAQ</span>'
+        elif readonly:
+            transfer_html = '<span class="faq-added-pill">唯讀</span>'
+        else:
+            transfer_html = f"""
                 <form class="inline-form" method="post" action="/faq/add">
                     <input type="hidden" name="question" value="{e(message)}">
                     <input type="hidden" name="answer" value="{e(reply)}">
                     <input type="hidden" name="return_to" value="{e(current_return_to)}">
                     <button type="submit" class="faq-transfer-btn">轉 FAQ</button>
                 </form>
-        """
+            """
 
         # =========================
         # MAIN ROW
