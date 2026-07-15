@@ -148,24 +148,24 @@ def admin_bar_css():
 
     html.style-console body,
     body.style-console {
-        --bg:#eef2f6;
+        --bg:#f5f6f8;
         --panel:#ffffff;
-        --panel-soft:#f3f5f7;
+        --panel-soft:#eef1f4;
         --text:#172033;
         --muted:#5b6778;
-        --border:#d5dde7;
+        --border:#cfd8e3;
         --button-bg:#1f4f7a;
         --button-bg-hover:#173d61;
         --accent:#1f4f7a;
         --accent-strong:#173d61;
         --accent-soft:#e5edf5;
-        --shadow:0 10px 24px rgba(20,32,51,0.07);
+        --shadow:none;
         background:var(--bg) !important;
     }
 
     html.style-console body.dark,
     body.dark.style-console {
-        --bg:#101820;
+        --bg:#0f151c;
         --panel:#17212c;
         --panel-soft:#202c38;
         --text:#e6edf3;
@@ -176,8 +176,19 @@ def admin_bar_css():
         --accent:#67a7d8;
         --accent-strong:#9fd0f2;
         --accent-soft:rgba(103,167,216,0.14);
-        --shadow:0 12px 28px rgba(0,0,0,0.24);
+        --shadow:none;
         background:var(--bg) !important;
+    }
+
+    html.style-console body .page,
+    body.style-console .page {
+        max-width:1440px;
+    }
+
+    html.style-console body .topbar,
+    body.style-console .topbar {
+        border-bottom:1px solid var(--border);
+        padding-bottom:14px;
     }
 
     html.style-console body .card,
@@ -185,13 +196,21 @@ def admin_bar_css():
     html.style-console body .metric-card,
     body.style-console .metric-card,
     html.style-console body .report-box,
-    body.style-console .report-box {
-        border-radius:4px !important;
+    body.style-console .report-box,
+    html.style-console body .bar,
+    body.style-console .bar,
+    html.style-console body .table-wrap,
+    body.style-console .table-wrap,
+    html.style-console body .admin-card,
+    body.style-console .admin-card,
+    html.style-console body .admin-tool-card,
+    body.style-console .admin-tool-card {
+        border-radius:0 !important;
         box-shadow:none !important;
     }
 
-    html.style-console body button,
-    body.style-console button,
+    html.style-console body button:not(.theme-option),
+    body.style-console button:not(.theme-option),
     html.style-console body .nav-link.active,
     body.style-console .nav-link.active,
     html.style-console body .btn-edit,
@@ -204,26 +223,41 @@ def admin_bar_css():
         box-shadow:none !important;
     }
 
-    html.style-console body button:hover,
-    body.style-console button:hover {
+    html.style-console body button:not(.theme-option):hover,
+    body.style-console button:not(.theme-option):hover {
         background:var(--button-bg-hover) !important;
     }
 
     html.style-console body .admin-bar,
     body.style-console .admin-bar {
-        background:rgba(255,255,255,0.98);
+        background:#ffffff;
+        backdrop-filter:none;
         box-shadow:none;
     }
 
     html.style-console body.dark .admin-bar,
     body.dark.style-console .admin-bar {
-        background:rgba(23,33,44,0.98);
+        background:#17212c;
+        backdrop-filter:none;
     }
 
     html.style-console body .admin-avatar,
     body.style-console .admin-avatar {
         background:var(--button-bg);
         box-shadow:none;
+    }
+
+    html.style-console body .nav-link,
+    body.style-console .nav-link,
+    html.style-console body .admin-nav-link,
+    body.style-console .admin-nav-link,
+    html.style-console body input,
+    body.style-console input,
+    html.style-console body select,
+    body.style-console select,
+    html.style-console body textarea,
+    body.style-console textarea {
+        border-radius:0 !important;
     }
 
     .admin-bar-inner {

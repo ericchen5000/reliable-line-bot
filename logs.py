@@ -492,7 +492,8 @@ def logs_ui(
     date_from: str = "",
     date_to: str = "",
     sort_by: str = "time",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    notice: str = ""
 ):
 
     logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)

@@ -967,7 +967,11 @@ def admin_css():
     .theme-option b { display:block; font-size:14px; margin-bottom:4px; }
     .theme-option small { color:var(--muted); font-size:12px; line-height:1.45; }
     .theme-option.active { border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,0.16); }
-    body.style-console .theme-option.active { border-color:#1f4f7a; box-shadow:0 0 0 3px rgba(31,79,122,0.14); }
+    body.style-console .theme-option { background:var(--panel) !important; color:var(--text) !important; border-radius:0; }
+    body.style-console .theme-option b { color:var(--text); }
+    body.style-console .theme-option small { color:var(--muted); }
+    body.style-console .theme-option.active { border-color:#1f4f7a; box-shadow:none; outline:2px solid rgba(31,79,122,0.24); outline-offset:2px; }
+    body.style-console.dark .theme-option.active { outline-color:rgba(103,167,216,0.35); }
     textarea, input, select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
     textarea { min-height:120px; resize:vertical; }
     button { min-height:40px; padding:8px 14px; border:none; border-radius:8px; color:white; background:var(--button-bg); font-weight:700; cursor:pointer; }
