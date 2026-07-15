@@ -74,6 +74,7 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 LOG_PATH = "logs/chat_logs.json"
 URLS_FILE = "data/urls.json"
 SITE_INDEX_FILE = "data/site_index.json"
+ADMIN_CHANGELOG_PATH = "data/admin_changelog.json"
 SITE_INDEX_INTERVAL_HOURS = int(os.getenv("SITE_INDEX_INTERVAL_HOURS", "24"))
 ADMIN_USERS_PATH = admin_tools.ADMIN_USERS_PATH
 AUTH_COOKIE = admin_tools.AUTH_COOKIE
@@ -1017,6 +1018,41 @@ def ai_integrations_card():
     """
 
 
+def admin_changelog_section():
+    items = admin_tools.load_json(ADMIN_CHANGELOG_PATH, [])
+    if not isinstance(items, list) or not items:
+        return ""
+
+    rows = ""
+    for item in items[:20]:
+        changes = item.get("changes", [])
+        if isinstance(changes, list):
+            change_html = "".join(f"<li>{html_escape(change)}</li>" for change in changes)
+        else:
+            change_html = f"<li>{html_escape(changes)}</li>"
+        rows += f"""
+        <article class="changelog-item">
+            <div class="changelog-date">{html_escape(item.get("date", "-"))}</div>
+            <div class="changelog-body">
+                <h4>{html_escape(item.get("title", "後台更新"))}</h4>
+                <ul>{change_html}</ul>
+            </div>
+        </article>
+        """
+
+    return f"""
+    <section class="card admin-card changelog-card">
+        <div class="section-heading">
+            <div>
+                <h3>後台最近更新</h3>
+                <p>記錄此管理後台近期新增、調整與修正的功能。</p>
+            </div>
+        </div>
+        <div class="changelog-list">{rows}</div>
+    </section>
+    """
+
+
 def admin_css():
     return """
     :root { --bg:#f6f7fb; --panel:#fff; --panel-soft:#f1f5f9; --text:#172033; --muted:#64748b; --border:#e2e8f0; --button-bg:linear-gradient(135deg,#60a5fa,#a78bfa); --danger:#dc2626; --shadow:0 16px 40px rgba(15,23,42,0.08); }
@@ -1117,9 +1153,17 @@ def admin_css():
     .small-link { display:inline-flex; margin-top:10px; color:#3730a3; font-size:12px; font-weight:800; text-decoration:none; }
     body.dark .small-link { color:#93c5fd; }
     body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-meta-grid div { border-radius:0; }
+    .changelog-card { margin-top:14px; }
+    .changelog-list { padding:8px 18px 18px; display:grid; gap:12px; }
+    .changelog-item { display:grid; grid-template-columns:120px minmax(0, 1fr); gap:14px; padding:14px 0; border-top:1px solid var(--border); }
+    .changelog-item:first-child { border-top:none; }
+    .changelog-date { color:var(--muted); font-size:12px; font-weight:900; }
+    .changelog-body h4 { margin:0 0 8px; font-size:15px; color:var(--text); }
+    .changelog-body ul { margin:0; padding-left:18px; color:var(--muted); font-size:13px; line-height:1.65; }
+    body.style-console .changelog-card { border-radius:0; }
     """ + admin_bar_css() + """
     @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -1437,6 +1481,7 @@ def admin_users_page(request: Request, notice: str = ""):
             </section>
         </aside>
     </section>
+    {admin_changelog_section()}
     </main>
     <script>
     function setAdminStyleTheme(value) {{
