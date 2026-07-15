@@ -305,6 +305,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             f"""
                 <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
                 <a href="/faq/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
+                <a href="/faq/delete/{i}" class="btn-del" onclick="return confirm('確定要永久刪除這筆 FAQ 嗎？此動作無法復原。')">刪除</a>
             """
         )
 
@@ -351,6 +352,7 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
             f"""
                 <a href="/faq?edit_url={i}" class="btn-edit">編輯</a>
                 <a href="/faq/urls/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
+                <a href="/faq/urls/delete/{i}" class="btn-del" onclick="return confirm('確定要永久刪除這個網站索引嗎？此動作無法復原。')">刪除</a>
             """
         )
         url_rows += f"""
@@ -385,7 +387,10 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
         kb_action_html = (
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
-            f'<a href="/faq/kb/toggle/{e(name)}?active={"1" if active else "0"}" class="btn-toggle {"toggle-off" if active else "toggle-on"}">{"停用" if active else "啟用"}</a>'
+            f'''
+                <a href="/faq/kb/toggle/{e(name)}?active={"1" if active else "0"}" class="btn-toggle {"toggle-off" if active else "toggle-on"}">{"停用" if active else "啟用"}</a>
+                <a href="/faq/kb/delete/{e(name)}?active={"1" if active else "0"}" class="btn-del" onclick="return confirm('確定要永久刪除這個 KB 文件嗎？此動作無法復原。')">刪除</a>
+            '''
         )
         kb_rows += f"""
         <tr>
@@ -1429,10 +1434,10 @@ def delete(request: Request, idx: int):
     if 0 <= idx < len(faq):
         removed = faq.pop(idx)
         admin_tools.log_admin_activity(request, "刪除 FAQ", removed.get("question", f"#{idx + 1}"))
+        save_faq(faq)
+        return redirect_with_notice("/faq", "FAQ 已刪除")
 
-    save_faq(faq)
-
-    return RedirectResponse("/faq", status_code=302)
+    return redirect_with_notice("/faq", "找不到指定 FAQ")
 
 
 def parse_keywords(value):
@@ -1524,8 +1529,9 @@ def delete_url(request: Request, idx: int):
         removed = urls.pop(idx)
         save_urls(urls)
         admin_tools.log_admin_activity(request, "刪除網站索引", removed.get("url", f"#{idx + 1}"))
+        return redirect_with_notice("/faq#url-manager", "網站索引已刪除")
 
-    return RedirectResponse("/faq#url-manager", status_code=302)
+    return redirect_with_notice("/faq#url-manager", "找不到指定網站索引")
 
 
 @router.post("/faq/kb/add")
@@ -1588,12 +1594,14 @@ def toggle_kb(request: Request, filename: str, active: int = 1):
 
 
 @router.get("/faq/kb/delete/{filename}")
-def delete_kb(request: Request, filename: str):
+def delete_kb(request: Request, filename: str, active: int = 1):
     name = safe_kb_filename(filename)
-    path = os.path.join(KB_DIR, name)
+    source_dir = KB_DIR if active else KB_DISABLED_DIR
+    path = os.path.join(source_dir, name)
 
     if os.path.exists(path) and os.path.isfile(path):
         os.remove(path)
         admin_tools.log_admin_activity(request, "KB 刪除", name)
+        return redirect_with_notice("/faq#kb-manager", "KB 已刪除")
 
-    return RedirectResponse("/faq#kb-manager", status_code=302)
+    return redirect_with_notice("/faq#kb-manager", "找不到指定 KB 文件")
