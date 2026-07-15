@@ -916,9 +916,14 @@ def get_deepseek_ai_integration():
     if not api_key:
         return None
 
+    checked_at = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     result = {
         "name": "DeepSeek",
         "model": os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+        "chat_url": os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/chat/completions"),
+        "balance_url": "https://api.deepseek.com/user/balance",
+        "manage_url": "https://platform.deepseek.com/usage",
+        "checked_at": checked_at,
         "ok": False,
         "message": "尚未取得額度資訊",
         "balances": [],
@@ -927,7 +932,7 @@ def get_deepseek_ai_integration():
 
     try:
         response = requests.get(
-            "https://api.deepseek.com/user/balance",
+            result["balance_url"],
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=10,
         )
@@ -969,6 +974,15 @@ def ai_integrations_card():
         if not rows:
             rows = "<div class='ai-empty'>目前沒有取得餘額資料。</div>"
 
+        meta_rows = "".join(
+            f"<div><span>{label}</span><b>{html_escape(value)}</b></div>"
+            for label, value in [
+                ("模型", item["model"]),
+                ("對話 API", item["chat_url"]),
+                ("額度 API", item["balance_url"]),
+                ("查詢時間", item["checked_at"]),
+            ]
+        )
         state_class = "ok" if item["ok"] else "bad"
         state_text = "可用" if item["ok"] else "需確認"
         cards += f"""
@@ -976,13 +990,15 @@ def ai_integrations_card():
             <div class="ai-provider-head">
                 <div>
                     <b>{html_escape(item["name"])}</b>
-                    <small>模型：{html_escape(item["model"])}</small>
+                    <small>已設定 API Key，金鑰內容不會顯示</small>
                 </div>
                 <span class="badge {state_class}">{state_text}</span>
             </div>
             <p class="ai-provider-message">{html_escape(item["message"])}</p>
+            <div class="ai-meta-grid">{meta_rows}</div>
             <div class="ai-balance-list">{rows}</div>
             <div class="ai-usage-note">{html_escape(item["usage_note"])}</div>
+            <a class="small-link" href="{html_escape(item["manage_url"])}" target="_blank" rel="noopener">前往官方用量 / 帳務頁</a>
         </div>
         """
 
@@ -996,7 +1012,7 @@ def ai_integrations_card():
             </div>
         </div>
         <div class="ai-provider-list">{cards}</div>
-        <a class="small-link" href="/admin/users">重新整理</a>
+        <a class="small-link" href="/admin/users">重新整理狀態</a>
     </section>
     """
 
@@ -1033,7 +1049,7 @@ def admin_css():
     .metric-card small { color:var(--muted); font-size:12px; line-height:1.35; }
     .admin-manage-layout { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:14px; align-items:start; }
     .admin-main-column, .admin-side-column { min-width:0; }
-    .admin-side-column { position:sticky; top:84px; }
+    .admin-side-column { position:static; }
     .admin-card { padding:0; overflow:hidden; }
     .section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px 18px 14px; border-bottom:1px solid var(--border); }
     .section-heading h3, .tool-heading h3, .admin-note-card h3 { margin:0; font-size:18px; }
@@ -1089,6 +1105,10 @@ def admin_css():
     .ai-provider-head b { display:block; font-size:15px; color:var(--text); }
     .ai-provider-head small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
     .ai-provider-message, .ai-usage-note { margin:0; color:var(--muted); font-size:12px; line-height:1.45; }
+    .ai-meta-grid { display:grid; gap:6px; }
+    .ai-meta-grid div { padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel); display:grid; gap:3px; min-width:0; }
+    .ai-meta-grid span { color:var(--muted); font-size:11px; font-weight:900; }
+    .ai-meta-grid b { color:var(--text); font-size:12px; line-height:1.35; font-weight:700; overflow-wrap:anywhere; }
     .ai-balance-list { display:grid; gap:8px; }
     .ai-balance-row { padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); display:grid; gap:4px; }
     .ai-balance-row span { color:var(--muted); font-size:12px; font-weight:800; }
@@ -1096,7 +1116,7 @@ def admin_css():
     .ai-balance-row small, .ai-empty { color:var(--muted); font-size:12px; line-height:1.45; }
     .small-link { display:inline-flex; margin-top:10px; color:#3730a3; font-size:12px; font-weight:800; text-decoration:none; }
     body.dark .small-link { color:#93c5fd; }
-    body.style-console .ai-provider-card, body.style-console .ai-balance-row { border-radius:0; }
+    body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-meta-grid div { border-radius:0; }
     """ + admin_bar_css() + """
     @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
     @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
