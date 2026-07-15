@@ -1,6 +1,15 @@
 def admin_bar_html():
     return """
-    <script>document.body.classList.add("has-admin-bar");</script>
+    <script>
+    (function(){
+        var styleTheme = localStorage.getItem("admin-style-theme") || "light";
+        document.documentElement.classList.add("style-" + styleTheme);
+        if(document.body){
+            document.body.classList.add("style-" + styleTheme);
+        }
+    })();
+    document.body.classList.add("has-admin-bar");
+    </script>
     <div class="admin-bar">
         <div class="admin-bar-inner">
             <a class="admin-brand" href="/">
@@ -64,6 +73,9 @@ def admin_bar_html():
         });
 
         var themeToggle = document.getElementById("admin-theme-toggle");
+        var styleTheme = localStorage.getItem("admin-style-theme") || "light";
+        document.body.classList.remove("style-light", "style-console");
+        document.body.classList.add("style-" + styleTheme);
         var storedTheme = localStorage.getItem("admin-theme")
             || localStorage.getItem("dashboard-theme")
             || localStorage.getItem("logs-theme")
@@ -132,6 +144,86 @@ def admin_bar_css():
     body.has-admin-bar main.page > nav.nav,
     body.has-admin-bar .topbar .theme-control {
         display:none !important;
+    }
+
+    html.style-console body,
+    body.style-console {
+        --bg:#eef2f6;
+        --panel:#ffffff;
+        --panel-soft:#f3f5f7;
+        --text:#172033;
+        --muted:#5b6778;
+        --border:#d5dde7;
+        --button-bg:#1f4f7a;
+        --button-bg-hover:#173d61;
+        --accent:#1f4f7a;
+        --accent-strong:#173d61;
+        --accent-soft:#e5edf5;
+        --shadow:0 10px 24px rgba(20,32,51,0.07);
+        background:var(--bg) !important;
+    }
+
+    html.style-console body.dark,
+    body.dark.style-console {
+        --bg:#101820;
+        --panel:#17212c;
+        --panel-soft:#202c38;
+        --text:#e6edf3;
+        --muted:#9aa8b8;
+        --border:#2f3d4c;
+        --button-bg:#2f6f9f;
+        --button-bg-hover:#3b82b8;
+        --accent:#67a7d8;
+        --accent-strong:#9fd0f2;
+        --accent-soft:rgba(103,167,216,0.14);
+        --shadow:0 12px 28px rgba(0,0,0,0.24);
+        background:var(--bg) !important;
+    }
+
+    html.style-console body .card,
+    body.style-console .card,
+    html.style-console body .metric-card,
+    body.style-console .metric-card,
+    html.style-console body .report-box,
+    body.style-console .report-box {
+        border-radius:4px !important;
+        box-shadow:none !important;
+    }
+
+    html.style-console body button,
+    body.style-console button,
+    html.style-console body .nav-link.active,
+    body.style-console .nav-link.active,
+    html.style-console body .btn-edit,
+    body.style-console .btn-edit,
+    html.style-console body .export-link,
+    body.style-console .export-link,
+    html.style-console body .admin-nav-link.active,
+    body.style-console .admin-nav-link.active {
+        background:var(--button-bg) !important;
+        box-shadow:none !important;
+    }
+
+    html.style-console body button:hover,
+    body.style-console button:hover {
+        background:var(--button-bg-hover) !important;
+    }
+
+    html.style-console body .admin-bar,
+    body.style-console .admin-bar {
+        background:rgba(255,255,255,0.98);
+        box-shadow:none;
+    }
+
+    html.style-console body.dark .admin-bar,
+    body.dark.style-console .admin-bar {
+        background:rgba(23,33,44,0.98);
+    }
+
+    html.style-console body .admin-avatar,
+    body.style-console .admin-avatar {
+        background:var(--button-bg);
+        box-shadow:none;
     }
 
     .admin-bar-inner {

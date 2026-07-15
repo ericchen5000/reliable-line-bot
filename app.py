@@ -955,6 +955,19 @@ def admin_css():
     .admin-tool-card label { display:block; margin:10px 0 6px; color:var(--muted); font-size:12px; font-weight:800; }
     .full-btn { width:100%; margin-top:4px; }
     .admin-note-card { background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel); }
+    .theme-option-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:12px; }
+    .theme-option { width:100%; padding:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); color:var(--text); text-align:left; cursor:pointer; }
+    .theme-option-inner { display:grid; grid-template-columns:72px 1fr; gap:12px; align-items:center; padding:12px; }
+    .theme-preview { height:48px; border-radius:8px; border:1px solid var(--border); background:linear-gradient(135deg,#f7fbff,#eef4ff); position:relative; overflow:hidden; }
+    .theme-preview::before { content:""; position:absolute; left:8px; top:8px; width:42px; height:8px; border-radius:999px; background:#60a5fa; }
+    .theme-preview::after { content:""; position:absolute; left:8px; right:8px; bottom:8px; height:20px; border-radius:6px; background:white; border:1px solid #dbeafe; }
+    .theme-preview.console { background:#eef2f6; }
+    .theme-preview.console::before { background:#1f4f7a; border-radius:2px; }
+    .theme-preview.console::after { border-radius:2px; border-color:#d5dde7; }
+    .theme-option b { display:block; font-size:14px; margin-bottom:4px; }
+    .theme-option small { color:var(--muted); font-size:12px; line-height:1.45; }
+    .theme-option.active { border-color:#60a5fa; box-shadow:0 0 0 3px rgba(96,165,250,0.16); }
+    body.style-console .theme-option.active { border-color:#1f4f7a; box-shadow:0 0 0 3px rgba(31,79,122,0.14); }
     textarea, input, select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
     textarea { min-height:120px; resize:vertical; }
     button { min-height:40px; padding:8px 14px; border:none; border-radius:8px; color:white; background:var(--button-bg); font-weight:700; cursor:pointer; }
@@ -1221,6 +1234,36 @@ def admin_users_page(request: Request, notice: str = ""):
         <aside class="admin-side-column">
             <section class="card admin-tool-card">
                 <div class="tool-heading">
+                    <span class="tool-icon">Aa</span>
+                    <div>
+                        <h3>後台外觀設定</h3>
+                        <p>切換整個後台的版面風格，深夜模式會保留。</p>
+                    </div>
+                </div>
+                <div class="theme-option-grid">
+                    <button type="button" class="theme-option" data-style-theme="light" onclick="setAdminStyleTheme('light')">
+                        <span class="theme-option-inner">
+                            <span class="theme-preview"></span>
+                            <span>
+                                <b>Reliable Light</b>
+                                <small>目前版本，淺色、圓角卡片、藍紫漸層。</small>
+                            </span>
+                        </span>
+                    </button>
+                    <button type="button" class="theme-option" data-style-theme="console" onclick="setAdminStyleTheme('console')">
+                        <span class="theme-option-inner">
+                            <span class="theme-preview console"></span>
+                            <span>
+                                <b>Reliable Console</b>
+                                <small>平台感版本，色彩更克制、線條更俐落、資訊密度更高。</small>
+                            </span>
+                        </span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="card admin-tool-card">
+                <div class="tool-heading">
                     <span class="tool-icon">＋</span>
                     <div>
                         <h3>新增管理員</h3>
@@ -1264,7 +1307,24 @@ def admin_users_page(request: Request, notice: str = ""):
             </section>
         </aside>
     </section>
-    </main></body></html>
+    </main>
+    <script>
+    function setAdminStyleTheme(value) {{
+        value = value === "console" ? "console" : "light";
+        localStorage.setItem("admin-style-theme", value);
+        document.documentElement.classList.remove("style-light", "style-console");
+        document.body.classList.remove("style-light", "style-console");
+        document.documentElement.classList.add("style-" + value);
+        document.body.classList.add("style-" + value);
+        document.querySelectorAll("[data-style-theme]").forEach(function(item) {{
+            item.classList.toggle("active", item.getAttribute("data-style-theme") === value);
+        }});
+    }}
+    document.addEventListener("DOMContentLoaded", function() {{
+        setAdminStyleTheme(localStorage.getItem("admin-style-theme") || "light");
+    }});
+    </script>
+    </body></html>
     """)
 
 
