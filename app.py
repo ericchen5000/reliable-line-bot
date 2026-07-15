@@ -917,18 +917,14 @@ def get_deepseek_ai_integration():
     if not api_key:
         return None
 
-    checked_at = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     result = {
         "name": "DeepSeek",
         "model": os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
-        "chat_url": os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/chat/completions"),
         "balance_url": "https://api.deepseek.com/user/balance",
         "manage_url": "https://platform.deepseek.com/usage",
-        "checked_at": checked_at,
         "ok": False,
         "message": "尚未取得額度資訊",
         "balances": [],
-        "usage_note": "Token 用量紀錄尚未啟用",
     }
 
     try:
@@ -975,15 +971,6 @@ def ai_integrations_card():
         if not rows:
             rows = "<div class='ai-empty'>目前沒有取得餘額資料。</div>"
 
-        meta_rows = "".join(
-            f"<div><span>{label}</span><b>{html_escape(value)}</b></div>"
-            for label, value in [
-                ("模型", item["model"]),
-                ("對話 API", item["chat_url"]),
-                ("額度 API", item["balance_url"]),
-                ("查詢時間", item["checked_at"]),
-            ]
-        )
         state_class = "ok" if item["ok"] else "bad"
         state_text = "可用" if item["ok"] else "需確認"
         cards += f"""
@@ -996,9 +983,8 @@ def ai_integrations_card():
                 <span class="badge {state_class}">{state_text}</span>
             </div>
             <p class="ai-provider-message">{html_escape(item["message"])}</p>
-            <div class="ai-meta-grid">{meta_rows}</div>
+            <div class="ai-model-row"><span>目前模型</span><b>{html_escape(item["model"])}</b></div>
             <div class="ai-balance-list">{rows}</div>
-            <div class="ai-usage-note">{html_escape(item["usage_note"])}</div>
             <a class="small-link" href="{html_escape(item["manage_url"])}" target="_blank" rel="noopener">前往官方用量 / 帳務頁</a>
         </div>
         """
@@ -1140,11 +1126,10 @@ def admin_css():
     .ai-provider-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
     .ai-provider-head b { display:block; font-size:15px; color:var(--text); }
     .ai-provider-head small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
-    .ai-provider-message, .ai-usage-note { margin:0; color:var(--muted); font-size:12px; line-height:1.45; }
-    .ai-meta-grid { display:grid; gap:6px; }
-    .ai-meta-grid div { padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel); display:grid; gap:3px; min-width:0; }
-    .ai-meta-grid span { color:var(--muted); font-size:11px; font-weight:900; }
-    .ai-meta-grid b { color:var(--text); font-size:12px; line-height:1.35; font-weight:700; overflow-wrap:anywhere; }
+    .ai-provider-message { margin:0; color:var(--muted); font-size:12px; line-height:1.45; }
+    .ai-model-row { padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .ai-model-row span { color:var(--muted); font-size:11px; font-weight:900; }
+    .ai-model-row b { color:var(--text); font-size:12px; line-height:1.35; font-weight:800; overflow-wrap:anywhere; }
     .ai-balance-list { display:grid; gap:8px; }
     .ai-balance-row { padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); display:grid; gap:4px; }
     .ai-balance-row span { color:var(--muted); font-size:12px; font-weight:800; }
@@ -1152,7 +1137,7 @@ def admin_css():
     .ai-balance-row small, .ai-empty { color:var(--muted); font-size:12px; line-height:1.45; }
     .small-link { display:inline-flex; margin-top:10px; color:#3730a3; font-size:12px; font-weight:800; text-decoration:none; }
     body.dark .small-link { color:#93c5fd; }
-    body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-meta-grid div { border-radius:0; }
+    body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
     .changelog-card { margin-top:14px; }
     .changelog-list { padding:8px 18px 18px; display:grid; gap:12px; }
     .changelog-item { display:grid; grid-template-columns:120px minmax(0, 1fr); gap:14px; padding:14px 0; border-top:1px solid var(--border); }
@@ -1401,6 +1386,8 @@ def admin_users_page(request: Request, notice: str = ""):
                     <table><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>IP</th></tr>{activity_rows}</table>
                 </div>
             </section>
+
+            {admin_changelog_section()}
         </div>
 
         <aside class="admin-side-column">
@@ -1481,7 +1468,6 @@ def admin_users_page(request: Request, notice: str = ""):
             </section>
         </aside>
     </section>
-    {admin_changelog_section()}
     </main>
     <script>
     function setAdminStyleTheme(value) {{
