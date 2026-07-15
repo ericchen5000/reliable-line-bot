@@ -227,6 +227,13 @@ async def admin_auth_middleware(request: Request, call_next):
     admin = current_admin(request)
 
     if admin:
+        if not admin_tools.touch_admin_session(request):
+            response = RedirectResponse("/login?error=登入已逾時，請重新登入", status_code=302)
+            response.delete_cookie(AUTH_COOKIE)
+            response.delete_cookie("admin_display")
+            response.delete_cookie(admin_tools.ADMIN_SESSION_COOKIE)
+            return response
+
         if admin_tools.admin_role(admin) == "viewer" and is_write_path(request):
             return HTMLResponse(
                 """
@@ -239,7 +246,6 @@ async def admin_auth_middleware(request: Request, call_next):
                 """,
                 status_code=403
             )
-        admin_tools.touch_admin_session(request)
         return await call_next(request)
 
     return RedirectResponse("/login", status_code=302)
@@ -894,6 +900,7 @@ def admin_css():
     .role-pill { display:inline-flex; align-items:center; justify-content:center; min-width:58px; padding:5px 9px; border-radius:999px; font-size:12px; font-weight:900; }
     .role-admin { color:#1d4ed8; background:#dbeafe; }
     .role-viewer { color:#475569; background:#e2e8f0; }
+    .session-muted { display:inline-block; margin-top:3px; color:var(--muted); font-size:12px; font-weight:600; }
     .step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
@@ -989,6 +996,7 @@ def logout(request: Request):
 @app.get("/admin/users", response_class=HTMLResponse)
 def admin_users_page(request: Request):
     admin = current_admin(request) or "-"
+    admin_tools.expire_stale_admin_sessions()
     users = load_admin_users()
     rows = ""
 
@@ -1032,12 +1040,15 @@ def admin_users_page(request: Request):
     sessions = admin_tools.load_json(admin_tools.ADMIN_SESSIONS_PATH, [])
     session_rows = ""
     for item in reversed(sessions[-30:]):
+        logout_text = html_escape(item.get('logout_at') or '尚未登出')
+        if item.get("logout_reason"):
+            logout_text = f"{html_escape(item.get('logout_reason'))}<br><span class='session-muted'>{html_escape(item.get('logout_at', '-'))}</span>"
         session_rows += f"""
         <tr>
             <td data-label="管理者">{html_escape(item.get('display') or item.get('admin') or '-')}</td>
             <td data-label="登入時間">{html_escape(item.get('login_at', '-'))}</td>
             <td data-label="最後活動">{html_escape(item.get('last_seen_at', '-'))}</td>
-            <td data-label="登出時間">{html_escape(item.get('logout_at') or '尚未登出')}</td>
+            <td data-label="登出時間">{logout_text}</td>
             <td data-label="停留時間">{html_escape(item.get('duration') or '-')}</td>
             <td data-label="裝置">{html_escape(item.get('device', '-'))}</td>
             <td data-label="IP">{html_escape(item.get('ip', '-'))}</td>

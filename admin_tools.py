@@ -5,7 +5,7 @@ import json
 import os
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from config import LINE_CHANNEL_SECRET
 
@@ -16,6 +16,7 @@ ADMIN_SESSIONS_PATH = "logs/admin_sessions.json"
 AUTH_COOKIE = "reliable_admin"
 ADMIN_SESSION_COOKIE = "reliable_admin_session"
 AUTH_MAX_AGE = 60 * 60 * 12
+SESSION_IDLE_TIMEOUT_SECONDS = int(os.getenv("ADMIN_SESSION_IDLE_TIMEOUT_SECONDS", "3600"))
 AUTH_SECRET = os.getenv("ADMIN_AUTH_SECRET") or LINE_CHANNEL_SECRET or secrets.token_hex(32)
 
 
@@ -159,6 +160,44 @@ def duration_text(start, end):
     return f"{minutes} 分"
 
 
+def parse_time(value):
+    try:
+        return datetime.strptime(str(value or ""), "%Y/%m/%d %H:%M:%S")
+    except:
+        return None
+
+
+def format_time(value):
+    return value.strftime("%Y/%m/%d %H:%M:%S")
+
+
+def expire_stale_admin_sessions(now=None):
+    now = now or datetime.now()
+    sessions = load_json(ADMIN_SESSIONS_PATH, [])
+    changed = False
+
+    for item in sessions:
+        if item.get("logout_at"):
+            continue
+
+        last_seen = parse_time(item.get("last_seen_at") or item.get("login_at"))
+        if not last_seen:
+            continue
+
+        idle_seconds = (now - last_seen).total_seconds()
+        if idle_seconds > SESSION_IDLE_TIMEOUT_SECONDS:
+            logout_at = last_seen + timedelta(seconds=SESSION_IDLE_TIMEOUT_SECONDS)
+            item["logout_at"] = format_time(logout_at)
+            item["logout_reason"] = "逾時登出"
+            item["duration"] = duration_text(item.get("login_at", ""), item.get("logout_at", ""))
+            changed = True
+
+    if changed:
+        save_json(ADMIN_SESSIONS_PATH, sessions[-500:])
+
+    return changed
+
+
 def log_admin_activity(request, action, target="", detail=""):
     username = current_admin(request)
     if not username:
@@ -178,6 +217,7 @@ def log_admin_activity(request, action, target="", detail=""):
 
 
 def start_admin_session(request, username):
+    expire_stale_admin_sessions()
     session_id = secrets.token_urlsafe(18)
     sessions = load_json(ADMIN_SESSIONS_PATH, [])
     sessions.append({
@@ -197,25 +237,31 @@ def start_admin_session(request, username):
 
 
 def touch_admin_session(request):
+    expire_stale_admin_sessions()
     session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
     if not session_id:
-        return
+        return False
 
     sessions = load_json(ADMIN_SESSIONS_PATH, [])
     changed = False
+    active = False
 
     for item in sessions:
         if item.get("id") == session_id and not item.get("logout_at"):
             item["last_seen_at"] = now_text()
             item["duration"] = duration_text(item.get("login_at", ""), item.get("last_seen_at", ""))
             changed = True
+            active = True
             break
 
     if changed:
         save_json(ADMIN_SESSIONS_PATH, sessions)
 
+    return active
+
 
 def end_admin_session(request):
+    expire_stale_admin_sessions()
     session_id = request.cookies.get(ADMIN_SESSION_COOKIE)
     if not session_id:
         return
