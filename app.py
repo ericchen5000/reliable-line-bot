@@ -1119,6 +1119,11 @@ def admin_css():
     .role-pill { display:inline-flex; align-items:center; justify-content:center; min-width:58px; padding:5px 9px; border-radius:999px; font-size:12px; font-weight:900; }
     .role-admin { color:#1d4ed8; background:#dbeafe; }
     .role-viewer { color:#475569; background:#e2e8f0; }
+    .audit-action { display:inline-flex; min-height:28px; padding:5px 9px; border-radius:999px; background:#e0e7ff; color:#3730a3; font-size:12px; font-weight:900; white-space:nowrap; }
+    .audit-detail { color:var(--muted); font-size:12px; line-height:1.5; }
+    .audit-target { font-weight:800; color:var(--text); overflow-wrap:anywhere; }
+    body.dark .audit-action { background:rgba(96,165,250,0.18); color:#bfdbfe; }
+    body.style-console .audit-action { border-radius:0; background:var(--button-bg); color:#fff; }
     .session-muted { display:inline-block; margin-top:3px; color:var(--muted); font-size:12px; font-weight:600; }
     .step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
@@ -1308,13 +1313,14 @@ def admin_users_page(request: Request, notice: str = ""):
         <tr>
             <td data-label="時間">{html_escape(item.get('time', '-'))}</td>
             <td data-label="管理者">{html_escape(item.get('display') or item.get('admin') or '-')}</td>
-            <td data-label="動作">{html_escape(item.get('action', '-'))}</td>
-            <td data-label="目標">{html_escape(item.get('target', '-'))}</td>
+            <td data-label="動作"><span class="audit-action">{html_escape(item.get('action', '-'))}</span></td>
+            <td data-label="目標"><div class="audit-target">{html_escape(item.get('target', '-'))}</div></td>
+            <td data-label="補充資訊"><div class="audit-detail">{html_escape(item.get('detail', '-') or '-')}</div></td>
             <td data-label="IP">{html_escape(item.get('ip', '-'))}</td>
         </tr>
         """
     if not activity_rows:
-        activity_rows = "<tr><td colspan='5'>尚無操作紀錄</td></tr>"
+        activity_rows = "<tr><td colspan='6'>尚無操作紀錄</td></tr>"
 
     active_sessions = [item for item in sessions if not item.get("logout_at")]
     latest_login = sessions[-1].get("login_at", "-") if sessions else "-"
@@ -1386,7 +1392,7 @@ def admin_users_page(request: Request, notice: str = ""):
                     </div>
                 </div>
                 <div class="table-scroll">
-                    <table><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>IP</th></tr>{activity_rows}</table>
+                    <table><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>補充資訊</th><th>IP</th></tr>{activity_rows}</table>
                 </div>
             </section>
 

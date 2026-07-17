@@ -434,6 +434,7 @@ def export_logs(
 
 @router.post("/logs/quality/{log_id}")
 def mark_quality(
+    request: Request,
     log_id: int,
     quality: str = Form(...),
     return_to: str = Form("/logs")
@@ -445,6 +446,7 @@ def mark_quality(
         for item in logs:
             if item.get("id") == log_id:
                 item["quality"] = quality
+                admin_tools.log_admin_activity(request, "標記 LOG 品質", f"LOG #{log_id}", quality)
                 break
         save_logs(logs)
 
@@ -456,6 +458,7 @@ def mark_quality(
 
 @router.post("/logs/followup/{log_id}")
 def mark_followup(
+    request: Request,
     log_id: int,
     status: str = Form(...),
     return_to: str = Form("/logs")
@@ -468,6 +471,7 @@ def mark_followup(
             if item.get("id") == log_id:
                 item["followup_status"] = status
                 item["need_followup"] = (status == "pending")
+                admin_tools.log_admin_activity(request, "更新人工追蹤", f"LOG #{log_id}", status)
                 break
         save_logs(logs)
 
@@ -545,6 +549,29 @@ def logs_ui(
             "fix": "待修",
             "wrong": "錯誤",
         }.get(quality, "未標記")
+        followup_controls = (
+            '<span class="readonly-pill">唯讀</span>'
+            if readonly else
+            f"""
+            <form class="followup-form" method="post" action="/logs/followup/{e(log_id)}">
+                <input type="hidden" name="return_to" value="{e(current_return_to)}">
+                <button name="status" value="pending" class="quality-warn">待追蹤</button>
+                <button name="status" value="done">已處理</button>
+            </form>
+            """
+        )
+        quality_controls = (
+            '<span class="readonly-pill">唯讀</span>'
+            if readonly else
+            f"""
+            <form method="post" action="/logs/quality/{e(log_id)}">
+                <input type="hidden" name="return_to" value="{e(current_return_to)}">
+                <button name="quality" value="good">良好</button>
+                <button name="quality" value="fix" class="quality-warn">待修</button>
+                <button name="quality" value="wrong" class="quality-danger">錯誤</button>
+            </form>
+            """
+        )
         is_faq = str(message).strip().lower() in faq_questions
         if is_faq:
             transfer_html = '<span class="faq-added-pill">已轉 FAQ</span>'
@@ -593,14 +620,13 @@ def logs_ui(
             <td colspan="10">
                 <div class="detail-box" id="detail-content-{i}">
 
-                    <div class="grid">
-                        <!-- 
-                        <div><span class="pill-more"><b>DEVICE</b></span><br>{meta.get('device','-')}</div>
-                        <div><span class="pill-more"><b>BROWSER</b></span><br>{meta.get('browser','-')}</div>
-                        <div><span class="pill-more"><b>USER AGENT</b></span><br>{meta.get('user_agent','-')}</div>
-                        <div><span class="pill-more"><b>來源</b></span><br>{g(l,'source','-')}</div>
-                        <div><span class="pill-more"><b>IP</b></span><br>{g(l,'ip','-')}</div>
-                        -->
+                    <div class="detail-summary-grid">
+                        <div><b>平台</b><span>{e(g(l,'platform','LINE'))}</span></div>
+                        <div><b>時間</b><span>{e(g(l,'time'))}</span></div>
+                        <div><b>延遲</b><span>{e(g(l,'latency','-'))} 秒</span></div>
+                        <div><b>來源摘要</b><span>{e(source_summary(source_value))}</span></div>
+                        <div><b>商機狀態</b><span>{e(g(l, 'intent', '一般詢問'))} / {e(g(l, 'lead_score', 0))}</span></div>
+                        <div><b>IP</b><span>{e(g(l,'ip','-'))}</span></div>
                     </div>
 
                     <div class="block">
@@ -627,11 +653,7 @@ def logs_ui(
 狀態：{e(g(l, 'followup_status', 'none'))}
 原因：{e(g(l, 'lead_reason', '-'))}
                         </div>
-                        <form class="followup-form" method="post" action="/logs/followup/{e(log_id)}">
-                            <input type="hidden" name="return_to" value="{e(current_return_to)}">
-                            <button name="status" value="pending" class="quality-warn">待追蹤</button>
-                            <button name="status" value="done">已處理</button>
-                        </form>
+                        {followup_controls}
                     </div>
 
                     {contact_detail_html(l)}
@@ -642,12 +664,7 @@ def logs_ui(
                         <span class="pill-more"><b>品質</b></span>
                         <div class="quality-row">
                             <span class="quality-pill">{e(quality_text)}</span>
-                            <form method="post" action="/logs/quality/{e(log_id)}">
-                                <input type="hidden" name="return_to" value="{e(current_return_to)}">
-                                <button name="quality" value="good">良好</button>
-                                <button name="quality" value="fix" class="quality-warn">待修</button>
-                                <button name="quality" value="wrong" class="quality-danger">錯誤</button>
-                            </form>
+                            {quality_controls}
                         </div>
                     </div>
 
@@ -741,6 +758,14 @@ def logs_ui(
         const toggle = document.getElementById("theme-toggle");
         if(toggle){
             toggle.checked = document.body.classList.contains("dark");
+        }
+        const toast = document.querySelector(".toast");
+        if(toast){
+            setTimeout(function(){
+                toast.style.opacity = "0";
+                toast.style.transform = "translateY(-6px)";
+            }, 2600);
+            setTimeout(function(){ toast.remove(); }, 3200);
         }
     });
 
@@ -977,6 +1002,23 @@ def logs_ui(
         padding:14px 16px;
         margin-bottom:16px;
         font-weight:800;
+    }
+
+    .toast {
+        position:fixed;
+        right:22px;
+        top:82px;
+        z-index:1200;
+        max-width:360px;
+        padding:12px 14px;
+        border-radius:8px;
+        border:1px solid rgba(96,165,250,0.35);
+        background:var(--panel);
+        color:var(--text);
+        box-shadow:var(--shadow);
+        font-size:13px;
+        font-weight:800;
+        transition:opacity 0.2s ease, transform 0.2s ease;
     }
 
     .quick-chip {
@@ -1216,9 +1258,38 @@ def logs_ui(
     .detail-box {
         margin:8px 0;
         padding:16px;
-        background:var(--panel-soft);
+        background:var(--panel);
         border-radius:8px;
         border:1px solid var(--border);
+        display:grid;
+        gap:12px;
+    }
+
+    .detail-summary-grid {
+        display:grid;
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+        gap:10px;
+    }
+
+    .detail-summary-grid div {
+        padding:12px;
+        border-radius:8px;
+        border:1px solid var(--border);
+        background:var(--panel-soft);
+    }
+
+    .detail-summary-grid b {
+        display:block;
+        color:var(--muted);
+        font-size:12px;
+        margin-bottom:6px;
+    }
+
+    .detail-summary-grid span {
+        display:block;
+        color:var(--text);
+        font-weight:800;
+        overflow-wrap:anywhere;
     }
 
     .grid {
@@ -1230,7 +1301,11 @@ def logs_ui(
     }
 
     .block {
-        margin-top:10px;
+        margin-top:0;
+        padding:14px;
+        border:1px solid var(--border);
+        border-radius:8px;
+        background:var(--panel-soft);
         font-size:13px;
     }
 
@@ -1402,6 +1477,20 @@ def logs_ui(
         border:1px solid var(--border);
         color:var(--muted);
         font-weight:700;
+    }
+
+    .readonly-pill {
+        min-height:34px;
+        padding:7px 10px;
+        border-radius:8px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        background:var(--panel);
+        border:1px solid var(--border);
+        color:var(--muted);
+        font-size:13px;
+        font-weight:800;
     }
 
     .quality-warn {
@@ -1652,6 +1741,10 @@ def logs_ui(
         .contact-grid {
             grid-template-columns:1fr;
         }
+
+        .detail-summary-grid {
+            grid-template-columns:1fr;
+        }
     }
     """
 
@@ -1692,7 +1785,7 @@ def logs_ui(
     </header>
 
     <nav class="nav">{nav_html("LOGS")}</nav>
-    {f'<section class="notice-card">{e(notice)}</section>' if notice else ''}
+    {f'<div class="toast">{e(notice)}</div>' if notice else ''}
 
     <div class="quick-filters">{quick_buttons}</div>
 

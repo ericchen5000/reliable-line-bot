@@ -435,7 +435,13 @@ def faq_page(
         )
 
         rows += f"""
-        <tr>
+        <tr class="inspectable-row"
+            data-kind="FAQ"
+            data-title="{e(item.get('question',''))}"
+            data-body="{e(item.get('answer',''))}"
+            data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{faq_hits.get(i, 0)}｜最後修改：{e(item.get('updated_at') or item.get('created_at') or '-')}"
+            data-owner="{e(item.get('updated_by') or item.get('created_by') or '-')}"
+        >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
             <td data-label="ID">{i+1}</td>
             <td data-label="狀態">{status_badge(active)}</td>
@@ -488,7 +494,13 @@ def faq_page(
             """
         )
         url_rows += f"""
-        <tr>
+        <tr class="inspectable-row"
+            data-kind="網站索引"
+            data-title="{e(item.get('title', '-'))}"
+            data-body="{e(item.get('url', '-'))}"
+            data-meta="狀態：{'啟用' if active else '停用'}｜關鍵字：{e(keywords or '-')}｜近 7 天命中：{url_hits.get(i, 0)}"
+            data-owner="{e(item.get('updated_by') or item.get('created_by') or '-')}"
+        >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
             <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="網站">{e(item.get('title', '-'))}</td>
@@ -537,7 +549,13 @@ def faq_page(
             '''
         )
         kb_rows += f"""
-        <tr>
+        <tr class="inspectable-row"
+            data-kind="KB 文件"
+            data-title="{e(name)}"
+            data-body="大小：{e(item.get('size', 0))} bytes"
+            data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{kb_hits.get((name, active), 0)}"
+            data-owner="{e(kb_last_activity(name).replace('<br>', ' / '))}"
+        >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="items" value="{e(item_value)}"></td>'}
             <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="檔名">{e(name)}</td>
@@ -1182,6 +1200,91 @@ def faq_page(
             gap:8px;
         }}
 
+        .inspectable-row {{
+            cursor:pointer;
+        }}
+
+        .inspectable-row:hover td {{
+            background:rgba(96,165,250,0.06);
+        }}
+
+        .detail-drawer {{
+            position:fixed;
+            inset:0;
+            z-index:1250;
+            display:none;
+            justify-content:flex-end;
+            background:rgba(15,23,42,0.38);
+        }}
+
+        .detail-drawer.open {{
+            display:flex;
+        }}
+
+        .detail-drawer-panel {{
+            width:min(440px, 100%);
+            height:100%;
+            padding:18px;
+            overflow:auto;
+            background:var(--panel);
+            border-left:1px solid var(--border);
+            box-shadow:var(--shadow);
+        }}
+
+        .detail-drawer-head {{
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            align-items:flex-start;
+            margin-bottom:14px;
+        }}
+
+        .detail-drawer-head h3 {{
+            margin:0;
+            line-height:1.35;
+        }}
+
+        .detail-kind {{
+            display:inline-flex;
+            margin-bottom:8px;
+            min-height:28px;
+            padding:5px 9px;
+            border-radius:999px;
+            background:var(--accent-soft);
+            color:var(--accent-strong);
+            font-size:12px;
+            font-weight:900;
+        }}
+
+        .drawer-close {{
+            flex:0 0 auto;
+            background:var(--panel-soft);
+            color:var(--text);
+            border:1px solid var(--border);
+        }}
+
+        .detail-drawer-section {{
+            padding:14px;
+            border:1px solid var(--border);
+            border-radius:8px;
+            background:var(--panel-soft);
+            margin-top:12px;
+        }}
+
+        .detail-drawer-section b {{
+            display:block;
+            color:var(--muted);
+            font-size:12px;
+            margin-bottom:8px;
+        }}
+
+        .detail-drawer-section div {{
+            color:var(--text);
+            line-height:1.7;
+            white-space:pre-wrap;
+            overflow-wrap:anywhere;
+        }}
+
         .section-title {{
             margin:22px 0 12px;
         }}
@@ -1518,7 +1621,32 @@ def faq_page(
                     }}
                 }});
             }}
+
+            const drawer = document.getElementById("detail-drawer");
+            const drawerKind = document.getElementById("drawer-kind");
+            const drawerTitle = document.getElementById("drawer-title");
+            const drawerBody = document.getElementById("drawer-body");
+            const drawerMeta = document.getElementById("drawer-meta");
+            const drawerOwner = document.getElementById("drawer-owner");
+            document.querySelectorAll(".inspectable-row").forEach(function(row){{
+                row.addEventListener("click", function(event){{
+                    if(event.target.closest("a, button, input, form, select, textarea")){{
+                        return;
+                    }}
+                    if(drawerKind) drawerKind.textContent = row.dataset.kind || "詳情";
+                    if(drawerTitle) drawerTitle.textContent = row.dataset.title || "-";
+                    if(drawerBody) drawerBody.textContent = row.dataset.body || "-";
+                    if(drawerMeta) drawerMeta.textContent = row.dataset.meta || "-";
+                    if(drawerOwner) drawerOwner.textContent = row.dataset.owner || "-";
+                    if(drawer) drawer.classList.add("open");
+                }});
+            }});
         }});
+
+        function closeDetailDrawer(){{
+            const drawer = document.getElementById("detail-drawer");
+            if(drawer) drawer.classList.remove("open");
+        }}
     </script>
     </head>
 
@@ -1751,6 +1879,29 @@ def faq_page(
                 <button type="button" id="confirm-ok" class="btn-del">確認刪除</button>
             </div>
         </div>
+    </div>
+    <div class="detail-drawer" id="detail-drawer" onclick="if(event.target.id === 'detail-drawer') closeDetailDrawer()">
+        <aside class="detail-drawer-panel">
+            <div class="detail-drawer-head">
+                <div>
+                    <span class="detail-kind" id="drawer-kind">詳情</span>
+                    <h3 id="drawer-title">-</h3>
+                </div>
+                <button type="button" class="drawer-close" onclick="closeDetailDrawer()">關閉</button>
+            </div>
+            <section class="detail-drawer-section">
+                <b>內容</b>
+                <div id="drawer-body">-</div>
+            </section>
+            <section class="detail-drawer-section">
+                <b>狀態與使用</b>
+                <div id="drawer-meta">-</div>
+            </section>
+            <section class="detail-drawer-section">
+                <b>最後處理</b>
+                <div id="drawer-owner">-</div>
+            </section>
+        </aside>
     </div>
     </main>
 

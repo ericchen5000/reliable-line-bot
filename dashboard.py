@@ -88,6 +88,27 @@ def health_checks():
     ]
 
 
+def status_level(ok, warn=False):
+    if ok:
+        return "ok"
+    return "warn" if warn else "bad"
+
+
+def status_card(title, value, detail, level="ok"):
+    label = {"ok": "正常", "warn": "注意", "bad": "異常"}.get(level, "正常")
+    return f"""
+    <div class="status-card">
+        <span class="status-light {level}"></span>
+        <div>
+            <b>{e(title)}</b>
+            <strong>{e(value)}</strong>
+            <small>{e(detail)}</small>
+        </div>
+        <em>{e(label)}</em>
+    </div>
+    """
+
+
 def source_group(value):
     source = str(value or "-").strip()
 
@@ -194,6 +215,36 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         """
         for name, ok in health_checks()
     )
+    checks = health_checks()
+    missing_checks = [name for name, ok in checks if not ok]
+    index_chunks = int(index_status.get("total_chunks", index_count()) or 0)
+    index_failed = sum(int(site.get("failed", 0) or 0) for site in index_status.get("sites", []))
+    status_cards = "".join([
+        status_card(
+            "系統設定",
+            f"{len(checks) - len(missing_checks)} / {len(checks)}",
+            "必要環境與資料檔檢查",
+            status_level(not missing_checks, warn=bool(missing_checks))
+        ),
+        status_card(
+            "LINE 串接",
+            "已設定" if all(ok for name, ok in checks if name.startswith("LINE_")) else "未完整",
+            "Webhook 與 Access Token 狀態",
+            status_level(all(ok for name, ok in checks if name.startswith("LINE_")))
+        ),
+        status_card(
+            "網站索引",
+            f"{index_chunks} 段",
+            f"失敗 {index_failed} 筆，最後更新：{index_status.get('last_run', '尚未建立')}",
+            "ok" if index_chunks and index_failed == 0 else ("warn" if index_chunks else "bad")
+        ),
+        status_card(
+            "AI 串接",
+            "已設定" if os.getenv("DEEPSEEK_API_KEY") else "未設定",
+            "DeepSeek API Key 狀態",
+            status_level(bool(os.getenv("DEEPSEEK_API_KEY")))
+        ),
+    ])
 
     site_rows = ""
     for site in index_status.get("sites", []):
@@ -335,6 +386,63 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             gap:14px;
             margin-bottom:14px;
         }}
+        .status-grid {{
+            display:grid;
+            grid-template-columns:repeat(4, minmax(0, 1fr));
+            gap:14px;
+            margin:0 0 18px;
+        }}
+        .status-card {{
+            position:relative;
+            display:grid;
+            grid-template-columns:18px minmax(0, 1fr);
+            gap:10px;
+            padding:14px;
+            border-radius:8px;
+            border:1px solid var(--border);
+            background:var(--panel);
+            box-shadow:var(--shadow);
+            min-height:112px;
+        }}
+        .status-card b {{
+            display:block;
+            color:var(--muted);
+            font-size:12px;
+            margin-bottom:8px;
+        }}
+        .status-card strong {{
+            display:block;
+            color:var(--text);
+            font-size:21px;
+            line-height:1.2;
+        }}
+        .status-card small {{
+            display:block;
+            margin-top:7px;
+            color:var(--muted);
+            font-size:12px;
+            line-height:1.45;
+        }}
+        .status-card em {{
+            position:absolute;
+            top:12px;
+            right:12px;
+            color:var(--muted);
+            font-size:11px;
+            font-style:normal;
+            font-weight:900;
+        }}
+        .status-light {{
+            width:12px;
+            height:12px;
+            border-radius:50%;
+            margin-top:4px;
+            box-shadow:0 0 0 4px rgba(100,116,139,0.12);
+            background:#94a3b8;
+        }}
+        .status-light.ok {{ background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,0.14); }}
+        .status-light.warn {{ background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,0.14); }}
+        .status-light.bad {{ background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,0.14); }}
         .card {{
             background:var(--panel);
             border:1px solid var(--border);
@@ -496,6 +604,22 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         .pie-name {{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
         .report-box {{ background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }}
         .notice-card {{ color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; font-weight:800; }}
+        .toast {{
+            position:fixed;
+            right:22px;
+            top:82px;
+            z-index:1200;
+            max-width:360px;
+            padding:12px 14px;
+            border-radius:8px;
+            border:1px solid rgba(96,165,250,0.35);
+            background:var(--panel);
+            color:var(--text);
+            box-shadow:var(--shadow);
+            font-size:13px;
+            font-weight:800;
+            transition:opacity 0.2s ease, transform 0.2s ease;
+        }}
         .report-head {{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }}
         .report-head h3 {{ margin:0; }}
         .report-text {{ padding:14px; border-radius:8px; background:var(--panel-soft); border:1px solid var(--border); white-space:pre-wrap; line-height:1.8; }}
@@ -517,7 +641,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             .index-head {{ flex-direction:column; }}
             .index-summary {{ grid-template-columns:1fr; }}
             button {{ width:100%; }}
-            .grid, .wide, .ops-grid {{ grid-template-columns:1fr; }}
+            .grid, .status-grid, .wide, .ops-grid {{ grid-template-columns:1fr; }}
             h2 {{ font-size:24px; }}
             .pie-wrap {{ grid-template-columns:1fr; justify-items:center; }}
             .pie {{ width:min(220px, 72vw); }}
@@ -557,7 +681,9 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         </header>
 
         <nav class="nav">{nav_html("Dashboard")}</nav>
-        {f'<section class="card notice-card">{e(notice)}</section>' if notice else ''}
+        {f'<div class="toast">{e(notice)}</div>' if notice else ''}
+
+        <section class="status-grid">{status_cards}</section>
 
         <section class="section-head">
             <div>
@@ -679,6 +805,14 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             const toggle = document.getElementById("theme-toggle");
             if(toggle){{
                 toggle.checked = document.body.classList.contains("dark");
+            }}
+            const toast = document.querySelector(".toast");
+            if(toast){{
+                setTimeout(function(){{
+                    toast.style.opacity = "0";
+                    toast.style.transform = "translateY(-6px)";
+                }}, 2600);
+                setTimeout(function(){{ toast.remove(); }}, 3200);
             }}
         }});
 
