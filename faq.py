@@ -632,9 +632,7 @@ def faq_page(
 
         .layout {{
             display:grid;
-            grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.8fr);
             gap:16px;
-            align-items:start;
         }}
 
         .card {{
@@ -936,9 +934,7 @@ def faq_page(
 
         .management-grid {{
             display:grid;
-            grid-template-columns:minmax(280px, 0.9fr) minmax(0, 1.6fr);
             gap:16px;
-            align-items:start;
         }}
 
         .hint {{
@@ -958,6 +954,31 @@ def faq_page(
 
         .readonly-panel {{
             background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel);
+        }}
+
+        .editor-panel {{
+            padding:18px;
+        }}
+
+        .editor-grid {{
+            display:grid;
+            grid-template-columns:minmax(220px, 0.55fr) minmax(0, 1.45fr);
+            gap:14px;
+            align-items:start;
+        }}
+
+        .editor-grid.one-column {{
+            grid-template-columns:1fr;
+        }}
+
+        .editor-panel textarea {{
+            min-height:220px;
+        }}
+
+        .kb-editor textarea {{
+            min-height:420px;
+            font-family:"SFMono-Regular", Consolas, "Liberation Mono", monospace;
+            font-size:14px;
         }}
 
         {admin_bar_css()}
@@ -1016,6 +1037,14 @@ def faq_page(
 
             .management-grid {{
                 grid-template-columns:1fr;
+            }}
+
+            .editor-grid {{
+                grid-template-columns:1fr;
+            }}
+
+            .kb-editor textarea {{
+                min-height:300px;
             }}
 
             .section-tabs {{
@@ -1194,15 +1223,14 @@ def faq_page(
     '''}
 
     <div class="layout">
-
-        <!-- LEFT: FORM -->
         {readonly_card if readonly else f'''
-        <div class="card">
+        <div class="card editor-panel">
             <div class="top-title">{form_title}</div>
-
             <form method="post" action="{e(form_action)}">
-                <input name="question" placeholder="問題" value="{e(q_val)}" required>
-                <textarea name="answer" placeholder="答案" required>{e(a_val)}</textarea>
+                <div class="editor-grid">
+                    <input name="question" placeholder="問題" value="{e(q_val)}" required>
+                    <textarea name="answer" placeholder="答案" required>{e(a_val)}</textarea>
+                </div>
 
                 <div class="form-actions">
                     <button>{btn_text}</button>
@@ -1212,7 +1240,6 @@ def faq_page(
         </div>
         '''}
 
-        <!-- RIGHT: TABLE -->
         <div class="card">
             <div class="top-title">FAQ 清單</div>
             <div class="table-wrap">
@@ -1238,12 +1265,16 @@ def faq_page(
     </div>
     <div class="management-grid">
         {readonly_card if readonly else f'''
-        <div class="card">
+        <div class="card editor-panel">
             <div class="top-title">{url_form_title}</div>
             <form method="post" action="{e(url_form_action)}">
-                <input name="title" placeholder="網站名稱，例如：新聞中心" value="{e(url_title)}" required>
-                <input name="url" placeholder="網址，例如：https://www.reliable.com.tw/category/pr/" value="{e(url_value)}" required>
-                <textarea name="keywords" placeholder="關鍵字，用逗號分隔，例如：新聞, PR, 最新消息">{e(url_keywords_value)}</textarea>
+                <div class="editor-grid">
+                    <div>
+                        <input name="title" placeholder="網站名稱，例如：新聞中心" value="{e(url_title)}" required>
+                        <input name="url" placeholder="網址，例如：https://www.reliable.com.tw/category/pr/" value="{e(url_value)}" required>
+                    </div>
+                    <textarea name="keywords" placeholder="關鍵字，用逗號分隔，例如：新聞, PR, 最新消息">{e(url_keywords_value)}</textarea>
+                </div>
                 <div class="form-actions">
                     <button>{url_btn_text}</button>
                     {"<a href='/faq#url-manager' class='cancel-link'>取消編輯</a>" if url_is_edit else ""}
@@ -1276,11 +1307,13 @@ def faq_page(
     </div>
     <div class="management-grid">
         {readonly_card if readonly else f'''
-        <div class="card">
+        <div class="card editor-panel kb-editor">
             <div class="top-title">{e(kb_form_title)}</div>
             <form method="post" action="{f'/faq/kb/edit/{quote(kb_edit_name)}?active={1 if kb_edit_active else 0}' if kb_is_edit else '/faq/kb/add'}">
-                <input name="filename" placeholder="檔名，例如：array_license.txt" value="{e(kb_edit_name)}" {"readonly" if kb_is_edit else ""} required>
-                <textarea name="content" placeholder="輸入 KB 內容" required>{e(kb_edit_content) if kb_is_edit else ""}</textarea>
+                <div class="editor-grid one-column">
+                    <input name="filename" placeholder="檔名，例如：array_license.txt" value="{e(kb_edit_name)}" {"readonly" if kb_is_edit else ""} required>
+                    <textarea name="content" placeholder="輸入 KB 內容" required>{e(kb_edit_content) if kb_is_edit else ""}</textarea>
+                </div>
                 <div class="form-actions">
                     <button>{'儲存 KB' if kb_is_edit else '新增 KB'}</button>
                     {"<a href='/faq#kb-manager' class='cancel-link'>取消編輯</a>" if kb_is_edit else ""}
