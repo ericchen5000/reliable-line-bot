@@ -182,7 +182,7 @@ def admin_bar_css():
 
     html.style-console body .page,
     body.style-console .page {
-        max-width:1440px;
+        max-width:1400px;
     }
 
     html.style-console body .topbar,

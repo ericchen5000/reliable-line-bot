@@ -509,7 +509,7 @@ def faq_page(
         }}
 
         .page {{
-            max-width:1280px;
+            max-width:1400px;
             margin:0 auto;
         }}
 
@@ -796,15 +796,17 @@ def faq_page(
         }}
 
         .actions {{
-            display:flex;
+            display:grid;
+            grid-template-columns:repeat(auto-fit, 72px);
             gap:8px;
-            flex-wrap:wrap;
-            white-space:nowrap;
+            align-items:center;
+            justify-content:start;
+            white-space:normal;
         }}
 
         .btn-edit, .btn-del, .btn-toggle, .cancel-link, .export-link {{
             min-height:32px;
-            padding:7px 30px;
+            padding:7px 14px;
             color:white;
             border-radius:8px;
             text-decoration:none;
@@ -814,6 +816,14 @@ def faq_page(
             align-items:center;
             justify-content:center;
             margin:0;
+        }}
+
+        .actions .btn-edit,
+        .actions .btn-del,
+        .actions .btn-toggle {{
+            width:72px;
+            padding-left:0;
+            padding-right:0;
         }}
 
         .btn-edit {{

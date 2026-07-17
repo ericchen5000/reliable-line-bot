@@ -257,7 +257,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             --accent:#93c5fd;
             --shadow:0 16px 40px rgba(0,0,0,0.28);
         }}
-        .page {{ max-width:1280px; margin:0 auto; }}
+        .page {{ max-width:1400px; margin:0 auto; }}
         .topbar {{
             display:flex;
             justify-content:space-between;

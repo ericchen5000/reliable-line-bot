@@ -1045,7 +1045,7 @@ def admin_css():
     * { box-sizing:border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC"; background:radial-gradient(circle at top left, rgba(96,165,250,0.14), transparent 30%), var(--bg); min-height:100vh; color:var(--text); padding:24px; font-size:16px; }
     body.dark { --bg:#0f172a; --panel:#162033; --panel-soft:#1e293b; --text:#e5edf7; --muted:#94a3b8; --border:#334155; --shadow:0 16px 40px rgba(0,0,0,0.28); }
-    .page { max-width:1280px; margin:0 auto; }
+    .page { max-width:1400px; margin:0 auto; }
     .topbar { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:18px; }
     h2 { margin:0; font-size:28px; }
     .subtitle { color:var(--muted); font-size:13px; margin:8px 0 0; }

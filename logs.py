@@ -821,7 +821,7 @@ def logs_ui(
     }
 
     .page {
-        max-width: 1280px;
+        max-width: 1400px;
         margin: 0 auto;
     }
 
