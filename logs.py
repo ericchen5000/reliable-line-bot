@@ -624,8 +624,8 @@ def logs_ui(
                         <div><b>平台</b><span>{e(g(l,'platform','LINE'))}</span></div>
                         <div><b>時間</b><span>{e(g(l,'time'))}</span></div>
                         <div><b>延遲</b><span>{e(g(l,'latency','-'))} 秒</span></div>
-                        <div><b>來源摘要</b><span>{e(source_summary(source_value))}</span></div>
-                        <div><b>商機狀態</b><span>{e(g(l, 'intent', '一般詢問'))} / {e(g(l, 'lead_score', 0))}</span></div>
+                        <div><b>來源摘要</b><span title="{e(source_value)}">{e(source_summary(source_value))}</span></div>
+                        <div class="summary-action-card"><b>商機狀態</b><span>{e(g(l, 'intent', '一般詢問'))} / {e(g(l, 'lead_score', 0))}</span>{followup_controls}</div>
                         <div><b>IP</b><span>{e(g(l,'ip','-'))}</span></div>
                     </div>
 
@@ -637,23 +637,6 @@ def logs_ui(
                     <div class="block">
                         <span class="pill-more"><b>回覆</b></span>
                         <div class="detail-text">{e(reply)}</div>
-                    </div>
-
-                    <div class="block">
-                        <span class="pill-more"><b>來源</b></span>
-                        {source_detail_html(source_value)}
-                    </div>
-
-                    <div class="block">
-                        <span class="pill-more"><b>商機 / 人工追蹤</b></span>
-                        <div class="detail-text">
-意圖：{e(g(l, 'intent', '一般詢問'))}
-分數：{e(g(l, 'lead_score', 0))}
-是否待追蹤：{e('是' if l.get('need_followup') else '否')}
-狀態：{e(g(l, 'followup_status', 'none'))}
-原因：{e(g(l, 'lead_reason', '-'))}
-                        </div>
-                        {followup_controls}
                     </div>
 
                     {contact_detail_html(l)}
@@ -1290,6 +1273,22 @@ def logs_ui(
         color:var(--text);
         font-weight:800;
         overflow-wrap:anywhere;
+    }
+
+    .detail-summary-grid .summary-action-card {
+        display:grid;
+        gap:8px;
+    }
+
+    .summary-action-card .followup-form {
+        margin-top:2px;
+    }
+
+    .summary-action-card .followup-form button,
+    .summary-action-card .readonly-pill {
+        min-height:30px;
+        padding:6px 9px;
+        font-size:12px;
     }
 
     .grid {
