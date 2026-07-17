@@ -549,7 +549,7 @@ def admin_bar_css():
 
         .admin-brand {
             font-size:14px;
-            flex:1 1 100%;
+            flex:1 1 0;
             min-width:0;
         }
 
@@ -560,7 +560,7 @@ def admin_bar_css():
         }
 
         .admin-actions {
-            flex:1 1 100%;
+            flex:0 0 auto;
             justify-content:flex-end;
             gap:8px;
             min-width:0;
@@ -613,10 +613,37 @@ def admin_bar_css():
         }
 
         .admin-identity b {
-            max-width:96px;
+            max-width:92px;
             overflow:hidden;
             text-overflow:ellipsis;
             white-space:nowrap;
+        }
+
+        .admin-logout {
+            padding:5px 9px;
+        }
+
+        .admin-theme-control {
+            gap:0;
+        }
+    }
+
+    @media (max-width:520px) {
+        .admin-brand span {
+            max-width:42vw;
+        }
+
+        .admin-identity b {
+            max-width:72px;
+        }
+
+        .admin-logout {
+            min-width:0;
+            padding:5px 8px;
+        }
+
+        .admin-actions {
+            gap:6px;
         }
     }
     """
