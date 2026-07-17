@@ -73,6 +73,12 @@ def audit_text(item):
     return f"{updated_by}<br><span class='meta-time'>{updated_at}</span>"
 
 
+def audit_plain(item):
+    updated_by = item.get("updated_by") or item.get("created_by") or "-"
+    updated_at = item.get("updated_at") or item.get("created_at") or "-"
+    return f"{updated_by} / {updated_at}"
+
+
 def is_active_item(item):
     return item.get("active", True) is not False
 
@@ -102,6 +108,14 @@ def kb_last_activity(filename):
     for item in reversed(activities):
         if item.get("target") == filename and str(item.get("action", "")).startswith("KB"):
             return f"{item.get('display') or item.get('admin') or '-'}<br><span class='meta-time'>{item.get('time', '-')}</span>"
+    return "-"
+
+
+def kb_last_activity_plain(filename):
+    activities = admin_tools.load_json(admin_tools.ADMIN_ACTIVITY_PATH, [])
+    for item in reversed(activities):
+        if item.get("target") == filename and str(item.get("action", "")).startswith("KB"):
+            return f"{item.get('display') or item.get('admin') or '-'} / {item.get('time', '-')}"
     return "-"
 
 
@@ -442,7 +456,7 @@ def faq_page(
             data-title="{e(item.get('question',''))}"
             data-body="{e(item.get('answer',''))}"
             data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{faq_hits.get(i, 0)}｜最後修改：{e(item.get('updated_at') or item.get('created_at') or '-')}"
-            data-owner="{e(item.get('updated_by') or item.get('created_by') or '-')}"
+            data-owner="{e(audit_plain(item))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
             <td data-label="ID">{i+1}</td>
@@ -503,7 +517,7 @@ def faq_page(
             data-title="{e(item.get('title', '-'))}"
             data-body="{e(item.get('url', '-'))}"
             data-meta="狀態：{'啟用' if active else '停用'}｜關鍵字：{e(keywords or '-')}｜近 7 天命中：{url_hits.get(i, 0)}"
-            data-owner="{e(item.get('updated_by') or item.get('created_by') or '-')}"
+            data-owner="{e(audit_plain(item))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
             <td data-label="狀態">{status_badge(active)}</td>
@@ -560,7 +574,7 @@ def faq_page(
             data-title="{e(name)}"
             data-body="大小：{e(item.get('size', 0))} bytes"
             data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{kb_hits.get((name, active), 0)}"
-            data-owner="{e(kb_last_activity(name).replace('<br>', ' / '))}"
+            data-owner="{e(kb_last_activity_plain(name))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="items" value="{e(item_value)}"></td>'}
             <td data-label="狀態">{status_badge(active)}</td>
