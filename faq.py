@@ -344,8 +344,10 @@ def faq_page(
             <td data-label="答案" class="answer-cell">{e(item.get('answer',''))}</td>
             <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
 
-            <td data-label="操作" class="actions">
+            <td data-label="操作" class="actions-cell">
+                <div class="actions">
                 {action_html}
+                </div>
             </td>
         </tr>
         """
@@ -389,8 +391,10 @@ def faq_page(
             <td data-label="網址">{e(item.get('url', '-'))}</td>
             <td data-label="關鍵字">{e(keywords)}</td>
             <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
-            <td data-label="操作" class="actions">
+            <td data-label="操作" class="actions-cell">
+                <div class="actions">
                 {url_action_html}
+                </div>
             </td>
         </tr>
         """
@@ -432,8 +436,10 @@ def faq_page(
             <td data-label="檔名">{e(name)}</td>
             <td data-label="大小">{e(item.get('size', 0))} bytes</td>
             <td data-label="最後修改" class="meta-cell">{kb_last_activity(name)}</td>
-            <td data-label="操作" class="actions">
+            <td data-label="操作" class="actions-cell">
+                <div class="actions">
                 {kb_action_html}
+                </div>
             </td>
         </tr>
         """
@@ -793,9 +799,14 @@ def faq_page(
             font-weight:600;
         }}
 
+        .actions-cell {{
+            min-width:250px;
+            width:250px;
+        }}
+
         .actions {{
             display:grid;
-            grid-template-columns:repeat(auto-fit, 72px);
+            grid-template-columns:repeat(3, 72px);
             gap:8px;
             align-items:center;
             justify-content:start;
@@ -1130,19 +1141,21 @@ def faq_page(
 
             .actions {{
                 display:grid;
-                grid-template-columns:repeat(2, minmax(0, 1fr));
+                grid-template-columns:repeat(3, minmax(0, 1fr));
                 gap:10px;
                 white-space:normal;
             }}
 
-            .actions::before {{
-                grid-column:1 / -1;
+            .actions-cell {{
+                width:100%;
+                min-width:0;
             }}
 
             .actions .btn-edit,
             .actions .btn-del,
             .actions .btn-toggle {{
                 width:100%;
+                min-width:0;
             }}
         }}
     </style>
