@@ -28,6 +28,7 @@ def admin_bar_html():
                     <span class="admin-avatar" id="admin-avatar" aria-hidden="true">管</span>
                     <b id="admin-name">管理員</b>
                 </a>
+                <button type="button" class="admin-menu-toggle" id="admin-menu-toggle" aria-label="開啟導覽選單" aria-expanded="false">☰</button>
                 <a class="admin-logout" href="/logout">登出</a>
                 <label class="admin-theme-control" title="切換深夜模式">
                     <span>深夜模式</span>
@@ -99,6 +100,23 @@ def admin_bar_html():
         if(themeToggle){
             themeToggle.addEventListener("change", function(){
                 applyTheme(themeToggle.checked);
+            });
+        }
+
+        var menuToggle = document.getElementById("admin-menu-toggle");
+        var adminBar = document.querySelector(".admin-bar");
+        if(menuToggle && adminBar){
+            menuToggle.addEventListener("click", function(){
+                var open = adminBar.classList.toggle("menu-open");
+                document.body.classList.toggle("admin-menu-open", open);
+                menuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+            });
+            document.querySelectorAll(".admin-nav-link").forEach(function(link){
+                link.addEventListener("click", function(){
+                    adminBar.classList.remove("menu-open");
+                    document.body.classList.remove("admin-menu-open");
+                    menuToggle.setAttribute("aria-expanded", "false");
+                });
             });
         }
     })();
@@ -216,13 +234,23 @@ def admin_bar_css():
     html.style-console body .btn-edit,
     body.style-console .btn-edit,
     html.style-console body .export-link,
-    body.style-console .export-link,
-    html.style-console body .admin-nav-link.active,
-    body.style-console .admin-nav-link.active {
+    body.style-console .export-link {
         background:var(--button-bg) !important;
         color:#ffffff !important;
         border-color:transparent !important;
         box-shadow:none !important;
+    }
+
+    html.style-console body .admin-nav-link.active,
+    body.style-console .admin-nav-link.active {
+        background:transparent !important;
+        color:var(--text) !important;
+        box-shadow:none !important;
+    }
+
+    html.style-console body .admin-nav-link.active::after,
+    body.style-console .admin-nav-link.active::after {
+        background:var(--button-bg) !important;
     }
 
     html.style-console body .clear-link,
@@ -340,14 +368,15 @@ def admin_bar_css():
         display:flex;
         align-items:center;
         justify-content:center;
-        gap:6px;
+        gap:2px;
         min-width:0;
     }
 
     .admin-nav-link {
-        min-height:34px;
-        padding:7px 11px;
-        border-radius:8px;
+        position:relative;
+        min-height:42px;
+        padding:10px 13px;
+        border-radius:0;
         color:var(--muted);
         text-decoration:none;
         font-size:13px;
@@ -358,10 +387,30 @@ def admin_bar_css():
         white-space:nowrap;
     }
 
+    .admin-nav-link::after {
+        content:"";
+        position:absolute;
+        left:10px;
+        right:10px;
+        bottom:4px;
+        height:3px;
+        background:transparent;
+        transition:background 0.18s ease;
+    }
+
+    .admin-nav-link:hover {
+        color:var(--text);
+        background:var(--panel-soft);
+    }
+
     .admin-nav-link.active {
-        color:white;
+        color:var(--text);
+        background:transparent;
+        box-shadow:none;
+    }
+
+    .admin-nav-link.active::after {
         background:linear-gradient(135deg,#60a5fa,#a78bfa);
-        box-shadow:0 8px 18px rgba(79,70,229,0.18);
     }
 
     .admin-actions {
@@ -408,6 +457,24 @@ def admin_bar_css():
         border:1px solid var(--border);
         background:var(--panel-soft);
         color:var(--text);
+    }
+
+    .admin-menu-toggle {
+        display:none;
+        width:34px;
+        height:34px;
+        min-width:34px;
+        min-height:34px;
+        padding:0;
+        border-radius:8px;
+        border:1px solid var(--border);
+        background:var(--panel-soft);
+        color:var(--text);
+        font-size:18px;
+        font-weight:900;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
     }
 
     .admin-theme-control {
@@ -468,37 +535,77 @@ def admin_bar_css():
 
     @media (max-width:860px) {
         body.has-admin-bar {
-            padding-top:164px !important;
+            padding-top:74px !important;
         }
 
         .admin-bar-inner {
-            min-height:140px;
+            min-height:58px;
             padding:10px 14px;
-            align-items:stretch;
-            flex-direction:column;
+            align-items:center;
+            flex-direction:row;
+            flex-wrap:wrap;
             gap:8px;
         }
 
         .admin-brand {
             font-size:14px;
+            flex:1 1 100%;
+            min-width:0;
+        }
+
+        .admin-brand span {
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
         }
 
         .admin-actions {
-            justify-content:space-between;
+            flex:1 1 100%;
+            justify-content:flex-end;
             gap:8px;
+            min-width:0;
+            order:1;
+        }
+
+        .admin-menu-toggle {
+            display:inline-flex;
+            order:2;
         }
 
         .admin-nav-menu {
+            display:none;
+            flex:1 1 100%;
+            order:3;
+            grid-template-columns:1fr;
+            gap:0;
+            padding-top:8px;
+            border-top:1px solid var(--border);
+        }
+
+        .admin-bar.menu-open .admin-nav-menu {
             display:grid;
-            grid-template-columns:repeat(3, minmax(0, 1fr));
-            gap:6px;
+        }
+
+        body.admin-menu-open.has-admin-bar {
+            padding-top:260px !important;
         }
 
         .admin-nav-link {
             width:100%;
-            min-height:32px;
-            padding:6px 8px;
+            min-height:38px;
+            padding:10px 8px 10px 14px;
             font-size:12px;
+            justify-content:flex-start;
+            border-bottom:1px solid var(--border);
+        }
+
+        .admin-nav-link::after {
+            left:0;
+            right:auto;
+            top:9px;
+            bottom:9px;
+            width:3px;
+            height:auto;
         }
 
         .admin-theme-control span:first-child {
@@ -506,7 +613,7 @@ def admin_bar_css():
         }
 
         .admin-identity b {
-            max-width:110px;
+            max-width:96px;
             overflow:hidden;
             text-overflow:ellipsis;
             white-space:nowrap;

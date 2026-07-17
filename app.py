@@ -1012,14 +1012,13 @@ def admin_changelog_section():
     if not isinstance(items, list) or not items:
         return ""
 
-    rows = ""
-    for item in items[:20]:
+    def changelog_item_html(item):
         changes = item.get("changes", [])
         if isinstance(changes, list):
             change_html = "".join(f"<li>{html_escape(change)}</li>" for change in changes)
         else:
             change_html = f"<li>{html_escape(changes)}</li>"
-        rows += f"""
+        return f"""
         <article class="changelog-item">
             <div class="changelog-date">{html_escape(item.get("date", "-"))}</div>
             <div class="changelog-body">
@@ -1029,15 +1028,26 @@ def admin_changelog_section():
         </article>
         """
 
+    latest_rows = "".join(changelog_item_html(item) for item in items[:5])
+    older_items = items[5:20]
+    older_rows = "".join(changelog_item_html(item) for item in older_items)
+    older_section = f"""
+        <details class="changelog-more">
+            <summary>查看較早更新（{len(items) - 5} 筆）</summary>
+            <div class="changelog-list older">{older_rows}</div>
+        </details>
+    """ if older_items else ""
+
     return f"""
     <section class="card admin-card changelog-card">
         <div class="section-heading">
             <div>
                 <h3>後台最近更新</h3>
-                <p>記錄此管理後台近期新增、調整與修正的功能。</p>
+                <p>預設顯示最近 5 筆，較早的更新可展開查看。</p>
             </div>
         </div>
-        <div class="changelog-list">{rows}</div>
+        <div class="changelog-list">{latest_rows}</div>
+        {older_section}
     </section>
     """
 
@@ -1148,11 +1158,18 @@ def admin_css():
     body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
     .changelog-card { margin-top:14px; }
     .changelog-list { padding:8px 18px 18px; display:grid; gap:12px; }
+    .changelog-list.older { padding:8px 0 0; }
     .changelog-item { display:grid; grid-template-columns:120px minmax(0, 1fr); gap:14px; padding:14px 0; border-top:1px solid var(--border); }
     .changelog-item:first-child { border-top:none; }
     .changelog-date { color:var(--muted); font-size:12px; font-weight:900; }
     .changelog-body h4 { margin:0 0 8px; font-size:15px; color:var(--text); }
     .changelog-body ul { margin:0; padding-left:18px; color:var(--muted); font-size:13px; line-height:1.65; }
+    .changelog-more { margin:0 18px 18px; border-top:1px solid var(--border); padding-top:12px; }
+    .changelog-more summary { cursor:pointer; color:#3730a3; font-size:13px; font-weight:900; list-style:none; display:inline-flex; align-items:center; gap:8px; }
+    .changelog-more summary::-webkit-details-marker { display:none; }
+    .changelog-more summary::before { content:"+"; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--panel-soft); border:1px solid var(--border); color:var(--text); }
+    .changelog-more[open] summary::before { content:"-"; }
+    body.dark .changelog-more summary { color:#93c5fd; }
     body.style-console .changelog-card { border-radius:0; }
     """ + admin_bar_css() + """
     @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
