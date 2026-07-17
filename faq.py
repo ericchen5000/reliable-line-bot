@@ -424,10 +424,12 @@ def faq_page(
 
         active = is_active_item(item)
         edit_query = urlencode({"edit_id": i, "q": q, "tab": "faq"}) if q else urlencode({"edit_id": i, "tab": "faq"})
+        detail_button = '<button type="button" class="btn-detail" data-open-detail="1">詳情</button>'
         action_html = (
-            '<span class="readonly-pill">唯讀</span>'
+            f'{detail_button}<span class="readonly-pill">唯讀</span>'
             if readonly else
             f"""
+                {detail_button}
                 <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
                 <a href="/faq/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
                 <a href="/faq/delete/{i}" class="btn-del danger-link" data-confirm="確定要永久刪除這筆 FAQ 嗎？此動作無法復原。">刪除</a>
@@ -484,10 +486,12 @@ def faq_page(
     for i, item in enumerate(urls):
         keywords = ", ".join(item.get("keywords", [])) if isinstance(item.get("keywords"), list) else str(item.get("keywords", ""))
         active = is_active_item(item)
+        detail_button = '<button type="button" class="btn-detail" data-open-detail="1">詳情</button>'
         url_action_html = (
-            '<span class="readonly-pill">唯讀</span>'
+            f'{detail_button}<span class="readonly-pill">唯讀</span>'
             if readonly else
             f"""
+                {detail_button}
                 <a href="/faq?edit_url={i}&tab=url" class="btn-edit">編輯</a>
                 <a href="/faq/urls/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
                 <a href="/faq/urls/delete/{i}" class="btn-del danger-link" data-confirm="確定要永久刪除這個網站索引嗎？此動作無法復原。">刪除</a>
@@ -539,10 +543,12 @@ def faq_page(
         active = item.get("active", True)
         encoded_name = quote(name)
         item_value = f"{'1' if active else '0'}|{name}"
+        detail_button = '<button type="button" class="btn-detail" data-open-detail="1">詳情</button>'
         kb_action_html = (
-            '<span class="readonly-pill">唯讀</span>'
+            f'{detail_button}<span class="readonly-pill">唯讀</span>'
             if readonly else
             f'''
+                {detail_button}
                 <a href="/faq?edit_kb={encoded_name}&kb_active={"1" if active else "0"}&tab=kb" class="btn-edit">編輯</a>
                 <a href="/faq/kb/toggle/{encoded_name}?active={"1" if active else "0"}" class="btn-toggle {"toggle-off" if active else "toggle-on"}">{"停用" if active else "啟用"}</a>
                 <a href="/faq/kb/delete/{encoded_name}?active={"1" if active else "0"}" class="btn-del danger-link" data-confirm="確定要永久刪除這個 KB 文件嗎？此動作無法復原。">刪除</a>
@@ -926,20 +932,20 @@ def faq_page(
         }}
 
         .actions-cell {{
-            min-width:250px;
-            width:250px;
+            min-width:330px;
+            width:330px;
         }}
 
         .actions {{
             display:grid;
-            grid-template-columns:repeat(3, 72px);
+            grid-template-columns:repeat(4, 72px);
             gap:8px;
             align-items:center;
             justify-content:start;
             white-space:normal;
         }}
 
-        .btn-edit, .btn-del, .btn-toggle, .cancel-link, .export-link {{
+        .btn-edit, .btn-del, .btn-toggle, .btn-detail, .cancel-link, .export-link {{
             min-height:32px;
             padding:7px 14px;
             color:white;
@@ -955,10 +961,17 @@ def faq_page(
 
         .actions .btn-edit,
         .actions .btn-del,
-        .actions .btn-toggle {{
+        .actions .btn-toggle,
+        .actions .btn-detail {{
             width:72px;
             padding-left:0;
             padding-right:0;
+        }}
+
+        .btn-detail {{
+            border:1px solid rgba(96,165,250,0.35);
+            background:var(--accent-soft);
+            color:var(--accent-strong);
         }}
 
         .btn-edit {{
@@ -1492,7 +1505,7 @@ def faq_page(
 
             .actions {{
                 display:grid;
-                grid-template-columns:repeat(3, minmax(0, 1fr));
+                grid-template-columns:repeat(2, minmax(0, 1fr));
                 gap:10px;
                 white-space:normal;
             }}
@@ -1504,7 +1517,8 @@ def faq_page(
 
             .actions .btn-edit,
             .actions .btn-del,
-            .actions .btn-toggle {{
+            .actions .btn-toggle,
+            .actions .btn-detail {{
                 width:100%;
                 min-width:0;
             }}
@@ -1628,17 +1642,26 @@ def faq_page(
             const drawerBody = document.getElementById("drawer-body");
             const drawerMeta = document.getElementById("drawer-meta");
             const drawerOwner = document.getElementById("drawer-owner");
+            function openDetailDrawer(row){{
+                if(!row) return;
+                if(drawerKind) drawerKind.textContent = row.dataset.kind || "詳情";
+                if(drawerTitle) drawerTitle.textContent = row.dataset.title || "-";
+                if(drawerBody) drawerBody.textContent = row.dataset.body || "-";
+                if(drawerMeta) drawerMeta.textContent = row.dataset.meta || "-";
+                if(drawerOwner) drawerOwner.textContent = row.dataset.owner || "-";
+                if(drawer) drawer.classList.add("open");
+            }}
+
             document.querySelectorAll(".inspectable-row").forEach(function(row){{
                 row.addEventListener("click", function(event){{
+                    if(event.target.closest("[data-open-detail]")){{
+                        openDetailDrawer(row);
+                        return;
+                    }}
                     if(event.target.closest("a, button, input, form, select, textarea")){{
                         return;
                     }}
-                    if(drawerKind) drawerKind.textContent = row.dataset.kind || "詳情";
-                    if(drawerTitle) drawerTitle.textContent = row.dataset.title || "-";
-                    if(drawerBody) drawerBody.textContent = row.dataset.body || "-";
-                    if(drawerMeta) drawerMeta.textContent = row.dataset.meta || "-";
-                    if(drawerOwner) drawerOwner.textContent = row.dataset.owner || "-";
-                    if(drawer) drawer.classList.add("open");
+                    openDetailDrawer(row);
                 }});
             }});
         }});
