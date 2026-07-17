@@ -213,8 +213,11 @@ def is_write_path(request: Request):
 
     write_get_prefixes = (
         "/faq/delete/",
+        "/faq/toggle/",
         "/faq/urls/delete/",
+        "/faq/urls/toggle/",
         "/faq/kb/delete/",
+        "/faq/kb/toggle/",
         "/admin/users/delete/",
     )
     return any(path.startswith(prefix) for prefix in write_get_prefixes)

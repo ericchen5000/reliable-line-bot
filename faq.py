@@ -7,7 +7,7 @@ import json
 import os
 import re
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import quote, urlencode
 from xml.etree import ElementTree
 from admin_ui import admin_bar_css, admin_bar_html
@@ -19,6 +19,7 @@ FAQ_PATH = "data/faq.json"
 URLS_PATH = "data/urls.json"
 KB_DIR = "knowledge/txt"
 KB_DISABLED_DIR = "knowledge/txt_disabled"
+CHAT_LOG_PATH = "logs/chat_logs.json"
 
 
 # =========================
@@ -262,7 +263,7 @@ def extract_kb_text(filename, content):
 
 
 def kb_notice_url(message):
-    return "/faq?" + urlencode({"notice": message}) + "#kb-manager"
+    return "/faq?" + urlencode({"tab": "kb", "notice": message})
 
 
 def e(value):
@@ -288,6 +289,91 @@ def normalize_question(value):
     return str(value).strip().lower()
 
 
+def load_chat_logs():
+    if not os.path.exists(CHAT_LOG_PATH):
+        return []
+    try:
+        with open(CHAT_LOG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except:
+        return []
+
+
+def recent_logs(days=7):
+    cutoff = datetime.now() - timedelta(days=days)
+    items = []
+    for item in load_chat_logs():
+        raw_time = str(item.get("time", ""))
+        try:
+            log_time = datetime.strptime(raw_time, "%Y/%m/%d %H:%M:%S")
+        except:
+            items.append(item)
+            continue
+        if log_time >= cutoff:
+            items.append(item)
+    return items
+
+
+def source_text(item):
+    return f"{item.get('source', '')} {item.get('reply', '')} {item.get('message', '')}".lower()
+
+
+def usage_counts(faq, urls, files):
+    logs = recent_logs(7)
+    faq_counts = {}
+    url_counts = {}
+    kb_counts = {}
+
+    for index, item in enumerate(faq):
+        question = normalize_question(item.get("question", ""))
+        faq_counts[index] = sum(
+            1 for log in logs
+            if question and normalize_question(log.get("message", "")) == question
+        )
+
+    for index, item in enumerate(urls):
+        url = str(item.get("url", "")).lower()
+        title = str(item.get("title", "")).lower()
+        url_counts[index] = sum(
+            1 for log in logs
+            if (url and url in source_text(log)) or (title and title in source_text(log))
+        )
+
+    for item in files:
+        name = str(item.get("name", ""))
+        stem = os.path.splitext(name)[0].lower()
+        key = (name, bool(item.get("active", True)))
+        kb_counts[key] = sum(
+            1 for log in logs
+            if name.lower() in source_text(log) or (stem and stem in source_text(log))
+        )
+
+    return faq_counts, url_counts, kb_counts
+
+
+def hit_badge(count):
+    return f"<span class='hit-count'>{int(count or 0)}</span>"
+
+
+def empty_row(colspan, title, detail):
+    return f"""
+    <tr>
+        <td colspan="{colspan}">
+            <div class="empty-state">
+                <b>{e(title)}</b>
+                <span>{e(detail)}</span>
+            </div>
+        </td>
+    </tr>
+    """
+
+
+def tab_link(tab, label, active_tab):
+    css = "active" if tab == active_tab else ""
+    return f'<a class="{css}" href="/faq?tab={tab}">{label}</a>'
+
+
 # =========================
 # MAIN PAGE (ALL IN ONE)
 # =========================
@@ -298,6 +384,7 @@ def faq_page(
     edit_url: int = None,
     edit_kb: str = "",
     kb_active: int = 1,
+    tab: str = "",
     q: str = "",
     notice: str = ""
 ):
@@ -307,6 +394,17 @@ def faq_page(
     files = kb_files()
     search_text = q.strip().lower()
     readonly = admin_tools.is_readonly_admin(request)
+    active_tab = tab if tab in {"faq", "url", "kb"} else "faq"
+    batch_faq_colspan = 8 if not readonly else 7
+    batch_url_colspan = 8 if not readonly else 7
+    batch_kb_colspan = 7 if not readonly else 6
+
+    if edit_url is not None:
+        active_tab = "url"
+    if edit_kb:
+        active_tab = "kb"
+
+    faq_hits, url_hits, kb_hits = usage_counts(faq, urls, files)
 
     edit_item = None
     if edit_id is not None and 0 <= edit_id < len(faq):
@@ -325,23 +423,25 @@ def faq_page(
                 continue
 
         active = is_active_item(item)
-        edit_query = urlencode({"edit_id": i, "q": q}) if q else urlencode({"edit_id": i})
+        edit_query = urlencode({"edit_id": i, "q": q, "tab": "faq"}) if q else urlencode({"edit_id": i, "tab": "faq"})
         action_html = (
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
             f"""
                 <a href="/faq?{e(edit_query)}" class="btn-edit">編輯</a>
                 <a href="/faq/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
-                <a href="/faq/delete/{i}" class="btn-del" onclick="return confirm('確定要永久刪除這筆 FAQ 嗎？此動作無法復原。')">刪除</a>
+                <a href="/faq/delete/{i}" class="btn-del danger-link" data-confirm="確定要永久刪除這筆 FAQ 嗎？此動作無法復原。">刪除</a>
             """
         )
 
         rows += f"""
         <tr>
+            {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
             <td data-label="ID">{i+1}</td>
             <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="問題" class="question-cell">{e(item.get('question',''))}</td>
             <td data-label="答案" class="answer-cell">{e(item.get('answer',''))}</td>
+            <td data-label="近 7 天命中">{hit_badge(faq_hits.get(i, 0))}</td>
             <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
 
             <td data-label="操作" class="actions-cell">
@@ -351,6 +451,9 @@ def faq_page(
             </td>
         </tr>
         """
+
+    if not rows:
+        rows = empty_row(batch_faq_colspan, "目前沒有符合條件的 FAQ", "可以新增常見問題，或調整搜尋關鍵字後再試一次。")
 
     # =========================
     # FORM MODE
@@ -379,17 +482,19 @@ def faq_page(
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
             f"""
-                <a href="/faq?edit_url={i}" class="btn-edit">編輯</a>
+                <a href="/faq?edit_url={i}&tab=url" class="btn-edit">編輯</a>
                 <a href="/faq/urls/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
-                <a href="/faq/urls/delete/{i}" class="btn-del" onclick="return confirm('確定要永久刪除這個網站索引嗎？此動作無法復原。')">刪除</a>
+                <a href="/faq/urls/delete/{i}" class="btn-del danger-link" data-confirm="確定要永久刪除這個網站索引嗎？此動作無法復原。">刪除</a>
             """
         )
         url_rows += f"""
         <tr>
+            {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
             <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="網站">{e(item.get('title', '-'))}</td>
             <td data-label="網址">{e(item.get('url', '-'))}</td>
             <td data-label="關鍵字">{e(keywords)}</td>
+            <td data-label="近 7 天命中">{hit_badge(url_hits.get(i, 0))}</td>
             <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
             <td data-label="操作" class="actions-cell">
                 <div class="actions">
@@ -400,7 +505,7 @@ def faq_page(
         """
 
     if not url_rows:
-        url_rows = "<tr><td colspan='5'>尚未設定網站索引</td></tr>"
+        url_rows = empty_row(batch_url_colspan, "尚未設定網站索引", "新增 Reliable 官網、產品頁、知識庫或新聞中心網址後，可到 Dashboard 立即建立索引。")
 
     url_is_edit = edit_url_item is not None
     url_form_action = f"/faq/urls/edit/{edit_url}" if url_is_edit else "/faq/urls/add"
@@ -421,20 +526,23 @@ def faq_page(
         name = item.get("name", "")
         active = item.get("active", True)
         encoded_name = quote(name)
+        item_value = f"{'1' if active else '0'}|{name}"
         kb_action_html = (
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
             f'''
-                <a href="/faq?edit_kb={encoded_name}&kb_active={"1" if active else "0"}#kb-manager" class="btn-edit">編輯</a>
+                <a href="/faq?edit_kb={encoded_name}&kb_active={"1" if active else "0"}&tab=kb" class="btn-edit">編輯</a>
                 <a href="/faq/kb/toggle/{encoded_name}?active={"1" if active else "0"}" class="btn-toggle {"toggle-off" if active else "toggle-on"}">{"停用" if active else "啟用"}</a>
-                <a href="/faq/kb/delete/{encoded_name}?active={"1" if active else "0"}" class="btn-del" onclick="return confirm('確定要永久刪除這個 KB 文件嗎？此動作無法復原。')">刪除</a>
+                <a href="/faq/kb/delete/{encoded_name}?active={"1" if active else "0"}" class="btn-del danger-link" data-confirm="確定要永久刪除這個 KB 文件嗎？此動作無法復原。">刪除</a>
             '''
         )
         kb_rows += f"""
         <tr>
+            {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="items" value="{e(item_value)}"></td>'}
             <td data-label="狀態">{status_badge(active)}</td>
             <td data-label="檔名">{e(name)}</td>
             <td data-label="大小">{e(item.get('size', 0))} bytes</td>
+            <td data-label="近 7 天命中">{hit_badge(kb_hits.get((name, active), 0))}</td>
             <td data-label="最後修改" class="meta-cell">{kb_last_activity(name)}</td>
             <td data-label="操作" class="actions-cell">
                 <div class="actions">
@@ -445,7 +553,7 @@ def faq_page(
         """
 
     if not kb_rows:
-        kb_rows = "<tr><td colspan='4'>尚無 KB 文件</td></tr>"
+        kb_rows = empty_row(batch_kb_colspan, "尚無 KB 文件", "可以直接新增文字內容，或上傳 TXT、PDF、DOCX 轉成 KB。")
 
     readonly_card = """
         <div class="card readonly-panel">
@@ -934,6 +1042,146 @@ def faq_page(
             font-weight:700;
         }}
 
+        .section-tabs a.active {{
+            color:white;
+            background:var(--button-bg);
+            border-color:transparent;
+        }}
+
+        .tab-panel {{
+            display:none;
+        }}
+
+        .tab-panel.active {{
+            display:block;
+        }}
+
+        .batch-bar {{
+            margin:0 0 12px;
+            padding:10px 12px;
+            border:1px solid var(--border);
+            border-radius:8px;
+            background:var(--panel-soft);
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:10px;
+            flex-wrap:wrap;
+        }}
+
+        .batch-bar span {{
+            color:var(--muted);
+            font-size:13px;
+            font-weight:800;
+        }}
+
+        .batch-actions {{
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+        }}
+
+        .batch-actions button {{
+            min-height:32px;
+            padding:7px 12px;
+            font-size:12px;
+        }}
+
+        .check-cell {{
+            width:42px;
+            text-align:center;
+        }}
+
+        .check-cell input,
+        td[data-label="選取"] input {{
+            width:auto;
+            margin:0;
+        }}
+
+        .hit-count {{
+            min-width:34px;
+            min-height:28px;
+            padding:5px 8px;
+            border-radius:999px;
+            background:var(--accent-soft);
+            color:var(--accent-strong);
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            font-size:12px;
+            font-weight:900;
+        }}
+
+        .empty-state {{
+            min-height:110px;
+            display:grid;
+            place-items:center;
+            gap:6px;
+            text-align:center;
+            color:var(--muted);
+        }}
+
+        .empty-state b {{
+            color:var(--text);
+            font-size:15px;
+        }}
+
+        .toast {{
+            position:fixed;
+            right:22px;
+            top:82px;
+            z-index:1200;
+            max-width:360px;
+            padding:12px 14px;
+            border-radius:8px;
+            border:1px solid rgba(96,165,250,0.35);
+            background:var(--panel);
+            color:var(--text);
+            box-shadow:var(--shadow);
+            font-size:13px;
+            font-weight:800;
+        }}
+
+        .confirm-modal {{
+            position:fixed;
+            inset:0;
+            z-index:1300;
+            display:none;
+            align-items:center;
+            justify-content:center;
+            padding:20px;
+            background:rgba(15,23,42,0.42);
+        }}
+
+        .confirm-modal.open {{
+            display:flex;
+        }}
+
+        .confirm-panel {{
+            width:min(460px, 100%);
+            background:var(--panel);
+            border:1px solid var(--border);
+            border-radius:10px;
+            box-shadow:var(--shadow);
+            padding:18px;
+        }}
+
+        .confirm-panel h3 {{
+            margin:0 0 8px;
+        }}
+
+        .confirm-panel p {{
+            margin:0 0 16px;
+            color:var(--muted);
+            line-height:1.6;
+        }}
+
+        .confirm-actions {{
+            display:flex;
+            justify-content:flex-end;
+            gap:8px;
+        }}
+
         .section-title {{
             margin:22px 0 12px;
         }}
@@ -1183,6 +1431,94 @@ def faq_page(
             document.body.classList.toggle("dark", isDark);
             localStorage.setItem("faq-theme", isDark ? "dark" : "light");
         }}
+
+        document.addEventListener("DOMContentLoaded", function(){{
+            const toast = document.querySelector(".toast");
+            if(toast){{
+                setTimeout(function(){{
+                    toast.style.opacity = "0";
+                    toast.style.transform = "translateY(-6px)";
+                }}, 2600);
+                setTimeout(function(){{
+                    toast.remove();
+                }}, 3200);
+            }}
+
+            let pendingHref = "";
+            let pendingForm = null;
+            let pendingActionName = "";
+            let pendingActionValue = "";
+            const modal = document.getElementById("confirm-modal");
+            const modalText = document.getElementById("confirm-text");
+            document.querySelectorAll(".danger-link").forEach(function(link){{
+                link.addEventListener("click", function(event){{
+                    event.preventDefault();
+                    pendingHref = link.getAttribute("href") || "";
+                    pendingForm = null;
+                    if(modalText){{
+                        modalText.textContent = link.getAttribute("data-confirm") || "確定要執行此操作嗎？";
+                    }}
+                    if(modal){{
+                        modal.classList.add("open");
+                    }}
+                }});
+            }});
+
+            document.querySelectorAll("[data-batch-delete]").forEach(function(button){{
+                button.addEventListener("click", function(event){{
+                    const form = button.closest("form");
+                    const selected = form ? form.querySelectorAll("input[type='checkbox'][name]:checked").length : 0;
+                    if(!form || selected === 0){{
+                        return;
+                    }}
+
+                    event.preventDefault();
+                    pendingHref = "";
+                    pendingForm = form;
+                    pendingActionName = button.getAttribute("name") || "action";
+                    pendingActionValue = button.getAttribute("value") || "delete";
+                    if(modalText){{
+                        modalText.textContent = "確定要刪除已選取的資料嗎？此動作無法復原。";
+                    }}
+                    if(modal){{
+                        modal.classList.add("open");
+                    }}
+                }});
+            }});
+
+            document.querySelectorAll("[data-check-all]").forEach(function(box){{
+                box.addEventListener("change", function(){{
+                    const target = box.getAttribute("data-check-all");
+                    document.querySelectorAll(target).forEach(function(item){{
+                        item.checked = box.checked;
+                    }});
+                }});
+            }});
+
+            const cancel = document.getElementById("confirm-cancel");
+            const ok = document.getElementById("confirm-ok");
+            if(cancel && modal){{
+                cancel.addEventListener("click", function(){{ modal.classList.remove("open"); }});
+            }}
+            if(ok){{
+                ok.addEventListener("click", function(){{
+                    if(pendingForm){{
+                        let hidden = pendingForm.querySelector("input[data-pending-action='1']");
+                        if(!hidden){{
+                            hidden = document.createElement("input");
+                            hidden.type = "hidden";
+                            hidden.setAttribute("data-pending-action", "1");
+                            pendingForm.appendChild(hidden);
+                        }}
+                        hidden.name = pendingActionName;
+                        hidden.value = pendingActionValue;
+                        pendingForm.submit();
+                    }} else if(pendingHref){{
+                        window.location.href = pendingHref;
+                    }}
+                }});
+            }}
+        }});
     </script>
     </head>
 
@@ -1207,21 +1543,23 @@ def faq_page(
     <nav class="nav">{nav_html("知識管理")}</nav>
 
     <div class="section-tabs">
-        <a href="#faq-manager">FAQ 管理</a>
-        <a href="#url-manager">網站索引管理</a>
-        <a href="#kb-manager">知識庫文件管理</a>
+        {tab_link("faq", "FAQ 管理", active_tab)}
+        {tab_link("url", "網站索引管理", active_tab)}
+        {tab_link("kb", "知識庫文件管理", active_tab)}
     </div>
 
-    {f'<div class="card notice">{e(notice)}</div>' if notice else ''}
+    {f'<div class="toast">{e(notice)}</div>' if notice else ''}
 
+    <section class="tab-panel {'active' if active_tab == 'faq' else ''}">
     <div class="section-title" id="faq-manager">
         <h3>FAQ 管理</h3>
         <p class="subtitle">管理客服優先回答的常見問題。</p>
     </div>
     <form class="card search-card" method="get" action="/faq">
+        <input type="hidden" name="tab" value="faq">
         <input name="q" value="{e(q)}" placeholder="搜尋 FAQ 問題或答案">
         <button>搜尋</button>
-        <a href="/faq" class="cancel-link">清空</a>
+        <a href="/faq?tab=faq" class="cancel-link">清空</a>
     </form>
 
     {'' if readonly else f'''
@@ -1255,23 +1593,39 @@ def faq_page(
 
         <div class="card">
             <div class="top-title">FAQ 清單</div>
+            <form method="post" action="/faq/batch">
+            {'' if readonly else '''
+            <div class="batch-bar">
+                <span>批次操作</span>
+                <div class="batch-actions">
+                    <button name="action" value="enable">啟用</button>
+                    <button name="action" value="disable">停用</button>
+                    <button name="action" value="delete" class="btn-del" data-batch-delete="1">刪除</button>
+                </div>
+            </div>
+            '''}
             <div class="table-wrap">
             <table>
                 <tr>
+                    {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'ids\']"></th>'}
                     <th>ID</th>
                     <th>狀態</th>
                     <th>問題</th>
                     <th>答案</th>
+                    <th>近 7 天命中</th>
                     <th>最後修改</th>
                     <th>操作</th>
                 </tr>
                 {rows}
             </table>
             </div>
+            </form>
         </div>
 
     </div>
+    </section>
 
+    <section class="tab-panel {'active' if active_tab == 'url' else ''}">
     <div class="section-title" id="url-manager">
         <h3>網站索引管理</h3>
         <p class="subtitle">新增、編輯或刪除可被 AI 客服搜尋的指定網站。</p>
@@ -1290,7 +1644,7 @@ def faq_page(
                 </div>
                 <div class="form-actions">
                     <button>{url_btn_text}</button>
-                    {"<a href='/faq#url-manager' class='cancel-link'>取消編輯</a>" if url_is_edit else ""}
+                    {"<a href='/faq?tab=url' class='cancel-link'>取消編輯</a>" if url_is_edit else ""}
                 </div>
                 <p class="hint">新增後如果要讓網站索引立即更新，請到 Dashboard 按「立即建立索引」。</p>
             </form>
@@ -1298,22 +1652,38 @@ def faq_page(
         '''}
         <div class="card">
             <div class="top-title">網站索引清單</div>
+            <form method="post" action="/faq/urls/batch">
+            {'' if readonly else '''
+            <div class="batch-bar">
+                <span>批次操作</span>
+                <div class="batch-actions">
+                    <button name="action" value="enable">啟用</button>
+                    <button name="action" value="disable">停用</button>
+                    <button name="action" value="delete" class="btn-del" data-batch-delete="1">刪除</button>
+                </div>
+            </div>
+            '''}
             <div class="table-wrap">
             <table>
                 <tr>
+                    {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'ids\']"></th>'}
                     <th>狀態</th>
                     <th>網站</th>
                     <th>網址</th>
                     <th>關鍵字</th>
+                    <th>近 7 天命中</th>
                     <th>最後修改</th>
                     <th>操作</th>
                 </tr>
                 {url_rows}
             </table>
             </div>
+            </form>
         </div>
     </div>
+    </section>
 
+    <section class="tab-panel {'active' if active_tab == 'kb' else ''}">
     <div class="section-title" id="kb-manager">
         <h3>知識庫文件管理</h3>
         <p class="subtitle">新增或刪除 KB 文字文件，AI 客服會搜尋 knowledge/txt 裡的 .txt 檔。</p>
@@ -1329,7 +1699,7 @@ def faq_page(
                 </div>
                 <div class="form-actions">
                     <button>{'儲存 KB' if kb_is_edit else '新增 KB'}</button>
-                    {"<a href='/faq#kb-manager' class='cancel-link'>取消編輯</a>" if kb_is_edit else ""}
+                    {"<a href='/faq?tab=kb' class='cancel-link'>取消編輯</a>" if kb_is_edit else ""}
                 </div>
             </form>
             <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
@@ -1343,17 +1713,42 @@ def faq_page(
         '''}
         <div class="card">
             <div class="top-title">KB 文件清單</div>
+            <form method="post" action="/faq/kb/batch">
+            {'' if readonly else '''
+            <div class="batch-bar">
+                <span>批次操作</span>
+                <div class="batch-actions">
+                    <button name="action" value="enable">啟用</button>
+                    <button name="action" value="disable">停用</button>
+                    <button name="action" value="delete" class="btn-del" data-batch-delete="1">刪除</button>
+                </div>
+            </div>
+            '''}
             <div class="table-wrap">
             <table>
                 <tr>
+                    {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'items\']"></th>'}
                     <th>狀態</th>
                     <th>檔名</th>
                     <th>大小</th>
+                    <th>近 7 天命中</th>
                     <th>最後修改</th>
                     <th>操作</th>
                 </tr>
                 {kb_rows}
             </table>
+            </div>
+            </form>
+        </div>
+    </div>
+    </section>
+    <div class="confirm-modal" id="confirm-modal">
+        <div class="confirm-panel">
+            <h3>確認刪除</h3>
+            <p id="confirm-text">確定要執行此操作嗎？</p>
+            <div class="confirm-actions">
+                <button type="button" id="confirm-cancel" class="cancel-link">取消</button>
+                <button type="button" id="confirm-ok" class="btn-del">確認刪除</button>
             </div>
         </div>
     </div>
@@ -1533,6 +1928,37 @@ def delete(request: Request, idx: int):
     return redirect_with_notice("/faq", "找不到指定 FAQ")
 
 
+@router.post("/faq/batch")
+def batch_faq(request: Request, action: str = Form(...), ids: list[int] = Form([])):
+    faq = load_faq()
+    selected = sorted(set(i for i in ids if 0 <= i < len(faq)), reverse=True)
+
+    if not selected:
+        return redirect_with_notice("/faq?tab=faq", "請先選取 FAQ")
+
+    admin_name = current_admin_name(request)
+    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+
+    if action == "delete":
+        for idx in selected:
+            removed = faq.pop(idx)
+            admin_tools.log_admin_activity(request, "批次刪除 FAQ", removed.get("question", f"#{idx + 1}"))
+        save_faq(faq)
+        return redirect_with_notice("/faq?tab=faq", f"已刪除 {len(selected)} 筆 FAQ")
+
+    if action in {"enable", "disable"}:
+        next_active = action == "enable"
+        for idx in selected:
+            faq[idx]["active"] = next_active
+            faq[idx]["updated_by"] = admin_name
+            faq[idx]["updated_at"] = now
+        save_faq(faq)
+        admin_tools.log_admin_activity(request, "批次更新 FAQ 狀態", f"{len(selected)} 筆", "啟用" if next_active else "停用")
+        return redirect_with_notice("/faq?tab=faq", f"已{'啟用' if next_active else '停用'} {len(selected)} 筆 FAQ")
+
+    return redirect_with_notice("/faq?tab=faq", "未知的批次操作")
+
+
 def parse_keywords(value):
     return [item.strip() for item in str(value or "").split(",") if item.strip()]
 
@@ -1562,9 +1988,9 @@ def add_url(
         })
         save_urls(urls)
         admin_tools.log_admin_activity(request, "新增網站索引", url)
-        return redirect_with_notice("/faq#url-manager", "網站索引已新增")
+        return redirect_with_notice("/faq?tab=url", "網站索引已新增")
 
-    return redirect_with_notice("/faq#url-manager", "網站索引已存在，未重複新增")
+    return redirect_with_notice("/faq?tab=url", "網站索引已存在，未重複新增")
 
 
 @router.post("/faq/urls/edit/{idx}")
@@ -1593,7 +2019,7 @@ def edit_url(
         save_urls(urls)
         admin_tools.log_admin_activity(request, "編輯網站索引", url.strip())
 
-    return redirect_with_notice("/faq#url-manager", "網站索引已更新")
+    return redirect_with_notice("/faq?tab=url", "網站索引已更新")
 
 
 @router.get("/faq/urls/toggle/{idx}")
@@ -1609,9 +2035,9 @@ def toggle_url(request: Request, idx: int):
         save_urls(urls)
         action = "啟用網站索引" if next_active else "停用網站索引"
         admin_tools.log_admin_activity(request, action, item.get("url", f"#{idx + 1}"))
-        return redirect_with_notice("/faq#url-manager", f"網站索引已{'啟用' if next_active else '停用'}")
+        return redirect_with_notice("/faq?tab=url", f"網站索引已{'啟用' if next_active else '停用'}")
 
-    return redirect_with_notice("/faq#url-manager", "找不到指定網站索引")
+    return redirect_with_notice("/faq?tab=url", "找不到指定網站索引")
 
 
 @router.get("/faq/urls/delete/{idx}")
@@ -1622,9 +2048,40 @@ def delete_url(request: Request, idx: int):
         removed = urls.pop(idx)
         save_urls(urls)
         admin_tools.log_admin_activity(request, "刪除網站索引", removed.get("url", f"#{idx + 1}"))
-        return redirect_with_notice("/faq#url-manager", "網站索引已刪除")
+        return redirect_with_notice("/faq?tab=url", "網站索引已刪除")
 
-    return redirect_with_notice("/faq#url-manager", "找不到指定網站索引")
+    return redirect_with_notice("/faq?tab=url", "找不到指定網站索引")
+
+
+@router.post("/faq/urls/batch")
+def batch_urls(request: Request, action: str = Form(...), ids: list[int] = Form([])):
+    urls = load_urls()
+    selected = sorted(set(i for i in ids if 0 <= i < len(urls)), reverse=True)
+
+    if not selected:
+        return redirect_with_notice("/faq?tab=url", "請先選取網站索引")
+
+    admin_name = current_admin_name(request)
+    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+
+    if action == "delete":
+        for idx in selected:
+            removed = urls.pop(idx)
+            admin_tools.log_admin_activity(request, "批次刪除網站索引", removed.get("url", f"#{idx + 1}"))
+        save_urls(urls)
+        return redirect_with_notice("/faq?tab=url", f"已刪除 {len(selected)} 筆網站索引")
+
+    if action in {"enable", "disable"}:
+        next_active = action == "enable"
+        for idx in selected:
+            urls[idx]["active"] = next_active
+            urls[idx]["updated_by"] = admin_name
+            urls[idx]["updated_at"] = now
+        save_urls(urls)
+        admin_tools.log_admin_activity(request, "批次更新網站索引狀態", f"{len(selected)} 筆", "啟用" if next_active else "停用")
+        return redirect_with_notice("/faq?tab=url", f"已{'啟用' if next_active else '停用'} {len(selected)} 筆網站索引")
+
+    return redirect_with_notice("/faq?tab=url", "未知的批次操作")
 
 
 @router.post("/faq/kb/add")
@@ -1641,7 +2098,7 @@ def add_kb(
         f.write(content.strip() + "\n")
     admin_tools.log_admin_activity(request, "KB 新增", name)
 
-    return redirect_with_notice("/faq#kb-manager", "KB 已新增")
+    return redirect_with_notice("/faq?tab=kb", "KB 已新增")
 
 
 @router.post("/faq/kb/edit/{filename}")
@@ -1655,13 +2112,13 @@ def edit_kb(
     path = kb_path(name, bool(active))
 
     if not os.path.exists(path) or not os.path.isfile(path):
-        return redirect_with_notice("/faq#kb-manager", "找不到指定 KB 文件")
+        return redirect_with_notice("/faq?tab=kb", "找不到指定 KB 文件")
 
     with open(path, "w", encoding="utf-8") as f:
         f.write(content.strip() + "\n")
 
     admin_tools.log_admin_activity(request, "KB 編輯", name)
-    return redirect_with_notice("/faq#kb-manager", "KB 已更新")
+    return redirect_with_notice("/faq?tab=kb", "KB 已更新")
 
 
 @router.post("/faq/kb/upload")
@@ -1701,9 +2158,9 @@ def toggle_kb(request: Request, filename: str, active: int = 1):
         os.rename(source_path, target_path)
         action = "KB 停用" if active else "KB 啟用"
         admin_tools.log_admin_activity(request, action, name)
-        return redirect_with_notice("/faq#kb-manager", f"KB 已{'停用' if active else '啟用'}")
+        return redirect_with_notice("/faq?tab=kb", f"KB 已{'停用' if active else '啟用'}")
 
-    return redirect_with_notice("/faq#kb-manager", "找不到指定 KB 文件")
+    return redirect_with_notice("/faq?tab=kb", "找不到指定 KB 文件")
 
 
 @router.get("/faq/kb/delete/{filename}")
@@ -1715,6 +2172,47 @@ def delete_kb(request: Request, filename: str, active: int = 1):
     if os.path.exists(path) and os.path.isfile(path):
         os.remove(path)
         admin_tools.log_admin_activity(request, "KB 刪除", name)
-        return redirect_with_notice("/faq#kb-manager", "KB 已刪除")
+        return redirect_with_notice("/faq?tab=kb", "KB 已刪除")
 
-    return redirect_with_notice("/faq#kb-manager", "找不到指定 KB 文件")
+    return redirect_with_notice("/faq?tab=kb", "找不到指定 KB 文件")
+
+
+@router.post("/faq/kb/batch")
+def batch_kb(request: Request, action: str = Form(...), items: list[str] = Form([])):
+    if not items:
+        return redirect_with_notice("/faq?tab=kb", "請先選取 KB 文件")
+
+    changed = 0
+    for raw in items:
+        active_raw, _, filename = str(raw).partition("|")
+        active = active_raw == "1"
+        name = safe_kb_filename(filename)
+        source_path = kb_path(name, active)
+
+        if not os.path.exists(source_path) or not os.path.isfile(source_path):
+            continue
+
+        if action == "delete":
+            os.remove(source_path)
+            admin_tools.log_admin_activity(request, "批次刪除 KB", name)
+            changed += 1
+            continue
+
+        if action in {"enable", "disable"}:
+            next_active = action == "enable"
+            if active == next_active:
+                continue
+            target_path = kb_path(name, next_active)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            if os.path.exists(target_path):
+                os.remove(target_path)
+            os.rename(source_path, target_path)
+            admin_tools.log_admin_activity(request, "批次更新 KB 狀態", name, "啟用" if next_active else "停用")
+            changed += 1
+
+    if action == "delete":
+        return redirect_with_notice("/faq?tab=kb", f"已刪除 {changed} 個 KB 文件")
+    if action in {"enable", "disable"}:
+        return redirect_with_notice("/faq?tab=kb", f"已{'啟用' if action == 'enable' else '停用'} {changed} 個 KB 文件")
+
+    return redirect_with_notice("/faq?tab=kb", "未知的批次操作")
