@@ -8,7 +8,7 @@ import os
 import re
 import zipfile
 from datetime import datetime
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from xml.etree import ElementTree
 from admin_ui import admin_bar_css, admin_bar_html
 import admin_tools
@@ -121,6 +121,25 @@ def kb_files():
             files.append({"name": name, "size": size, "active": active})
 
     return files
+
+
+def kb_path(filename, active=True):
+    base_dir = KB_DIR if active else KB_DISABLED_DIR
+    return os.path.join(base_dir, safe_kb_filename(filename))
+
+
+def read_kb_file(filename, active=True):
+    path = kb_path(filename, active)
+
+    if not os.path.exists(path) or not os.path.isfile(path):
+        return ""
+
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            return f.read()
+    except:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
 
 
 def safe_kb_filename(value):
@@ -273,7 +292,15 @@ def normalize_question(value):
 # MAIN PAGE (ALL IN ONE)
 # =========================
 @router.get("/faq", response_class=HTMLResponse)
-def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str = "", notice: str = ""):
+def faq_page(
+    request: Request,
+    edit_id: int = None,
+    edit_url: int = None,
+    edit_kb: str = "",
+    kb_active: int = 1,
+    q: str = "",
+    notice: str = ""
+):
 
     faq = load_faq()
     urls = load_urls()
@@ -379,17 +406,24 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
     url_value = edit_url_item.get("url", "") if url_is_edit else ""
     url_keywords = edit_url_item.get("keywords", []) if url_is_edit else []
     url_keywords_value = ", ".join(url_keywords) if isinstance(url_keywords, list) else str(url_keywords)
+    kb_edit_name = safe_kb_filename(edit_kb) if edit_kb else ""
+    kb_edit_active = bool(kb_active)
+    kb_edit_content = read_kb_file(kb_edit_name, kb_edit_active) if kb_edit_name else ""
+    kb_is_edit = bool(kb_edit_name and os.path.exists(kb_path(kb_edit_name, kb_edit_active)))
+    kb_form_title = f"編輯 KB 文件：{kb_edit_name}" if kb_is_edit else "新增 KB 文件"
 
     kb_rows = ""
     for item in files:
         name = item.get("name", "")
         active = item.get("active", True)
+        encoded_name = quote(name)
         kb_action_html = (
             '<span class="readonly-pill">唯讀</span>'
             if readonly else
             f'''
-                <a href="/faq/kb/toggle/{e(name)}?active={"1" if active else "0"}" class="btn-toggle {"toggle-off" if active else "toggle-on"}">{"停用" if active else "啟用"}</a>
-                <a href="/faq/kb/delete/{e(name)}?active={"1" if active else "0"}" class="btn-del" onclick="return confirm('確定要永久刪除這個 KB 文件嗎？此動作無法復原。')">刪除</a>
+                <a href="/faq?edit_kb={encoded_name}&kb_active={"1" if active else "0"}#kb-manager" class="btn-edit">編輯</a>
+                <a href="/faq/kb/toggle/{encoded_name}?active={"1" if active else "0"}" class="btn-toggle {"toggle-off" if active else "toggle-on"}">{"停用" if active else "啟用"}</a>
+                <a href="/faq/kb/delete/{encoded_name}?active={"1" if active else "0"}" class="btn-del" onclick="return confirm('確定要永久刪除這個 KB 文件嗎？此動作無法復原。')">刪除</a>
             '''
         )
         kb_rows += f"""
@@ -1231,13 +1265,16 @@ def faq_page(request: Request, edit_id: int = None, edit_url: int = None, q: str
         <p class="subtitle">新增或刪除 KB 文字文件，AI 客服會搜尋 knowledge/txt 裡的 .txt 檔。</p>
     </div>
     <div class="management-grid">
-        {readonly_card if readonly else '''
+        {readonly_card if readonly else f'''
         <div class="card">
-            <div class="top-title">新增 KB 文件</div>
-            <form method="post" action="/faq/kb/add">
-                <input name="filename" placeholder="檔名，例如：array_license.txt" required>
-                <textarea name="content" placeholder="輸入 KB 內容" required></textarea>
-                <button>新增 KB</button>
+            <div class="top-title">{e(kb_form_title)}</div>
+            <form method="post" action="{f'/faq/kb/edit/{quote(kb_edit_name)}?active={1 if kb_edit_active else 0}' if kb_is_edit else '/faq/kb/add'}">
+                <input name="filename" placeholder="檔名，例如：array_license.txt" value="{e(kb_edit_name)}" {"readonly" if kb_is_edit else ""} required>
+                <textarea name="content" placeholder="輸入 KB 內容" required>{e(kb_edit_content) if kb_is_edit else ""}</textarea>
+                <div class="form-actions">
+                    <button>{'儲存 KB' if kb_is_edit else '新增 KB'}</button>
+                    {"<a href='/faq#kb-manager' class='cancel-link'>取消編輯</a>" if kb_is_edit else ""}
+                </div>
             </form>
             <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
             <div class="top-title">上傳文件轉 KB</div>
@@ -1549,6 +1586,26 @@ def add_kb(
     admin_tools.log_admin_activity(request, "KB 新增", name)
 
     return redirect_with_notice("/faq#kb-manager", "KB 已新增")
+
+
+@router.post("/faq/kb/edit/{filename}")
+def edit_kb(
+    request: Request,
+    filename: str,
+    active: int = 1,
+    content: str = Form(...)
+):
+    name = safe_kb_filename(filename)
+    path = kb_path(name, bool(active))
+
+    if not os.path.exists(path) or not os.path.isfile(path):
+        return redirect_with_notice("/faq#kb-manager", "找不到指定 KB 文件")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content.strip() + "\n")
+
+    admin_tools.log_admin_activity(request, "KB 編輯", name)
+    return redirect_with_notice("/faq#kb-manager", "KB 已更新")
 
 
 @router.post("/faq/kb/upload")
