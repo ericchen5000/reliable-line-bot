@@ -281,6 +281,35 @@ def parse_ip_terms(value):
     ]
 
 
+def safe_float(value):
+    try:
+        return float(value)
+    except:
+        return -1.0
+
+
+def safe_int(value):
+    try:
+        return int(value)
+    except:
+        return -1
+
+
+def sort_value(item, sort_by):
+    if sort_by == "id":
+        return safe_int(item.get("id"))
+
+    if sort_by == "latency":
+        return safe_float(item.get("latency"))
+
+    if sort_by == "time":
+        parsed = parse_log_time(item.get("time", ""))
+        return parsed or datetime.min
+
+    sort_key = SORT_MAP.get(sort_by, "time")
+    return str(item.get(sort_key, "") or "").lower()
+
+
 def is_unanswered_log(item):
     reply = str(item.get("reply", ""))
     source = str(item.get("source", ""))
@@ -384,10 +413,9 @@ def filter_logs(
 
         logs = filtered
 
-    sort_key = SORT_MAP.get(sort_by, "time")
     reverse = (sort_order == "desc")
 
-    logs.sort(key=lambda x: x.get(sort_key, ""), reverse=reverse)
+    logs.sort(key=lambda x: sort_value(x, sort_by), reverse=reverse)
     return logs
 
 
