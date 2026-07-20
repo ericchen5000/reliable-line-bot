@@ -832,6 +832,12 @@ def faq_page(
             padding:8px 14px;
         }}
 
+        .compact-tools {{
+            margin-bottom:14px;
+            padding:0;
+            overflow:hidden;
+        }}
+
         .search-card input {{
             flex:1 1 auto;
             min-width:220px;
@@ -1346,7 +1352,7 @@ def faq_page(
         }}
 
         .editor-panel {{
-            padding:18px;
+            padding:16px;
         }}
 
         .editor-grid {{
@@ -1361,13 +1367,66 @@ def faq_page(
         }}
 
         .editor-panel textarea {{
-            min-height:220px;
+            min-height:150px;
         }}
 
         .kb-editor textarea {{
-            min-height:420px;
+            min-height:260px;
             font-family:"SFMono-Regular", Consolas, "Liberation Mono", monospace;
             font-size:14px;
+        }}
+
+        .editor-collapse {{
+            padding:0;
+            overflow:hidden;
+        }}
+
+        .editor-collapse > summary {{
+            min-height:52px;
+            padding:14px 16px;
+            cursor:pointer;
+            list-style:none;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            font-weight:800;
+            color:var(--text);
+        }}
+
+        .editor-collapse > summary::-webkit-details-marker {{
+            display:none;
+        }}
+
+        .editor-collapse > summary::after {{
+            content:"展開";
+            min-height:28px;
+            padding:5px 10px;
+            border-radius:8px;
+            background:var(--panel-soft);
+            border:1px solid var(--border);
+            color:var(--muted);
+            font-size:12px;
+            font-weight:800;
+        }}
+
+        .editor-collapse[open] > summary {{
+            border-bottom:1px solid var(--border);
+        }}
+
+        .editor-collapse[open] > summary::after {{
+            content:"收合";
+            color:var(--accent-strong);
+            background:var(--accent-soft);
+            border-color:rgba(96,165,250,0.35);
+        }}
+
+        .editor-collapse-body {{
+            padding:16px;
+        }}
+
+        .editor-collapse-body .top-title {{
+            margin-top:0;
         }}
 
         {admin_bar_css()}
@@ -1433,7 +1492,7 @@ def faq_page(
             }}
 
             .kb-editor textarea {{
-                min-height:300px;
+                min-height:220px;
             }}
 
             .section-tabs {{
@@ -1728,32 +1787,36 @@ def faq_page(
     </form>
 
     {'' if readonly else f'''
-    <div class="card tool-row">
-        
-        <form method="post" action="/faq/import" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".csv" required>
-            <button>匯入 FAQ CSV</button>
-            <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
-        </form>
-    </div>
+    <details class="card tool-row compact-tools editor-collapse">
+        <summary>FAQ CSV 匯入 / 匯出</summary>
+        <div class="editor-collapse-body">
+            <form method="post" action="/faq/import" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".csv" required>
+                <button>匯入 FAQ CSV</button>
+                <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
+            </form>
+        </div>
+    </details>
     '''}
 
     <div class="layout">
         {readonly_card if readonly else f'''
-        <div class="card editor-panel">
-            <div class="top-title">{form_title}</div>
-            <form method="post" action="{e(form_action)}">
-                <div class="editor-grid">
-                    <input name="question" placeholder="問題" value="{e(q_val)}" required>
-                    <textarea name="answer" placeholder="答案" required>{e(a_val)}</textarea>
-                </div>
+        <details class="card editor-panel editor-collapse" {"open" if is_edit else ""}>
+            <summary>{form_title}</summary>
+            <div class="editor-collapse-body">
+                <form method="post" action="{e(form_action)}">
+                    <div class="editor-grid">
+                        <input name="question" placeholder="問題" value="{e(q_val)}" required>
+                        <textarea name="answer" placeholder="答案" required>{e(a_val)}</textarea>
+                    </div>
 
-                <div class="form-actions">
-                    <button>{btn_text}</button>
-                    {"<a href='/faq' class='cancel-link'>取消編輯</a>" if is_edit else ""}
-                </div>
-            </form>
-        </div>
+                    <div class="form-actions">
+                        <button>{btn_text}</button>
+                        {"<a href='/faq' class='cancel-link'>取消編輯</a>" if is_edit else ""}
+                    </div>
+                </form>
+            </div>
+        </details>
         '''}
 
         <div class="card">
@@ -1797,23 +1860,25 @@ def faq_page(
     </div>
     <div class="management-grid">
         {readonly_card if readonly else f'''
-        <div class="card editor-panel">
-            <div class="top-title">{url_form_title}</div>
-            <form method="post" action="{e(url_form_action)}">
-                <div class="editor-grid">
-                    <div>
-                        <input name="title" placeholder="網站名稱，例如：新聞中心" value="{e(url_title)}" required>
-                        <input name="url" placeholder="網址，例如：https://www.reliable.com.tw/category/pr/" value="{e(url_value)}" required>
+        <details class="card editor-panel editor-collapse" {"open" if url_is_edit else ""}>
+            <summary>{url_form_title}</summary>
+            <div class="editor-collapse-body">
+                <form method="post" action="{e(url_form_action)}">
+                    <div class="editor-grid">
+                        <div>
+                            <input name="title" placeholder="網站名稱，例如：新聞中心" value="{e(url_title)}" required>
+                            <input name="url" placeholder="網址，例如：https://www.reliable.com.tw/category/pr/" value="{e(url_value)}" required>
+                        </div>
+                        <textarea name="keywords" placeholder="關鍵字，用逗號分隔，例如：新聞, PR, 最新消息">{e(url_keywords_value)}</textarea>
                     </div>
-                    <textarea name="keywords" placeholder="關鍵字，用逗號分隔，例如：新聞, PR, 最新消息">{e(url_keywords_value)}</textarea>
-                </div>
-                <div class="form-actions">
-                    <button>{url_btn_text}</button>
-                    {"<a href='/faq?tab=url' class='cancel-link'>取消編輯</a>" if url_is_edit else ""}
-                </div>
-                <p class="hint">新增後如果要讓網站索引立即更新，請到 Dashboard 按「立即建立索引」。</p>
-            </form>
-        </div>
+                    <div class="form-actions">
+                        <button>{url_btn_text}</button>
+                        {"<a href='/faq?tab=url' class='cancel-link'>取消編輯</a>" if url_is_edit else ""}
+                    </div>
+                    <p class="hint">新增後如果要讓網站索引立即更新，請到 Dashboard 按「立即建立索引」。</p>
+                </form>
+            </div>
+        </details>
         '''}
         <div class="card">
             <div class="top-title">網站索引清單</div>
@@ -1855,26 +1920,28 @@ def faq_page(
     </div>
     <div class="management-grid">
         {readonly_card if readonly else f'''
-        <div class="card editor-panel kb-editor">
-            <div class="top-title">{e(kb_form_title)}</div>
-            <form method="post" action="{f'/faq/kb/edit/{quote(kb_edit_name)}?active={1 if kb_edit_active else 0}' if kb_is_edit else '/faq/kb/add'}">
-                <div class="editor-grid one-column">
-                    <input name="filename" placeholder="檔名，例如：array_license.txt" value="{e(kb_edit_name)}" {"readonly" if kb_is_edit else ""} required>
-                    <textarea name="content" placeholder="輸入 KB 內容" required>{e(kb_edit_content) if kb_is_edit else ""}</textarea>
-                </div>
-                <div class="form-actions">
-                    <button>{'儲存 KB' if kb_is_edit else '新增 KB'}</button>
-                    {"<a href='/faq?tab=kb' class='cancel-link'>取消編輯</a>" if kb_is_edit else ""}
-                </div>
-            </form>
-            <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
-            <div class="top-title">上傳文件轉 KB</div>
-            <form method="post" action="/faq/kb/upload" enctype="multipart/form-data">
-                <input type="file" name="file" accept=".txt,.pdf,.docx" required>
-                <button>上傳並轉成 KB</button>
-            </form>
-            <p class="hint">支援 TXT、DOCX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt。</p>
-        </div>
+        <details class="card editor-panel kb-editor editor-collapse" {"open" if kb_is_edit else ""}>
+            <summary>{e(kb_form_title)} / 上傳文件</summary>
+            <div class="editor-collapse-body">
+                <form method="post" action="{f'/faq/kb/edit/{quote(kb_edit_name)}?active={1 if kb_edit_active else 0}' if kb_is_edit else '/faq/kb/add'}">
+                    <div class="editor-grid one-column">
+                        <input name="filename" placeholder="檔名，例如：array_license.txt" value="{e(kb_edit_name)}" {"readonly" if kb_is_edit else ""} required>
+                        <textarea name="content" placeholder="輸入 KB 內容" required>{e(kb_edit_content) if kb_is_edit else ""}</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button>{'儲存 KB' if kb_is_edit else '新增 KB'}</button>
+                        {"<a href='/faq?tab=kb' class='cancel-link'>取消編輯</a>" if kb_is_edit else ""}
+                    </div>
+                </form>
+                <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+                <div class="top-title">上傳文件轉 KB</div>
+                <form method="post" action="/faq/kb/upload" enctype="multipart/form-data">
+                    <input type="file" name="file" accept=".txt,.pdf,.docx" required>
+                    <button>上傳並轉成 KB</button>
+                </form>
+                <p class="hint">支援 TXT、DOCX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt。</p>
+            </div>
+        </details>
         '''}
         <div class="card">
             <div class="top-title">KB 文件清單</div>
