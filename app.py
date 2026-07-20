@@ -1131,7 +1131,7 @@ def admin_css():
     .role-viewer { color:#475569; background:#e2e8f0; }
     .audit-action { display:inline-flex; min-height:28px; padding:5px 9px; border-radius:999px; background:#e0e7ff; color:#3730a3; font-size:12px; font-weight:900; white-space:nowrap; }
     .audit-detail { color:var(--muted); font-size:12px; line-height:1.5; }
-    .audit-target { font-weight:800; color:var(--text); overflow-wrap:anywhere; }
+    .audit-target { font-weight:400; color:var(--text); overflow-wrap:anywhere; }
     body.dark .audit-action { background:rgba(96,165,250,0.18); color:#bfdbfe; }
     body.style-console .audit-action { border-radius:0; background:var(--button-bg); color:#fff; }
     .session-muted { display:inline-block; margin-top:3px; color:var(--muted); font-size:12px; font-weight:600; }
