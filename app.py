@@ -1135,9 +1135,9 @@ def admin_css():
     body.dark .audit-action { background:rgba(96,165,250,0.18); color:#bfdbfe; }
     body.style-console .audit-action { border-radius:0; background:var(--button-bg); color:#fff; }
     .session-muted { display:inline-block; margin-top:3px; color:var(--muted); font-size:12px; font-weight:600; }
-    .admin-record-card td, .admin-record-card th { font-size:10px; line-height:1.55; }
-    .admin-record-card .audit-action { min-height:24px; padding:4px 7px; font-size:10px; }
-    .admin-record-card .audit-detail, .admin-record-card .session-muted { font-size:10px; }
+    .admin-record-card td, .admin-record-card th { font-size:14px; line-height:1.55; }
+    .admin-record-card .audit-action { min-height:26px; padding:4px 8px; font-size:14px; }
+    .admin-record-card .audit-detail, .admin-record-card .session-muted { font-size:14px; }
     .step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
@@ -1164,11 +1164,11 @@ def admin_css():
     .changelog-list.older { padding:8px 0 0; }
     .changelog-item { display:grid; grid-template-columns:120px minmax(0, 1fr); gap:14px; padding:14px 0; border-top:1px solid var(--border); }
     .changelog-item:first-child { border-top:none; }
-    .changelog-date { color:var(--muted); font-size:10px; font-weight:900; }
-    .changelog-body h4 { margin:0 0 6px; font-size:10px; color:var(--text); }
-    .changelog-body ul { margin:0; padding-left:16px; color:var(--muted); font-size:10px; line-height:1.6; }
+    .changelog-date { color:var(--muted); font-size:14px; font-weight:900; }
+    .changelog-body h4 { margin:0 0 6px; font-size:14px; color:var(--text); }
+    .changelog-body ul { margin:0; padding-left:16px; color:var(--muted); font-size:14px; line-height:1.6; }
     .changelog-more { margin:0 18px 18px; border-top:1px solid var(--border); padding-top:12px; }
-    .changelog-more summary { cursor:pointer; color:#3730a3; font-size:10px; font-weight:900; list-style:none; display:inline-flex; align-items:center; gap:8px; }
+    .changelog-more summary { cursor:pointer; color:#3730a3; font-size:14px; font-weight:900; list-style:none; display:inline-flex; align-items:center; gap:8px; }
     .changelog-more summary::-webkit-details-marker { display:none; }
     .changelog-more summary::before { content:"+"; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; background:var(--panel-soft); border:1px solid var(--border); color:var(--text); }
     .changelog-more[open] summary::before { content:"-"; }
