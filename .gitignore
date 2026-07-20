@@ -8,3 +8,4 @@ data/admin_users.json
 logs/admin_activity.json
 logs/admin_sessions.json
 logs/images/
+docs/internal-guide.md

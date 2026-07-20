@@ -1,6 +1,14 @@
 [
   {
     "date": "2026/07/20",
+    "title": "README 公開版安全整理",
+    "changes": [
+      "將公開 README.md 改為精簡安全版，移除內部部署流程、環境細節與操作資訊。",
+      "新增 docs/internal-guide.md 作為本機內部維護文件，並加入 .gitignore 避免推上公開 GitHub。"
+    ]
+  },
+  {
+    "date": "2026/07/20",
     "title": "新增專案 README 文件",
     "changes": [
       "新增 README.md，整理系統功能、後台頁面、回答來源順序、本機啟動與 VPS 更新流程。",
