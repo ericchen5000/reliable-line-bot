@@ -832,10 +832,18 @@ def faq_page(
             padding:8px 14px;
         }}
 
-        .compact-tools {{
-            margin-bottom:14px;
-            padding:0;
-            overflow:hidden;
+        .manager-actions {{
+            margin:0 0 16px;
+            padding:12px;
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            align-items:center;
+            justify-content:flex-end;
+        }}
+
+        .manager-actions .hint {{
+            margin:0 auto 0 0;
         }}
 
         .search-card input {{
@@ -1208,6 +1216,60 @@ def faq_page(
             display:flex;
         }}
 
+        .form-modal {{
+            position:fixed;
+            inset:0;
+            z-index:1240;
+            display:none;
+            align-items:center;
+            justify-content:center;
+            padding:20px;
+            background:rgba(15,23,42,0.42);
+        }}
+
+        .form-modal.open {{
+            display:flex;
+        }}
+
+        .form-modal-panel {{
+            width:min(860px, 100%);
+            max-height:min(780px, calc(100vh - 40px));
+            overflow:auto;
+            background:var(--panel);
+            border:1px solid var(--border);
+            border-radius:10px;
+            box-shadow:var(--shadow);
+        }}
+
+        .form-modal-head {{
+            position:sticky;
+            top:0;
+            z-index:1;
+            padding:16px;
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:12px;
+            background:var(--panel);
+            border-bottom:1px solid var(--border);
+        }}
+
+        .form-modal-head h3 {{
+            margin:0;
+            font-size:18px;
+        }}
+
+        .form-modal-body {{
+            padding:16px;
+        }}
+
+        .form-modal-close {{
+            min-height:36px;
+            background:var(--panel-soft);
+            color:var(--text);
+            border:1px solid var(--border);
+        }}
+
         .confirm-panel {{
             width:min(460px, 100%);
             background:var(--panel);
@@ -1376,59 +1438,6 @@ def faq_page(
             font-size:14px;
         }}
 
-        .editor-collapse {{
-            padding:0;
-            overflow:hidden;
-        }}
-
-        .editor-collapse > summary {{
-            min-height:52px;
-            padding:14px 16px;
-            cursor:pointer;
-            list-style:none;
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:12px;
-            font-weight:800;
-            color:var(--text);
-        }}
-
-        .editor-collapse > summary::-webkit-details-marker {{
-            display:none;
-        }}
-
-        .editor-collapse > summary::after {{
-            content:"展開";
-            min-height:28px;
-            padding:5px 10px;
-            border-radius:8px;
-            background:var(--panel-soft);
-            border:1px solid var(--border);
-            color:var(--muted);
-            font-size:12px;
-            font-weight:800;
-        }}
-
-        .editor-collapse[open] > summary {{
-            border-bottom:1px solid var(--border);
-        }}
-
-        .editor-collapse[open] > summary::after {{
-            content:"收合";
-            color:var(--accent-strong);
-            background:var(--accent-soft);
-            border-color:rgba(96,165,250,0.35);
-        }}
-
-        .editor-collapse-body {{
-            padding:16px;
-        }}
-
-        .editor-collapse-body .top-title {{
-            margin-top:0;
-        }}
-
         {admin_bar_css()}
 
         @media (max-width: 860px) {{
@@ -1503,6 +1512,28 @@ def faq_page(
             .search-card {{
                 display:grid;
                 grid-template-columns:1fr;
+            }}
+
+            .manager-actions {{
+                justify-content:stretch;
+            }}
+
+            .manager-actions .hint {{
+                width:100%;
+            }}
+
+            .manager-actions button,
+            .manager-actions .export-link {{
+                width:100%;
+            }}
+
+            .form-modal {{
+                padding:12px;
+                align-items:flex-end;
+            }}
+
+            .form-modal-panel {{
+                max-height:calc(100vh - 24px);
             }}
 
             .tool-row,
@@ -1737,11 +1768,30 @@ def faq_page(
                     openDetailDrawer(row);
                 }});
             }});
+
+            document.addEventListener("keydown", function(event){{
+                if(event.key !== "Escape"){{
+                    return;
+                }}
+                document.querySelectorAll(".form-modal.open").forEach(function(item){{
+                    item.classList.remove("open");
+                }});
+            }});
         }});
 
         function closeDetailDrawer(){{
             const drawer = document.getElementById("detail-drawer");
             if(drawer) drawer.classList.remove("open");
+        }}
+
+        function openFormModal(id){{
+            const modal = document.getElementById(id);
+            if(modal) modal.classList.add("open");
+        }}
+
+        function closeFormModal(id){{
+            const modal = document.getElementById(id);
+            if(modal) modal.classList.remove("open");
         }}
     </script>
     </head>
@@ -1787,23 +1837,25 @@ def faq_page(
     </form>
 
     {'' if readonly else f'''
-    <details class="card tool-row compact-tools editor-collapse">
-        <summary>FAQ CSV 匯入 / 匯出</summary>
-        <div class="editor-collapse-body">
-            <form method="post" action="/faq/import" enctype="multipart/form-data">
-                <input type="file" name="file" accept=".csv" required>
-                <button>匯入 FAQ CSV</button>
-                <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
-            </form>
-        </div>
-    </details>
+    <div class="card manager-actions">
+        <p class="hint">新增、匯入或匯出 FAQ，不佔用清單空間。</p>
+        <button type="button" onclick="openFormModal('faq-form-modal')">新增 FAQ</button>
+        <button type="button" onclick="openFormModal('faq-import-modal')">匯入 / 匯出 CSV</button>
+    </div>
     '''}
 
     <div class="layout">
         {readonly_card if readonly else f'''
-        <details class="card editor-panel editor-collapse" {"open" if is_edit else ""}>
-            <summary>{form_title}</summary>
-            <div class="editor-collapse-body">
+        <div class="form-modal {'open' if is_edit else ''}" id="faq-form-modal" onclick="if(event.target.id === 'faq-form-modal') closeFormModal('faq-form-modal')">
+            <div class="form-modal-panel editor-panel">
+                <div class="form-modal-head">
+                    <div>
+                        <h3>{form_title}</h3>
+                        <p class="hint">建立或調整客服優先回答的 FAQ。</p>
+                    </div>
+                    {"<a href='/faq?tab=faq' class='form-modal-close cancel-link'>關閉</a>" if is_edit else "<button type='button' class='form-modal-close' onclick=\"closeFormModal('faq-form-modal')\">關閉</button>"}
+                </div>
+                <div class="form-modal-body">
                 <form method="post" action="{e(form_action)}">
                     <div class="editor-grid">
                         <input name="question" placeholder="問題" value="{e(q_val)}" required>
@@ -1815,8 +1867,27 @@ def faq_page(
                         {"<a href='/faq' class='cancel-link'>取消編輯</a>" if is_edit else ""}
                     </div>
                 </form>
+                </div>
             </div>
-        </details>
+        </div>
+        <div class="form-modal" id="faq-import-modal" onclick="if(event.target.id === 'faq-import-modal') closeFormModal('faq-import-modal')">
+            <div class="form-modal-panel editor-panel">
+                <div class="form-modal-head">
+                    <div>
+                        <h3>FAQ CSV 匯入 / 匯出</h3>
+                        <p class="hint">用 CSV 批次新增 FAQ，或下載目前 FAQ 清單。</p>
+                    </div>
+                    <button type="button" class="form-modal-close" onclick="closeFormModal('faq-import-modal')">關閉</button>
+                </div>
+                <div class="form-modal-body">
+                    <form class="tool-row" method="post" action="/faq/import" enctype="multipart/form-data">
+                        <input type="file" name="file" accept=".csv" required>
+                        <button>匯入 FAQ CSV</button>
+                        <a href="/faq/export" class="export-link">匯出 FAQ CSV</a>
+                    </form>
+                </div>
+            </div>
+        </div>
         '''}
 
         <div class="card">
@@ -1858,11 +1929,24 @@ def faq_page(
         <h3>網站索引管理</h3>
         <p class="subtitle">新增、編輯或刪除可被 AI 客服搜尋的指定網站。</p>
     </div>
+    {'' if readonly else '''
+    <div class="card manager-actions">
+        <p class="hint">新增指定網站後，可到 Dashboard 立即建立索引。</p>
+        <button type="button" onclick="openFormModal('url-form-modal')">新增網站索引</button>
+    </div>
+    '''}
     <div class="management-grid">
         {readonly_card if readonly else f'''
-        <details class="card editor-panel editor-collapse" {"open" if url_is_edit else ""}>
-            <summary>{url_form_title}</summary>
-            <div class="editor-collapse-body">
+        <div class="form-modal {'open' if url_is_edit else ''}" id="url-form-modal" onclick="if(event.target.id === 'url-form-modal') closeFormModal('url-form-modal')">
+            <div class="form-modal-panel editor-panel">
+                <div class="form-modal-head">
+                    <div>
+                        <h3>{url_form_title}</h3>
+                        <p class="hint">管理 AI 客服可搜尋的指定網站。</p>
+                    </div>
+                    {"<a href='/faq?tab=url' class='form-modal-close cancel-link'>關閉</a>" if url_is_edit else "<button type='button' class='form-modal-close' onclick=\"closeFormModal('url-form-modal')\">關閉</button>"}
+                </div>
+                <div class="form-modal-body">
                 <form method="post" action="{e(url_form_action)}">
                     <div class="editor-grid">
                         <div>
@@ -1877,8 +1961,9 @@ def faq_page(
                     </div>
                     <p class="hint">新增後如果要讓網站索引立即更新，請到 Dashboard 按「立即建立索引」。</p>
                 </form>
+                </div>
             </div>
-        </details>
+        </div>
         '''}
         <div class="card">
             <div class="top-title">網站索引清單</div>
@@ -1918,11 +2003,24 @@ def faq_page(
         <h3>知識庫文件管理</h3>
         <p class="subtitle">新增或刪除 KB 文字文件，AI 客服會搜尋 knowledge/txt 裡的 .txt 檔。</p>
     </div>
+    {'' if readonly else '''
+    <div class="card manager-actions">
+        <p class="hint">可手動建立 KB，也可上傳 TXT、DOCX、PDF 轉成 KB。</p>
+        <button type="button" onclick="openFormModal('kb-form-modal')">新增 / 上傳 KB</button>
+    </div>
+    '''}
     <div class="management-grid">
         {readonly_card if readonly else f'''
-        <details class="card editor-panel kb-editor editor-collapse" {"open" if kb_is_edit else ""}>
-            <summary>{e(kb_form_title)} / 上傳文件</summary>
-            <div class="editor-collapse-body">
+        <div class="form-modal {'open' if kb_is_edit else ''}" id="kb-form-modal" onclick="if(event.target.id === 'kb-form-modal') closeFormModal('kb-form-modal')">
+            <div class="form-modal-panel editor-panel kb-editor">
+                <div class="form-modal-head">
+                    <div>
+                        <h3>{e(kb_form_title)} / 上傳文件</h3>
+                        <p class="hint">建立可被 AI 搜尋的內部知識文件。</p>
+                    </div>
+                    {"<a href='/faq?tab=kb' class='form-modal-close cancel-link'>關閉</a>" if kb_is_edit else "<button type='button' class='form-modal-close' onclick=\"closeFormModal('kb-form-modal')\">關閉</button>"}
+                </div>
+                <div class="form-modal-body">
                 <form method="post" action="{f'/faq/kb/edit/{quote(kb_edit_name)}?active={1 if kb_edit_active else 0}' if kb_is_edit else '/faq/kb/add'}">
                     <div class="editor-grid one-column">
                         <input name="filename" placeholder="檔名，例如：array_license.txt" value="{e(kb_edit_name)}" {"readonly" if kb_is_edit else ""} required>
@@ -1940,8 +2038,9 @@ def faq_page(
                     <button>上傳並轉成 KB</button>
                 </form>
                 <p class="hint">支援 TXT、DOCX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt。</p>
+                </div>
             </div>
-        </details>
+        </div>
         '''}
         <div class="card">
             <div class="top-title">KB 文件清單</div>
