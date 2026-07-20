@@ -5,6 +5,7 @@ import html
 import io
 import json
 import os
+import re
 from datetime import datetime, time
 from urllib.parse import urlencode
 from deepseek import ask_deepseek
@@ -268,6 +269,18 @@ def parse_date(value, end_of_day=False):
         return None
 
 
+def parse_ip_terms(value):
+    text = str(value or "").strip().lower()
+    if not text:
+        return []
+
+    return [
+        item.strip()
+        for item in re.split(r"[\s,，、]+", text)
+        if item.strip()
+    ]
+
+
 def is_unanswered_log(item):
     reply = str(item.get("reply", ""))
     source = str(item.get("source", ""))
@@ -311,11 +324,17 @@ def filter_logs(
         logs = [l for l in logs if l.get("source") == source]
 
     if ip:
-        ip_text = str(ip).strip().lower()
+        ip_terms = parse_ip_terms(ip)
         if ip_mode == "exclude":
-            logs = [l for l in logs if ip_text not in str(l.get("ip", "")).lower()]
+            logs = [
+                l for l in logs
+                if not any(term in str(l.get("ip", "")).lower() for term in ip_terms)
+            ]
         else:
-            logs = [l for l in logs if ip_text in str(l.get("ip", "")).lower()]
+            logs = [
+                l for l in logs
+                if any(term in str(l.get("ip", "")).lower() for term in ip_terms)
+            ]
 
     if quick:
         faq_questions = load_faq_questions()
@@ -1828,7 +1847,7 @@ def logs_ui(
             <option value="include" {"selected" if ip_mode != "exclude" else ""}>包含 IP</option>
             <option value="exclude" {"selected" if ip_mode == "exclude" else ""}>排除 IP</option>
         </select>
-        <input class="ip-filter" name="ip" value="{e(ip)}" placeholder="IP，例如 211.20.45">
+        <input class="ip-filter" name="ip" value="{e(ip)}" placeholder="多個 IP 用逗號或空白分隔">
 
         <select name="size">
             {size_select}
