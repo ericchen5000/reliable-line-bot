@@ -1138,6 +1138,21 @@ def admin_css():
     .admin-record-card td, .admin-record-card th { font-size:14px; line-height:1.55; }
     .admin-record-card .audit-action { min-height:26px; padding:4px 8px; font-size:14px; }
     .admin-record-card .audit-detail, .admin-record-card .session-muted { font-size:14px; }
+    .login-table, .audit-table { table-layout:fixed; }
+    .login-table th:nth-child(1), .login-table td:nth-child(1) { width:9%; }
+    .login-table th:nth-child(2), .login-table td:nth-child(2),
+    .login-table th:nth-child(3), .login-table td:nth-child(3),
+    .login-table th:nth-child(4), .login-table td:nth-child(4) { width:16%; }
+    .login-table th:nth-child(5), .login-table td:nth-child(5) { width:10%; }
+    .login-table th:nth-child(6), .login-table td:nth-child(6) { width:8%; }
+    .login-table th:nth-child(7), .login-table td:nth-child(7) { width:13%; }
+    .audit-table th:nth-child(1), .audit-table td:nth-child(1) { width:13%; }
+    .audit-table th:nth-child(2), .audit-table td:nth-child(2) { width:9%; }
+    .audit-table th:nth-child(3), .audit-table td:nth-child(3) { width:14%; }
+    .audit-table th:nth-child(4), .audit-table td:nth-child(4) { width:30%; }
+    .audit-table th:nth-child(5), .audit-table td:nth-child(5) { width:22%; }
+    .audit-table th:nth-child(6), .audit-table td:nth-child(6) { width:12%; }
+    .record-ip { display:block; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; word-break:normal; overflow-wrap:normal; }
     .step { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
     .badge { min-width:56px; padding:5px 8px; border-radius:999px; font-size:12px; font-weight:800; text-align:center; }
     .hit { background:#dcfce7; color:#15803d; }
@@ -1176,7 +1191,7 @@ def admin_css():
     body.style-console .changelog-card { border-radius:0; }
     """ + admin_bar_css() + """
     @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -1320,7 +1335,7 @@ def admin_users_page(request: Request, notice: str = ""):
             <td data-label="登出時間">{logout_text}</td>
             <td data-label="停留時間">{html_escape(item.get('duration') or '-')}</td>
             <td data-label="裝置">{html_escape(item.get('device', '-'))}</td>
-            <td data-label="IP">{html_escape(item.get('ip', '-'))}</td>
+            <td data-label="IP"><span class="record-ip" title="{html_escape(item.get('ip', '-'))}">{html_escape(item.get('ip', '-'))}</span></td>
         </tr>
         """
     if not session_rows:
@@ -1336,7 +1351,7 @@ def admin_users_page(request: Request, notice: str = ""):
             <td data-label="動作"><span class="audit-action">{html_escape(item.get('action', '-'))}</span></td>
             <td data-label="目標"><div class="audit-target">{html_escape(item.get('target', '-'))}</div></td>
             <td data-label="補充資訊"><div class="audit-detail">{html_escape(item.get('detail', '-') or '-')}</div></td>
-            <td data-label="IP">{html_escape(item.get('ip', '-'))}</td>
+            <td data-label="IP"><span class="record-ip" title="{html_escape(item.get('ip', '-'))}">{html_escape(item.get('ip', '-'))}</span></td>
         </tr>
         """
     if not activity_rows:
@@ -1400,7 +1415,7 @@ def admin_users_page(request: Request, notice: str = ""):
                     </div>
                 </div>
                 <div class="table-scroll">
-                    <table><tr><th>管理者</th><th>登入時間</th><th>最後活動</th><th>登出時間</th><th>停留時間</th><th>裝置</th><th>IP</th></tr>{session_rows}</table>
+                    <table class="login-table"><tr><th>管理者</th><th>登入時間</th><th>最後活動</th><th>登出時間</th><th>停留時間</th><th>裝置</th><th>IP</th></tr>{session_rows}</table>
                 </div>
             </section>
 
@@ -1412,7 +1427,7 @@ def admin_users_page(request: Request, notice: str = ""):
                     </div>
                 </div>
                 <div class="table-scroll">
-                    <table><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>補充資訊</th><th>IP</th></tr>{activity_rows}</table>
+                    <table class="audit-table"><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>補充資訊</th><th>IP</th></tr>{activity_rows}</table>
                 </div>
             </section>
 
