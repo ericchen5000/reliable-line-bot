@@ -58,7 +58,7 @@ def is_allowed_url(url, base, seed_url):
     parsed = urlparse(url)
     path = parsed.path or "/"
 
-    if any(skip in path.lower() for skip in ["/wp-admin", "/wp-login", "/feed", "/tag/"]):
+    if any(skip in path.lower() for skip in ["/wp-admin", "/wp-login", "/feed", "/tag/", "/cdn-cgi/"]):
         return False
 
     if re.search(r"\.(jpg|jpeg|png|gif|webp|svg|pdf|zip|rar|7z|mp4|mov|avi)$", path.lower()):
