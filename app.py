@@ -208,6 +208,9 @@ def is_public_path(path):
 def is_write_path(request: Request):
     path = request.url.path
 
+    if path == "/admin/users/password":
+        return False
+
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         return path not in {"/chat", "/web/chat", "/web/image", "/web/lead", "/line/webhook"}
 
@@ -1369,7 +1372,7 @@ def admin_users_page(request: Request, notice: str = ""):
     user_table_headers = "<th>帳號</th><th>暱稱</th><th>權限</th><th>建立時間</th>"
     if not readonly:
         user_table_headers += "<th>操作</th>"
-    admin_tools_html = "" if readonly else """
+    add_user_tool_html = "" if readonly else """
             <section class="card admin-tool-card">
                 <div class="tool-heading">
                     <span class="tool-icon">＋</span>
@@ -1391,7 +1394,9 @@ def admin_users_page(request: Request, notice: str = ""):
                     <button class="full-btn">新增管理員</button>
                 </form>
             </section>
+    """
 
+    password_tool_html = """
             <section class="card admin-tool-card">
                 <div class="tool-heading">
                     <span class="tool-icon">●</span>
@@ -1516,7 +1521,8 @@ def admin_users_page(request: Request, notice: str = ""):
 
             {ai_integrations_card()}
 
-            {admin_tools_html}
+            {add_user_tool_html}
+            {password_tool_html}
 
             <section class="card admin-note-card">
                 <h3>管理建議</h3>
@@ -1583,6 +1589,14 @@ def update_admin_nickname(
 
     for user in users:
         if user.get("username") == username:
+            current_role = user.get("role") or "admin"
+            other_managers = [
+                item for item in users
+                if item.get("username") != username and (item.get("role") or "admin") != "viewer"
+            ]
+            if current_role != "viewer" and role == "viewer" and not other_managers:
+                return RedirectResponse("/admin/users?notice=至少需要保留一位管理者，無法改成唯讀", status_code=302)
+
             user["nickname"] = nickname.strip()
             if username != admin:
                 user["role"] = role
@@ -1629,6 +1643,15 @@ def delete_admin_user(request: Request, username: str):
     users = load_admin_users()
 
     if username != admin and len(users) > 1:
+        target = next((user for user in users if user.get("username") == username), None)
+        target_is_manager = target and (target.get("role") or "admin") != "viewer"
+        other_managers = [
+            user for user in users
+            if user.get("username") != username and (user.get("role") or "admin") != "viewer"
+        ]
+        if target_is_manager and not other_managers:
+            return RedirectResponse("/admin/users?notice=至少需要保留一位管理者，無法刪除", status_code=302)
+
         users = [user for user in users if user.get("username") != username]
         save_admin_users(users)
         admin_tools.log_admin_activity(request, "刪除管理者", username)

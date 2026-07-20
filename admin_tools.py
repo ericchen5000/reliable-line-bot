@@ -59,9 +59,15 @@ def admin_display_name(username):
 
 
 def admin_role(username):
+    users = load_admin_users()
+    has_manager = any(str(user.get("role") or "admin").strip() != "viewer" for user in users)
+
     for user in load_admin_users():
         if user.get("username") == username:
-            return str(user.get("role") or "admin").strip() or "admin"
+            role = str(user.get("role") or "admin").strip() or "admin"
+            if role == "viewer" and not has_manager:
+                return "admin"
+            return role
     return "admin"
 
 
