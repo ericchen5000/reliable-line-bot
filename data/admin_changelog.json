@@ -1,6 +1,14 @@
 [
   {
     "date": "2026/07/20",
+    "title": "專案暫存檔清理",
+    "changes": [
+      "清理專案中的 macOS .DS_Store 與 Python __pycache__ 暫存檔。",
+      "更新 .gitignore，避免 .DS_Store 之後再次被提交到 GitHub。"
+    ]
+  },
+  {
+    "date": "2026/07/20",
     "title": "README 公開版安全整理",
     "changes": [
       "將公開 README.md 改為精簡安全版，移除內部部署流程、環境細節與操作資訊。",
