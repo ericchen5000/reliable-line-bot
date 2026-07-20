@@ -247,6 +247,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
     ])
 
     site_rows = ""
+    failure_rows = ""
     for site in index_status.get("sites", []):
         site_rows += f"""
         <tr>
@@ -257,9 +258,40 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             <td data-label="失敗">{e(site.get("failed", 0))}</td>
         </tr>
         """
+        for failure in site.get("failures", [])[:8]:
+            status_code = failure.get("status_code") or "-"
+            text_length = failure.get("text_length")
+            detail = f"狀態：{status_code}"
+            if text_length is not None:
+                detail += f"｜文字長度：{text_length}"
+            failure_rows += f"""
+            <tr>
+                <td data-label="網站">{e(site.get("title", "-"))}</td>
+                <td data-label="失敗網址"><a href="{e(failure.get("url", ""))}" target="_blank" rel="noopener">{e(failure.get("url", "-"))}</a></td>
+                <td data-label="原因">{e(failure.get("reason", "-"))}</td>
+                <td data-label="補充">{e(detail)}</td>
+            </tr>
+            """
 
     if not site_rows:
         site_rows = "<tr><td colspan='5'>尚未建立索引</td></tr>"
+
+    failure_html = ""
+    if failure_rows:
+        failure_html = f"""
+        <div class="failure-panel">
+            <div class="failure-head">
+                <div>
+                    <div class="label">索引失敗清單</div>
+                    <p class="subtitle">列出本次建立索引時抓不到內容的頁面，方便回頭檢查網站頁面。</p>
+                </div>
+            </div>
+            <table>
+                <tr><th>網站</th><th>失敗網址</th><th>原因</th><th>補充</th></tr>
+                {failure_rows}
+            </table>
+        </div>
+        """
 
     repeat_rows = "".join(
         f"<tr><td data-label='問題'>{e(question)}</td><td data-label='次數'>{count}</td></tr>"
@@ -549,6 +581,24 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             color:var(--text);
             font-size:18px;
         }}
+        .failure-panel {{
+            margin-top:14px;
+            padding-top:14px;
+            border-top:1px solid var(--border);
+        }}
+        .failure-head {{
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            margin-bottom:10px;
+        }}
+        .failure-panel a {{
+            color:var(--accent);
+            overflow-wrap:anywhere;
+            text-decoration:none;
+            font-weight:700;
+        }}
+        .failure-panel a:hover {{ text-decoration:underline; }}
         button {{
             min-height:40px;
             padding:8px 14px;
@@ -773,6 +823,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
                     <tr><th>網站</th><th>網址</th><th>抓取頁數</th><th>索引段落</th><th>失敗</th></tr>
                     {site_rows}
                 </table>
+                {failure_html}
                 <p class="subtitle">索引排程預設每 24 小時重建一次，也可以手動立即建立。</p>
             </div>
 

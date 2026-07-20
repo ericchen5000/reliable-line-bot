@@ -106,10 +106,19 @@ def get_sitemap_urls(domain: str):
 # =========================
 # fetch page text
 # =========================
-def fetch_page(url: str):
+def fetch_page_result(url: str):
     try:
         r = requests.get(url, headers=HEADERS, timeout=10)
-        r.raise_for_status()
+        status_code = r.status_code
+
+        if status_code >= 400:
+            return {
+                "title": "",
+                "text": "",
+                "status_code": status_code,
+                "reason": f"HTTP {status_code}"
+            }
+
         soup = BeautifulSoup(r.text, "html.parser")
         title = soup.title.get_text(" ", strip=True) if soup.title else ""
 
@@ -119,10 +128,24 @@ def fetch_page(url: str):
         text = soup.get_text(" ")
         text = " ".join(text.split())
 
-        return title, text
+        return {
+            "title": title,
+            "text": text,
+            "status_code": status_code,
+            "reason": ""
+        }
 
+    except requests.exceptions.Timeout:
+        return {"title": "", "text": "", "status_code": "", "reason": "連線逾時"}
+    except requests.exceptions.RequestException:
+        return {"title": "", "text": "", "status_code": "", "reason": "連線失敗"}
     except:
-        return "", ""
+        return {"title": "", "text": "", "status_code": "", "reason": "頁面解析失敗"}
+
+
+def fetch_page(url: str):
+    result = fetch_page_result(url)
+    return result.get("title", ""), result.get("text", "")
 
 
 def fetch_links(url, base, seed_url):
@@ -223,20 +246,29 @@ def build_index(domain="https://www.reliable.com.tw", title="Reliable Informatio
     base = site_base(domain)
 
     if not base:
-        return [], {"pages": 0, "chunks": 0, "failed": 0}
+        return [], {"pages": 0, "chunks": 0, "failed": 0, "failures": []}
 
     urls = discover_urls(domain)
     index = []
-    failed = 0
+    failures = []
 
     for url in urls:
         if site_base(url) != base:
             continue
 
-        page_title, content = fetch_page(url)
+        result = fetch_page_result(url)
+        page_title = result.get("title", "")
+        content = result.get("text", "")
 
         if not content or len(content) < MIN_TEXT_LENGTH:
-            failed += 1
+            reason = result.get("reason") or "頁面文字太少"
+            failures.append({
+                "url": url,
+                "title": page_title or title,
+                "reason": reason,
+                "status_code": result.get("status_code", ""),
+                "text_length": len(content or "")
+            })
             continue
 
         chunks = chunk_text(content)
@@ -253,7 +285,8 @@ def build_index(domain="https://www.reliable.com.tw", title="Reliable Informatio
     return index, {
         "pages": len(urls),
         "chunks": len(index),
-        "failed": failed
+        "failed": len(failures),
+        "failures": failures
     }
 
 
@@ -281,7 +314,8 @@ def build_all_indexes():
             "url": url,
             "pages": result.get("pages", 0),
             "chunks": len(site_index),
-            "failed": result.get("failed", 0)
+            "failed": result.get("failed", 0),
+            "failures": result.get("failures", [])
         })
 
     os.makedirs("data", exist_ok=True)
