@@ -285,6 +285,8 @@ def filter_logs(
     platform="",
     source="",
     quick="",
+    ip="",
+    ip_mode="include",
     date_from="",
     date_to="",
     sort_by="time",
@@ -307,6 +309,13 @@ def filter_logs(
 
     if source:
         logs = [l for l in logs if l.get("source") == source]
+
+    if ip:
+        ip_text = str(ip).strip().lower()
+        if ip_mode == "exclude":
+            logs = [l for l in logs if ip_text not in str(l.get("ip", "")).lower()]
+        else:
+            logs = [l for l in logs if ip_text in str(l.get("ip", "")).lower()]
 
     if quick:
         faq_questions = load_faq_questions()
@@ -368,6 +377,8 @@ def export_link(
     platform="",
     source="",
     quick="",
+    ip="",
+    ip_mode="include",
     date_from="",
     date_to="",
     sort_by="time",
@@ -378,6 +389,8 @@ def export_link(
         "platform": platform,
         "source": source,
         "quick": quick,
+        "ip": ip,
+        "ip_mode": ip_mode,
         "date_from": date_from,
         "date_to": date_to,
         "sort_by": sort_by,
@@ -393,13 +406,15 @@ def export_logs(
     platform: str = "",
     source: str = "",
     quick: str = "",
+    ip: str = "",
+    ip_mode: str = "include",
     date_from: str = "",
     date_to: str = "",
     sort_by: str = "time",
     sort_order: str = "desc",
     notice: str = ""
 ):
-    logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
+    logs = filter_logs(load_logs(), keyword, platform, source, quick, ip, ip_mode, date_from, date_to, sort_by, sort_order)
 
     output = io.StringIO()
     output.write("\ufeff")
@@ -493,6 +508,8 @@ def logs_ui(
     platform: str = "",
     source: str = "",
     quick: str = "",
+    ip: str = "",
+    ip_mode: str = "include",
     date_from: str = "",
     date_to: str = "",
     sort_by: str = "time",
@@ -500,7 +517,7 @@ def logs_ui(
     notice: str = ""
 ):
 
-    logs = filter_logs(load_logs(), keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
+    logs = filter_logs(load_logs(), keyword, platform, source, quick, ip, ip_mode, date_from, date_to, sort_by, sort_order)
     readonly = admin_tools.is_readonly_admin(request)
 
     # =========================
@@ -524,6 +541,8 @@ def logs_ui(
         "platform": platform,
         "source": source,
         "quick": quick,
+        "ip": ip,
+        "ip_mode": ip_mode,
         "date_from": date_from,
         "date_to": date_to,
         "sort_by": sort_by,
@@ -673,6 +692,8 @@ def logs_ui(
             "platform": platform,
             "source": source,
             "quick": quick,
+            "ip": ip,
+            "ip_mode": ip_mode,
             "date_from": date_from,
             "date_to": date_to,
             "sort_by": sort_by,
@@ -693,7 +714,7 @@ def logs_ui(
     size_select = "".join(
         [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
     )
-    download_url = export_link(keyword, platform, source, quick, date_from, date_to, sort_by, sort_order)
+    download_url = export_link(keyword, platform, source, quick, ip, ip_mode, date_from, date_to, sort_by, sort_order)
     quick_items = [
         ("", "全部"),
         ("unanswered", "未回答"),
@@ -713,6 +734,8 @@ def logs_ui(
             "platform": platform,
             "source": source,
             "quick": value,
+            "ip": ip,
+            "ip_mode": ip_mode,
             "date_from": date_from,
             "date_to": date_to,
             "sort_by": sort_by,
@@ -967,6 +990,14 @@ def logs_ui(
         flex-wrap:wrap;
         box-shadow:var(--shadow);
         border:1px solid var(--border);
+    }
+
+    .bar .ip-mode {
+        flex:0 0 118px;
+    }
+
+    .bar .ip-filter {
+        flex:0 1 180px;
     }
 
     .quick-filters {
@@ -1793,6 +1824,11 @@ def logs_ui(
         <input name="keyword" value="{e(keyword)}" placeholder="關鍵字">
         <input type="date" name="date_from" value="{e(date_from)}" title="開始日期">
         <input type="date" name="date_to" value="{e(date_to)}" title="結束日期">
+        <select class="ip-mode" name="ip_mode" title="IP 篩選模式">
+            <option value="include" {"selected" if ip_mode != "exclude" else ""}>包含 IP</option>
+            <option value="exclude" {"selected" if ip_mode == "exclude" else ""}>排除 IP</option>
+        </select>
+        <input class="ip-filter" name="ip" value="{e(ip)}" placeholder="IP，例如 211.20.45">
 
         <select name="size">
             {size_select}
