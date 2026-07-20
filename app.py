@@ -1280,6 +1280,7 @@ def logout(request: Request):
 @app.get("/admin/users", response_class=HTMLResponse)
 def admin_users_page(request: Request, notice: str = ""):
     admin = current_admin(request) or "-"
+    readonly = admin_tools.is_readonly_admin(request)
     admin_tools.expire_stale_admin_sessions()
     users = load_admin_users()
     rows = ""
@@ -1288,27 +1289,24 @@ def admin_users_page(request: Request, notice: str = ""):
         username = user.get("username", "")
         nickname = user.get("nickname", "")
         role = user.get("role") or "admin"
-        role_options = "".join(
-            f'<option value="{value}" {"selected" if role == value else ""}>{label}</option>'
-            for value, label in [("admin", "管理者"), ("viewer", "唯讀")]
-        )
-        role_input = (
-            f'<select name="role">{role_options}</select>'
-            if username != admin else
-            f'<select disabled>{role_options}</select><input type="hidden" name="role" value="{html_escape(role)}">'
-        )
-        can_delete = len(users) > 1 and username != admin
-        delete_html = (
-            f'<a class="delete-btn" href="/admin/users/delete/{html_escape(username)}" '
-            f'onclick="return confirm(\'確定要刪除這個管理員嗎？\')">刪除</a>'
-            if can_delete else '<span class="disabled-btn">不可刪</span>'
-        )
-        rows += f"""
-        <tr>
-            <td data-label="帳號">{html_escape(username)}</td>
-            <td data-label="暱稱">{html_escape(nickname or "-")}</td>
-            <td data-label="權限"><span class="role-pill role-{html_escape(role)}">{admin_tools.role_label(role)}</span></td>
-            <td data-label="建立時間">{html_escape(user.get('created_at', '-'))}</td>
+        operation_cell = ""
+        if not readonly:
+            role_options = "".join(
+                f'<option value="{value}" {"selected" if role == value else ""}>{label}</option>'
+                for value, label in [("admin", "管理者"), ("viewer", "唯讀")]
+            )
+            role_input = (
+                f'<select name="role">{role_options}</select>'
+                if username != admin else
+                f'<select disabled>{role_options}</select><input type="hidden" name="role" value="{html_escape(role)}">'
+            )
+            can_delete = len(users) > 1 and username != admin
+            delete_html = (
+                f'<a class="delete-btn" href="/admin/users/delete/{html_escape(username)}" '
+                f'onclick="return confirm(\'確定要刪除這個管理員嗎？\')">刪除</a>'
+                if can_delete else '<span class="disabled-btn">不可刪</span>'
+            )
+            operation_cell = f"""
             <td data-label="操作">
                 <form class="admin-user-actions" method="post" action="/admin/users/nickname">
                     <input type="hidden" name="username" value="{html_escape(username)}">
@@ -1318,6 +1316,14 @@ def admin_users_page(request: Request, notice: str = ""):
                     {delete_html}
                 </form>
             </td>
+            """
+        rows += f"""
+        <tr>
+            <td data-label="帳號">{html_escape(username)}</td>
+            <td data-label="暱稱">{html_escape(nickname or "-")}</td>
+            <td data-label="權限"><span class="role-pill role-{html_escape(role)}">{admin_tools.role_label(role)}</span></td>
+            <td data-label="建立時間">{html_escape(user.get('created_at', '-'))}</td>
+            {operation_cell}
         </tr>
         """
 
@@ -1360,6 +1366,49 @@ def admin_users_page(request: Request, notice: str = ""):
     active_sessions = [item for item in sessions if not item.get("logout_at")]
     latest_login = sessions[-1].get("login_at", "-") if sessions else "-"
     latest_activity = activities[-1].get("time", "-") if activities else "-"
+    user_table_headers = "<th>帳號</th><th>暱稱</th><th>權限</th><th>建立時間</th>"
+    if not readonly:
+        user_table_headers += "<th>操作</th>"
+    admin_tools_html = "" if readonly else """
+            <section class="card admin-tool-card">
+                <div class="tool-heading">
+                    <span class="tool-icon">＋</span>
+                    <div>
+                        <h3>新增管理員</h3>
+                        <p>建立新的後台登入帳號。</p>
+                    </div>
+                </div>
+                <form method="post" action="/admin/users/add">
+                    <label>帳號</label>
+                    <input name="username" placeholder="至少 3 個字元" required>
+                    <label>密碼</label>
+                    <input name="password" type="password" placeholder="至少 8 碼" required>
+                    <label>權限</label>
+                    <select name="role">
+                        <option value="admin">管理者：可查看與編輯</option>
+                        <option value="viewer">唯讀：只能查看，不能修改</option>
+                    </select>
+                    <button class="full-btn">新增管理員</button>
+                </form>
+            </section>
+
+            <section class="card admin-tool-card">
+                <div class="tool-heading">
+                    <span class="tool-icon">●</span>
+                    <div>
+                        <h3>修改我的密碼</h3>
+                        <p>只會更新目前登入帳號。</p>
+                    </div>
+                </div>
+                <form method="post" action="/admin/users/password">
+                    <label>目前密碼</label>
+                    <input name="old_password" type="password" placeholder="輸入目前密碼" required>
+                    <label>新密碼</label>
+                    <input name="new_password" type="password" placeholder="至少 8 碼" required>
+                    <button class="full-btn">更新密碼</button>
+                </form>
+            </section>
+    """
 
     return HTMLResponse(f"""
     <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><style>{admin_css()}</style></head>
@@ -1404,7 +1453,7 @@ def admin_users_page(request: Request, notice: str = ""):
                         <p>管理暱稱、刪除停用帳號，並保留目前登入帳號不可刪除的保護。</p>
                     </div>
                 </div>
-                <table><tr><th>帳號</th><th>暱稱</th><th>權限</th><th>建立時間</th><th>操作</th></tr>{rows}</table>
+                <table><tr>{user_table_headers}</tr>{rows}</table>
             </section>
 
             <section class="card admin-card admin-record-card">
@@ -1467,44 +1516,7 @@ def admin_users_page(request: Request, notice: str = ""):
 
             {ai_integrations_card()}
 
-            <section class="card admin-tool-card">
-                <div class="tool-heading">
-                    <span class="tool-icon">＋</span>
-                    <div>
-                        <h3>新增管理員</h3>
-                        <p>建立新的後台登入帳號。</p>
-                    </div>
-                </div>
-                <form method="post" action="/admin/users/add">
-                    <label>帳號</label>
-                    <input name="username" placeholder="至少 3 個字元" required>
-                    <label>密碼</label>
-                    <input name="password" type="password" placeholder="至少 8 碼" required>
-                    <label>權限</label>
-                    <select name="role">
-                        <option value="admin">管理者：可查看與編輯</option>
-                        <option value="viewer">唯讀：只能查看，不能修改</option>
-                    </select>
-                    <button class="full-btn">新增管理員</button>
-                </form>
-            </section>
-
-            <section class="card admin-tool-card">
-                <div class="tool-heading">
-                    <span class="tool-icon">●</span>
-                    <div>
-                        <h3>修改我的密碼</h3>
-                        <p>只會更新目前登入帳號。</p>
-                    </div>
-                </div>
-                <form method="post" action="/admin/users/password">
-                    <label>目前密碼</label>
-                    <input name="old_password" type="password" placeholder="輸入目前密碼" required>
-                    <label>新密碼</label>
-                    <input name="new_password" type="password" placeholder="至少 8 碼" required>
-                    <button class="full-btn">更新密碼</button>
-                </form>
-            </section>
+            {admin_tools_html}
 
             <section class="card admin-note-card">
                 <h3>管理建議</h3>
