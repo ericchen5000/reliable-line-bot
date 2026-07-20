@@ -730,6 +730,29 @@ def logs_ui(
     if page < total_pages:
         pages += f'<a href="{link(page+1)}">下一頁 →</a>'
 
+    def sort_link(field):
+        next_order = "asc" if not (sort_by == field and sort_order == "asc") else "desc"
+        query = urlencode({
+            "page": 1,
+            "size": size,
+            "keyword": keyword,
+            "platform": platform,
+            "source": source,
+            "quick": quick,
+            "ip": ip,
+            "ip_mode": ip_mode,
+            "date_from": date_from,
+            "date_to": date_to,
+            "sort_by": field,
+            "sort_order": next_order,
+        })
+        return "/logs" + (f"?{query}" if query else "")
+
+    def sort_th(label, field, width):
+        state_class = " active" if sort_by == field else ""
+        icon = "▲" if sort_by == field and sort_order == "asc" else "▼" if sort_by == field else "↕"
+        return f'<th width="{width}"><a class="sort-head{state_class}" href="{e(sort_link(field))}"><span>{label}</span><b>{icon}</b></a></th>'
+
     size_select = "".join(
         [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
     )
@@ -1024,6 +1047,25 @@ def logs_ui(
         gap:8px;
         flex-wrap:wrap;
         margin:0 0 16px;
+    }
+
+    .sort-head {
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        color:inherit;
+        text-decoration:none;
+        white-space:nowrap;
+    }
+
+    .sort-head b {
+        color:var(--muted);
+        font-size:11px;
+        line-height:1;
+    }
+
+    .sort-head.active b {
+        color:var(--accent-strong);
     }
 
     .notice-card {
@@ -1840,6 +1882,8 @@ def logs_ui(
 
     <form class="bar">
         <input type="hidden" name="quick" value="{e(quick)}">
+        <input type="hidden" name="sort_by" value="{e(sort_by)}">
+        <input type="hidden" name="sort_order" value="{e(sort_order)}">
         <input name="keyword" value="{e(keyword)}" placeholder="關鍵字">
         <input type="date" name="date_from" value="{e(date_from)}" title="開始日期">
         <input type="date" name="date_to" value="{e(date_to)}" title="結束日期">
@@ -1853,17 +1897,6 @@ def logs_ui(
             {size_select}
         </select>
 
-        <select name="sort_by">
-            <option value="time">時間</option>
-            <option value="latency">回應時間</option>
-            <option value="source">來源</option>
-        </select>
-
-        <select name="sort_order">
-            <option value="desc">DESC</option>
-            <option value="asc">ASC</option>
-        </select>
-
         <a href="/logs" class="clear-link">清空</a>
         <a href="{e(download_url)}" class="export-link">匯出 CSV</a>
         
@@ -1875,15 +1908,15 @@ def logs_ui(
     <div class="table-wrap">
     <table>
         <tr>
-            <th width="3%">ID</th>
-            <th width="12%">時間</th>
-            <th width="5%">平台</th>
+            {sort_th("ID", "id", "3%")}
+            {sort_th("時間", "time", "12%")}
+            {sort_th("平台", "platform", "5%")}
             <th width="14%">問題</th>
             <th width="14%">回覆</th>
-            <th width="5%">延遲</th>
-            <th width="8%">來源</th>
+            {sort_th("延遲", "latency", "5%")}
+            {sort_th("來源", "source", "8%")}
             <th width="7%">商機</th>
-            <th width="8%">IP</th>
+            {sort_th("IP", "ip", "8%")}
             <th width="5%">更多資訊</th>
         </tr>
 
