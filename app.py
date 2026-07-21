@@ -1307,7 +1307,7 @@ def admin_users_page(request: Request, notice: str = ""):
             delete_html = (
                 f'<a class="delete-btn" href="/admin/users/delete/{html_escape(username)}" '
                 f'onclick="return confirm(\'確定要刪除這個管理員嗎？\')">刪除</a>'
-                if can_delete else '<span class="disabled-btn">不可刪</span>'
+                if can_delete else '<span class="disabled-btn">保留</span>'
             )
             operation_cell = f"""
             <td data-label="操作">
