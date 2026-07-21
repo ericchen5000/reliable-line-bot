@@ -1001,8 +1001,8 @@ def ai_integrations_card():
             <span class="tool-icon">AI</span>
             <div>
                 <h3>AI 串接狀態</h3>
-                <p>集中查看已串接模型、可用狀態與剩餘額度；不顯示 API Key。</p>
             </div>
+            {help_tip("集中查看已串接模型、可用狀態與剩餘額度；不顯示 API Key。")}
         </div>
         <div class="ai-provider-list">{cards}</div>
         <a class="small-link" href="/admin/users">重新整理狀態</a>
@@ -1046,13 +1046,18 @@ def admin_changelog_section():
         <div class="section-heading">
             <div>
                 <h3>後台最近更新</h3>
-                <p>預設顯示最近 5 筆，較早的更新可展開查看。</p>
             </div>
+            {help_tip("預設顯示最近 5 筆，較早的更新可展開查看。")}
         </div>
         <div class="changelog-list">{latest_rows}</div>
         {older_section}
     </section>
     """
+
+
+def help_tip(text):
+    escaped = html_escape(text)
+    return f'<span class="help-tip" aria-label="{escaped}" data-tip="{escaped}">?</span>'
 
 
 def admin_css():
@@ -1077,7 +1082,7 @@ def admin_css():
     .nav-toggle { display:none; }
     .nav-link { min-height:36px; padding:8px 12px; border-radius:8px; background:var(--panel); border:1px solid var(--border); color:var(--text); text-decoration:none; font-size:13px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
     .nav-link.active { color:white; background:var(--button-bg); border:1px solid transparent; }
-    .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
+    .card { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
     .notice-card { color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; font-weight:800; }
     .admin-metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
     .metric-card { background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:16px; min-height:118px; display:flex; flex-direction:column; justify-content:space-between; }
@@ -1089,16 +1094,20 @@ def admin_css():
     .admin-main-column, .admin-side-column { min-width:0; }
     .admin-side-column { position:static; }
     .admin-card { padding:0; overflow:hidden; }
-    .section-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px 18px 14px; border-bottom:1px solid var(--border); }
+    .section-heading { position:relative; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px 46px 14px 18px; border-bottom:1px solid var(--border); }
     .section-heading h3, .tool-heading h3, .admin-note-card h3 { margin:0; font-size:18px; }
     .section-heading p, .tool-heading p, .admin-note-card p { margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
     .table-scroll { overflow-x:auto; }
     .admin-tool-card { padding:16px; }
-    .tool-heading { display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; }
+    .tool-heading { position:relative; display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; padding-right:30px; }
+    .help-tip { position:absolute; top:14px; right:16px; width:18px; height:18px; border-radius:50%; border:1px solid var(--border); background:var(--panel-soft); color:var(--muted); font-size:12px; font-weight:900; display:inline-flex; align-items:center; justify-content:center; cursor:help; }
+    .tool-heading .help-tip { top:0; right:0; }
+    .help-tip::after { content:attr(data-tip); position:absolute; z-index:30; right:0; top:26px; width:max-content; max-width:260px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--text); color:var(--panel); font-size:12px; line-height:1.45; font-weight:700; box-shadow:0 12px 30px rgba(15,23,42,0.18); opacity:0; pointer-events:none; transform:translateY(-4px); transition:opacity 0.14s ease, transform 0.14s ease; }
+    .help-tip:hover::after, .help-tip:focus-visible::after { opacity:1; transform:translateY(0); }
     .tool-icon { width:32px; height:32px; border-radius:10px; color:white; background:var(--button-bg); display:inline-flex; align-items:center; justify-content:center; font-weight:900; flex:0 0 auto; }
     .admin-tool-card label { display:block; margin:10px 0 6px; color:var(--muted); font-size:12px; font-weight:800; }
     .full-btn { width:100%; margin-top:4px; }
-    .admin-note-card { background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel); }
+    .admin-note-card { padding-right:46px; background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel); }
     .theme-option-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:12px; }
     .theme-option { width:100%; padding:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); color:var(--text); text-align:left; cursor:pointer; }
     .theme-option-inner { display:grid; grid-template-columns:72px 1fr; gap:12px; align-items:center; padding:12px; }
@@ -1372,14 +1381,14 @@ def admin_users_page(request: Request, notice: str = ""):
     user_table_headers = "<th>帳號</th><th>暱稱</th><th>權限</th><th>建立時間</th>"
     if not readonly:
         user_table_headers += "<th>操作</th>"
-    add_user_tool_html = "" if readonly else """
+    add_user_tool_html = "" if readonly else f"""
             <section class="card admin-tool-card">
                 <div class="tool-heading">
                     <span class="tool-icon">＋</span>
                     <div>
                         <h3>新增管理員</h3>
-                        <p>建立新的後台登入帳號。</p>
                     </div>
+                    {help_tip("建立新的後台登入帳號，可設定管理者或唯讀權限。")}
                 </div>
                 <form method="post" action="/admin/users/add">
                     <label>帳號</label>
@@ -1396,14 +1405,14 @@ def admin_users_page(request: Request, notice: str = ""):
             </section>
     """
 
-    password_tool_html = """
+    password_tool_html = f"""
             <section class="card admin-tool-card">
                 <div class="tool-heading">
                     <span class="tool-icon">●</span>
                     <div>
                         <h3>修改我的密碼</h3>
-                        <p>只會更新目前登入帳號。</p>
                     </div>
+                    {help_tip("只會更新目前登入帳號的密碼。密碼至少需要 8 個字元。")}
                 </div>
                 <form method="post" action="/admin/users/password">
                     <label>目前密碼</label>
@@ -1455,8 +1464,8 @@ def admin_users_page(request: Request, notice: str = ""):
                 <div class="section-heading">
                     <div>
                         <h3>管理員清單</h3>
-                        <p>管理暱稱、刪除停用帳號，並保留目前登入帳號不可刪除的保護。</p>
                     </div>
+                    {help_tip("管理管理者暱稱、角色權限與帳號刪除；目前登入帳號會保留不可刪除保護。")}
                 </div>
                 <table><tr>{user_table_headers}</tr>{rows}</table>
             </section>
@@ -1465,8 +1474,8 @@ def admin_users_page(request: Request, notice: str = ""):
                 <div class="section-heading">
                     <div>
                         <h3>管理者登入資訊</h3>
-                        <p>追蹤登入時間、最後活動、登出時間、停留時間、裝置與 IP。</p>
                     </div>
+                    {help_tip("追蹤管理者登入時間、最後活動、登出時間、停留時間、裝置與 IP。")}
                 </div>
                 <div class="table-scroll">
                     <table class="login-table"><tr><th>管理者</th><th>登入時間</th><th>最後活動</th><th>登出時間</th><th>停留時間</th><th>裝置</th><th>IP</th></tr>{session_rows}</table>
@@ -1477,8 +1486,8 @@ def admin_users_page(request: Request, notice: str = ""):
                 <div class="section-heading">
                     <div>
                         <h3>最近操作紀錄</h3>
-                        <p>記錄管理者對 FAQ、網站索引、KB 文件與帳號做過的重要變更。</p>
                     </div>
+                    {help_tip("記錄管理者對 FAQ、網站索引、KB 文件與帳號做過的重要變更。")}
                 </div>
                 <div class="table-scroll">
                     <table class="audit-table"><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>補充資訊</th><th>IP</th></tr>{activity_rows}</table>
@@ -1494,8 +1503,8 @@ def admin_users_page(request: Request, notice: str = ""):
                     <span class="tool-icon">Aa</span>
                     <div>
                         <h3>後台外觀設定</h3>
-                        <p>切換整個後台的版面風格，深夜模式會保留。</p>
                     </div>
+                    {help_tip("切換整個後台的版面風格；深夜模式設定會保留。")}
                 </div>
                 <div class="theme-option-grid">
                     <button type="button" class="theme-option" data-style-theme="light" onclick="setAdminStyleTheme('light')">
@@ -1526,7 +1535,7 @@ def admin_users_page(request: Request, notice: str = ""):
 
             <section class="card admin-note-card">
                 <h3>管理建議</h3>
-                <p>離職或不再維護系統的帳號應刪除；多人共用帳號會讓操作紀錄失去追蹤意義。</p>
+                {help_tip("離職或不再維護系統的帳號應刪除；多人共用帳號會讓操作紀錄失去追蹤意義。")}
             </section>
         </aside>
     </section>

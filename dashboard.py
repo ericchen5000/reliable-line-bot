@@ -453,7 +453,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             border:1px solid var(--border);
             background:var(--panel);
             box-shadow:var(--shadow);
-            min-height:112px;
+            min-height:84px;
             color:inherit;
             text-decoration:none;
         }}
