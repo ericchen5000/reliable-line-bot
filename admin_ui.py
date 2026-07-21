@@ -30,6 +30,11 @@ def admin_bar_html():
                 </a>
                 <button type="button" class="admin-menu-toggle" id="admin-menu-toggle" aria-label="開啟導覽選單" aria-expanded="false">☰</button>
                 <a class="admin-logout" href="/logout">登出</a>
+                <div class="admin-font-controls" aria-label="文字大小">
+                    <button type="button" id="admin-font-down" title="縮小文字">A-</button>
+                    <button type="button" id="admin-font-reset" title="恢復正常文字">正常</button>
+                    <button type="button" id="admin-font-up" title="放大文字">A+</button>
+                </div>
                 <label class="admin-theme-control" title="切換深夜模式">
                     <span>深夜模式</span>
                     <span class="admin-switch">
@@ -103,6 +108,48 @@ def admin_bar_html():
             });
         }
 
+        var fontSteps = ["sm", "normal", "lg", "xl"];
+        var fontLabels = {"sm":"小", "normal":"正常", "lg":"大", "xl":"特大"};
+        var storedFont = localStorage.getItem("admin-font-size") || "normal";
+
+        function applyFontSize(value){
+            if(fontSteps.indexOf(value) === -1){
+                value = "normal";
+            }
+            document.body.classList.remove("admin-font-sm", "admin-font-normal", "admin-font-lg", "admin-font-xl");
+            document.body.classList.add("admin-font-" + value);
+            localStorage.setItem("admin-font-size", value);
+            var reset = document.getElementById("admin-font-reset");
+            if(reset){
+                reset.setAttribute("title", "目前文字大小：" + (fontLabels[value] || "正常") + "，點擊恢復正常");
+            }
+        }
+
+        function changeFontSize(delta){
+            var current = localStorage.getItem("admin-font-size") || "normal";
+            var index = fontSteps.indexOf(current);
+            if(index === -1){
+                index = 1;
+            }
+            var next = fontSteps[Math.max(0, Math.min(fontSteps.length - 1, index + delta))];
+            applyFontSize(next);
+        }
+
+        applyFontSize(storedFont);
+
+        var fontDown = document.getElementById("admin-font-down");
+        var fontUp = document.getElementById("admin-font-up");
+        var fontReset = document.getElementById("admin-font-reset");
+        if(fontDown){
+            fontDown.addEventListener("click", function(){ changeFontSize(-1); });
+        }
+        if(fontUp){
+            fontUp.addEventListener("click", function(){ changeFontSize(1); });
+        }
+        if(fontReset){
+            fontReset.addEventListener("click", function(){ applyFontSize("normal"); });
+        }
+
         var menuToggle = document.getElementById("admin-menu-toggle");
         var adminBar = document.querySelector(".admin-bar");
         if(menuToggle && adminBar){
@@ -162,6 +209,25 @@ def admin_bar_css():
     body.has-admin-bar main.page > nav.nav,
     body.has-admin-bar .topbar .theme-control {
         display:none !important;
+    }
+
+    body.admin-font-sm main.page {
+        zoom:0.94;
+        font-size:15px;
+    }
+
+    body.admin-font-normal main.page {
+        zoom:1;
+    }
+
+    body.admin-font-lg main.page {
+        zoom:1.08;
+        font-size:17px;
+    }
+
+    body.admin-font-xl main.page {
+        zoom:1.16;
+        font-size:18px;
     }
 
     html.style-console body,
@@ -435,6 +501,39 @@ def admin_bar_css():
         color:var(--text);
     }
 
+    .admin-font-controls {
+        display:inline-flex;
+        align-items:center;
+        gap:2px;
+        padding:2px;
+        border:1px solid var(--border);
+        border-radius:999px;
+        background:var(--panel-soft);
+    }
+
+    .admin-font-controls button {
+        min-width:30px;
+        min-height:28px;
+        padding:4px 8px;
+        border:0;
+        border-radius:999px;
+        background:transparent;
+        color:var(--muted);
+        font-size:12px;
+        font-weight:900;
+        cursor:pointer;
+        line-height:1;
+    }
+
+    .admin-font-controls button:hover {
+        background:var(--panel);
+        color:var(--text);
+    }
+
+    #admin-font-reset {
+        min-width:42px;
+    }
+
     .admin-avatar {
         width:28px;
         height:28px;
@@ -612,6 +711,19 @@ def admin_bar_css():
             display:none;
         }
 
+        .admin-font-controls {
+            order:3;
+        }
+
+        .admin-font-controls button {
+            min-width:28px;
+            padding:4px 7px;
+        }
+
+        #admin-font-reset {
+            min-width:36px;
+        }
+
         .admin-identity b {
             max-width:92px;
             overflow:hidden;
@@ -644,6 +756,12 @@ def admin_bar_css():
 
         .admin-actions {
             gap:6px;
+        }
+
+        .admin-font-controls {
+            flex:1 1 100%;
+            justify-content:center;
+            order:5;
         }
     }
     """
