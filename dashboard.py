@@ -104,20 +104,22 @@ def status_card(title, value, detail, level="ok", href=""):
         <div>
             <b>{e(title)}</b>
             <strong>{e(value)}</strong>
-            <small>{e(detail)}</small>
         </div>
         <em>{e(label)}</em>
+        <span class="help-tip" aria-label="{e(detail)}" data-tip="{e(detail)}">?</span>
     </{tag}>
     """
 
 
-def metric_card(title, value, unit="", href=""):
+def metric_card(title, value, unit="", href="", detail=""):
     tag = "a" if href else "div"
     href_attr = f' href="{e(href)}"' if href else ""
+    help_html = f'<span class="help-tip" aria-label="{e(detail)}" data-tip="{e(detail)}">?</span>' if detail else ""
     return f"""
     <{tag} class="card metric-card{' linked-card' if href else ''}"{href_attr}>
         <div class="label">{e(title)}</div>
         <div class="value">{e(value)}{f'<span>{e(unit)}</span>' if unit else ''}</div>
+        {help_html}
     </{tag}>
     """
 
@@ -446,7 +448,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             display:grid;
             grid-template-columns:18px minmax(0, 1fr);
             gap:10px;
-            padding:14px;
+            padding:14px 44px 14px 14px;
             border-radius:8px;
             border:1px solid var(--border);
             background:var(--panel);
@@ -467,21 +469,58 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             font-size:21px;
             line-height:1.2;
         }}
-        .status-card small {{
-            display:block;
-            margin-top:7px;
-            color:var(--muted);
-            font-size:12px;
-            line-height:1.45;
-        }}
         .status-card em {{
             position:absolute;
             top:12px;
-            right:12px;
+            right:38px;
             color:var(--muted);
             font-size:11px;
             font-style:normal;
             font-weight:900;
+        }}
+        .help-tip {{
+            position:absolute;
+            top:11px;
+            right:12px;
+            width:18px;
+            height:18px;
+            border-radius:50%;
+            border:1px solid var(--border);
+            background:var(--panel-soft);
+            color:var(--muted);
+            font-size:12px;
+            font-weight:900;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            cursor:help;
+        }}
+        .help-tip::after {{
+            content:attr(data-tip);
+            position:absolute;
+            z-index:30;
+            right:0;
+            top:26px;
+            width:max-content;
+            max-width:260px;
+            padding:8px 10px;
+            border-radius:8px;
+            border:1px solid var(--border);
+            background:var(--text);
+            color:var(--panel);
+            font-size:12px;
+            line-height:1.45;
+            font-weight:700;
+            box-shadow:0 12px 30px rgba(15,23,42,0.18);
+            opacity:0;
+            pointer-events:none;
+            transform:translateY(-4px);
+            transition:opacity 0.14s ease, transform 0.14s ease;
+        }}
+        .help-tip:hover::after,
+        .help-tip:focus-visible::after {{
+            opacity:1;
+            transform:translateY(0);
         }}
         .status-light {{
             width:12px;
@@ -495,11 +534,12 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         .status-light.warn {{ background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,0.14); }}
         .status-light.bad {{ background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,0.14); }}
         .card {{
+            position:relative;
             background:var(--panel);
             border:1px solid var(--border);
             border-radius:8px;
             box-shadow:var(--shadow);
-            padding:16px;
+            padding:16px 44px 16px 16px;
             color:inherit;
             text-decoration:none;
         }}
@@ -781,17 +821,18 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             </div>
         </section>
         <section class="grid">
-            {metric_card("今日對話", len(today_logs), "筆", f"/logs?date_from={datetime.now().strftime('%Y-%m-%d')}")}
-            {metric_card(f"{days_label(days)}對話", len(report_logs), "筆", "/logs")}
-            {metric_card("未回答 / 待修", len(unanswered), "筆", "/logs?quick=unanswered")}
+            {metric_card("今日對話", len(today_logs), "筆", f"/logs?date_from={datetime.now().strftime('%Y-%m-%d')}", "今天收到的 LINE 與 WEB 對話筆數。")}
+            {metric_card(f"{days_label(days)}對話", len(report_logs), "筆", "/logs", f"目前統計期間內的所有對話筆數。")}
+            {metric_card("未回答 / 待修", len(unanswered), "筆", "/logs?quick=unanswered", "AI 未能完整回答、或被標記為待修與錯誤的紀錄。")}
             <div class="card">
                 <div class="label">平均延遲</div>
                 <div class="value">{e(avg_latency)}<span>秒</span></div>
+                <span class="help-tip" aria-label="系統回覆使用者問題的平均花費秒數。" data-tip="系統回覆使用者問題的平均花費秒數。">?</span>
             </div>
-            {metric_card("FAQ 總數", len(faq), "筆", "/faq?tab=faq")}
-            {metric_card("索引段落", index_status.get("total_chunks", index_count()), "段", "#site-index-management")}
-            {metric_card("可能商機", len(lead_logs), "筆", "/logs")}
-            {metric_card("待人工追蹤", len(pending_followups), "筆", "/logs?quick=followup")}
+            {metric_card("FAQ 總數", len(faq), "筆", "/faq?tab=faq", "目前知識管理中可供優先回答的 FAQ 數量。")}
+            {metric_card("索引段落", index_status.get("total_chunks", index_count()), "段", "#site-index-management", "指定網站內容被拆成可搜尋文字段落後的總數。")}
+            {metric_card("可能商機", len(lead_logs), "筆", "/logs", "系統依價格、授權、試用、比較、聯絡等意圖判斷的潛在商機。")}
+            {metric_card("待人工追蹤", len(pending_followups), "筆", "/logs?quick=followup", "需要人工接手或後續聯繫，且尚未處理完成的紀錄。")}
         </section>
 
         <section class="section-head">
