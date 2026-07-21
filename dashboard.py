@@ -94,10 +94,12 @@ def status_level(ok, warn=False):
     return "warn" if warn else "bad"
 
 
-def status_card(title, value, detail, level="ok"):
+def status_card(title, value, detail, level="ok", href=""):
     label = {"ok": "正常", "warn": "注意", "bad": "異常"}.get(level, "正常")
+    tag = "a" if href else "div"
+    href_attr = f' href="{e(href)}"' if href else ""
     return f"""
-    <div class="status-card">
+    <{tag} class="status-card{' linked-card' if href else ''}"{href_attr}>
         <span class="status-light {level}"></span>
         <div>
             <b>{e(title)}</b>
@@ -105,7 +107,18 @@ def status_card(title, value, detail, level="ok"):
             <small>{e(detail)}</small>
         </div>
         <em>{e(label)}</em>
-    </div>
+    </{tag}>
+    """
+
+
+def metric_card(title, value, unit="", href=""):
+    tag = "a" if href else "div"
+    href_attr = f' href="{e(href)}"' if href else ""
+    return f"""
+    <{tag} class="card metric-card{' linked-card' if href else ''}"{href_attr}>
+        <div class="label">{e(title)}</div>
+        <div class="value">{e(value)}{f'<span>{e(unit)}</span>' if unit else ''}</div>
+    </{tag}>
     """
 
 
@@ -224,25 +237,29 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             "系統設定",
             f"{len(checks) - len(missing_checks)} / {len(checks)}",
             "必要環境與資料檔檢查",
-            status_level(not missing_checks, warn=bool(missing_checks))
+            status_level(not missing_checks, warn=bool(missing_checks)),
+            "#health-check"
         ),
         status_card(
             "LINE 串接",
             "已設定" if all(ok for name, ok in checks if name.startswith("LINE_")) else "未完整",
             "Webhook 與 Access Token 狀態",
-            status_level(all(ok for name, ok in checks if name.startswith("LINE_")))
+            status_level(all(ok for name, ok in checks if name.startswith("LINE_"))),
+            "#health-check"
         ),
         status_card(
             "網站索引",
             f"{index_chunks} 段",
             f"失敗 {index_failed} 筆，最後更新：{index_status.get('last_run', '尚未建立')}",
-            "ok" if index_chunks and index_failed == 0 else ("warn" if index_chunks else "bad")
+            "ok" if index_chunks and index_failed == 0 else ("warn" if index_chunks else "bad"),
+            "#site-index-management"
         ),
         status_card(
             "AI 串接",
             "已設定" if os.getenv("DEEPSEEK_API_KEY") else "未設定",
             "DeepSeek API Key 狀態",
-            status_level(bool(os.getenv("DEEPSEEK_API_KEY")))
+            status_level(bool(os.getenv("DEEPSEEK_API_KEY"))),
+            "#health-check"
         ),
     ])
 
@@ -435,6 +452,8 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             background:var(--panel);
             box-shadow:var(--shadow);
             min-height:112px;
+            color:inherit;
+            text-decoration:none;
         }}
         .status-card b {{
             display:block;
@@ -481,7 +500,23 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             border-radius:8px;
             box-shadow:var(--shadow);
             padding:16px;
+            color:inherit;
+            text-decoration:none;
         }}
+        .linked-card {{
+            cursor:pointer;
+            transition:transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+        }}
+        .linked-card:hover {{
+            transform:translateY(-2px);
+            border-color:rgba(96,165,250,0.55);
+            box-shadow:0 18px 42px rgba(37,99,235,0.14);
+        }}
+        .linked-card:focus-visible {{
+            outline:3px solid rgba(96,165,250,0.35);
+            outline-offset:3px;
+        }}
+        body.dark .linked-card:hover {{ box-shadow:0 18px 42px rgba(0,0,0,0.36); }}
         .label {{ color:var(--muted); font-size:13px; font-weight:700; }}
         .value {{ margin-top:8px; font-size:28px; font-weight:800; }}
         .value span {{ margin-left:4px; color:var(--muted); font-size:13px; font-weight:800; }}
@@ -746,38 +781,17 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             </div>
         </section>
         <section class="grid">
-            <div class="card">
-                <div class="label">今日對話</div>
-                <div class="value">{e(len(today_logs))}<span>筆</span></div>
-            </div>
-            <div class="card">
-                <div class="label">{e(days_label(days))}對話</div>
-                <div class="value">{e(len(report_logs))}<span>筆</span></div>
-            </div>
-            <div class="card">
-                <div class="label">未回答 / 待修</div>
-                <div class="value">{e(len(unanswered))}<span>筆</span></div>
-            </div>
+            {metric_card("今日對話", len(today_logs), "筆", f"/logs?date_from={datetime.now().strftime('%Y-%m-%d')}")}
+            {metric_card(f"{days_label(days)}對話", len(report_logs), "筆", "/logs")}
+            {metric_card("未回答 / 待修", len(unanswered), "筆", "/logs?quick=unanswered")}
             <div class="card">
                 <div class="label">平均延遲</div>
                 <div class="value">{e(avg_latency)}<span>秒</span></div>
             </div>
-            <div class="card">
-                <div class="label">FAQ 總數</div>
-                <div class="value">{e(len(faq))}<span>筆</span></div>
-            </div>
-            <div class="card">
-                <div class="label">索引段落</div>
-                <div class="value">{e(index_status.get("total_chunks", index_count()))}<span>段</span></div>
-            </div>
-            <div class="card">
-                <div class="label">可能商機</div>
-                <div class="value">{e(len(lead_logs))}<span>筆</span></div>
-            </div>
-            <div class="card">
-                <div class="label">待人工追蹤</div>
-                <div class="value">{e(len(pending_followups))}<span>筆</span></div>
-            </div>
+            {metric_card("FAQ 總數", len(faq), "筆", "/faq?tab=faq")}
+            {metric_card("索引段落", index_status.get("total_chunks", index_count()), "段", "#site-index-management")}
+            {metric_card("可能商機", len(lead_logs), "筆", "/logs")}
+            {metric_card("待人工追蹤", len(pending_followups), "筆", "/logs?quick=followup")}
         </section>
 
         <section class="section-head">
@@ -799,7 +813,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         </section>
 
         <section class="ops-grid">
-            <div class="card">
+            <div class="card" id="site-index-management">
                 <div class="index-head">
                     <div>
                         <div class="label">網站索引管理</div>
@@ -827,7 +841,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
                 <p class="subtitle">索引排程預設每 24 小時重建一次，也可以手動立即建立。</p>
             </div>
 
-            <div class="card">
+            <div class="card" id="health-check">
                 <div class="label">健康檢查</div>
                 <p class="subtitle">確認服務設定與必要資料檔是否存在。</p>
                 <table style="margin-top:14px;">
