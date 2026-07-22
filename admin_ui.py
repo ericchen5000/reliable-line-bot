@@ -21,10 +21,10 @@ def admin_bar_html():
                 <a class="admin-nav-link" data-path="/logs" href="/logs">LOGS</a>
                 <a class="admin-nav-link" data-path="/faq" href="/faq">知識管理</a>
                 <a class="admin-nav-link" data-path="/test-chat" href="/test-chat">測試</a>
-                <a class="admin-nav-link" data-path="/admin/users" href="/admin/users">帳號管理</a>
+                <a class="admin-nav-link" data-path="/admin/users" href="/admin/users">系統設定</a>
             </nav>
             <div class="admin-actions">
-                <a class="admin-identity" href="/admin/users" title="帳號管理">
+                <a class="admin-identity" href="/admin/users" title="系統設定">
                     <span class="admin-avatar" id="admin-avatar" aria-hidden="true">管</span>
                     <b id="admin-name">管理員</b>
                 </a>
