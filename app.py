@@ -1511,8 +1511,8 @@ def admin_users_page(request: Request, notice: str = ""):
                         <span class="theme-option-inner">
                             <span class="theme-preview"></span>
                             <span>
-                                <b>Reliable Light</b>
-                                <small>目前版本，淺色、圓角卡片、藍紫漸層。</small>
+                                <b>Classic Light</b>
+                                <small>保留原本較柔和的卡片、圓角與藍紫漸層風格。</small>
                             </span>
                         </span>
                     </button>
@@ -1520,8 +1520,8 @@ def admin_users_page(request: Request, notice: str = ""):
                         <span class="theme-option-inner">
                             <span class="theme-preview console"></span>
                             <span>
-                                <b>Reliable Console</b>
-                                <small>平台感版本，色彩更克制、線條更俐落、資訊密度更高。</small>
+                                <b>Enterprise Console</b>
+                                <small>預設後台樣式，線條更俐落、色彩更克制、資訊密度更高。</small>
                             </span>
                         </span>
                     </button>
@@ -1553,7 +1553,7 @@ def admin_users_page(request: Request, notice: str = ""):
         }});
     }}
     document.addEventListener("DOMContentLoaded", function() {{
-        setAdminStyleTheme(localStorage.getItem("admin-style-theme") || "light");
+        setAdminStyleTheme(localStorage.getItem("admin-style-theme") || "console");
     }});
     </script>
     </body></html>

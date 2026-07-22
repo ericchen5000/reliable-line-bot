@@ -2,7 +2,7 @@ def admin_bar_html():
     return """
     <script>
     (function(){
-        var styleTheme = localStorage.getItem("admin-style-theme") || "light";
+        var styleTheme = localStorage.getItem("admin-style-theme") || "console";
         document.documentElement.classList.add("style-" + styleTheme);
         if(document.body){
             document.body.classList.add("style-" + styleTheme);
@@ -79,7 +79,7 @@ def admin_bar_html():
         });
 
         var themeToggle = document.getElementById("admin-theme-toggle");
-        var styleTheme = localStorage.getItem("admin-style-theme") || "light";
+        var styleTheme = localStorage.getItem("admin-style-theme") || "console";
         document.body.classList.remove("style-light", "style-console");
         document.body.classList.add("style-" + styleTheme);
         var storedTheme = localStorage.getItem("admin-theme")
@@ -272,7 +272,28 @@ def admin_bar_css():
     html.style-console body .topbar,
     body.style-console .topbar {
         border-bottom:1px solid var(--border);
-        padding-bottom:14px;
+        padding-bottom:12px;
+        margin-bottom:16px;
+    }
+
+    html.style-console body h1,
+    body.style-console h1 {
+        font-size:28px;
+        line-height:1.25;
+        letter-spacing:0;
+    }
+
+    html.style-console body h2,
+    body.style-console h2 {
+        font-size:22px;
+        line-height:1.3;
+        letter-spacing:0;
+    }
+
+    html.style-console body h3,
+    body.style-console h3 {
+        font-size:17px;
+        line-height:1.35;
     }
 
     html.style-console body .card,
@@ -288,9 +309,89 @@ def admin_bar_css():
     html.style-console body .admin-card,
     body.style-console .admin-card,
     html.style-console body .admin-tool-card,
-    body.style-console .admin-tool-card {
-        border-radius:0 !important;
+    body.style-console .admin-tool-card,
+    html.style-console body .notice-card,
+    body.style-console .notice-card,
+    html.style-console body .summary-card,
+    body.style-console .summary-card,
+    html.style-console body .filter-card,
+    body.style-console .filter-card,
+    html.style-console body .modal-content,
+    body.style-console .modal-content,
+    html.style-console body .drawer-panel,
+    body.style-console .drawer-panel,
+    html.style-console body .detail-panel,
+    body.style-console .detail-panel {
+        border-radius:4px !important;
         box-shadow:none !important;
+        border-color:var(--border) !important;
+    }
+
+    html.style-console body .card,
+    body.style-console .card,
+    html.style-console body .admin-tool-card,
+    body.style-console .admin-tool-card {
+        padding:14px !important;
+    }
+
+    html.style-console body .admin-card,
+    body.style-console .admin-card,
+    html.style-console body .table-wrap,
+    body.style-console .table-wrap {
+        padding:0 !important;
+        overflow:hidden;
+    }
+
+    html.style-console body .section-heading,
+    body.style-console .section-heading {
+        padding:14px 42px 12px 16px;
+        background:var(--panel);
+    }
+
+    html.style-console body .tool-heading,
+    body.style-console .tool-heading {
+        margin-bottom:12px;
+    }
+
+    html.style-console body .metric-card,
+    body.style-console .metric-card {
+        min-height:96px;
+        padding:14px !important;
+    }
+
+    html.style-console body .metric-card strong,
+    body.style-console .metric-card strong {
+        font-size:28px;
+        letter-spacing:0;
+    }
+
+    html.style-console body table,
+    body.style-console table {
+        border-collapse:collapse;
+    }
+
+    html.style-console body th,
+    body.style-console th {
+        background:#edf2f7 !important;
+        color:#526173 !important;
+        font-size:13px;
+        font-weight:800;
+        padding:10px 12px;
+        border-top:0;
+        border-bottom:1px solid var(--border);
+    }
+
+    html.style-console body.dark th,
+    body.dark.style-console th {
+        background:#202c38 !important;
+        color:#a8b6c6 !important;
+    }
+
+    html.style-console body td,
+    body.style-console td {
+        padding:10px 12px;
+        border-top:1px solid var(--border);
+        vertical-align:middle;
     }
 
     html.style-console body button:not(.theme-option),
@@ -305,6 +406,29 @@ def admin_bar_css():
         color:#ffffff !important;
         border-color:transparent !important;
         box-shadow:none !important;
+        border-radius:4px !important;
+        min-height:34px;
+        font-size:13px;
+        font-weight:800;
+    }
+
+    html.style-console body a[class*="btn"],
+    body.style-console a[class*="btn"],
+    html.style-console body .export-link,
+    body.style-console .export-link,
+    html.style-console body .faq-transfer-btn,
+    body.style-console .faq-transfer-btn,
+    html.style-console body .disabled-btn,
+    body.style-console .disabled-btn {
+        border-radius:4px !important;
+        box-shadow:none !important;
+    }
+
+    html.style-console body .disabled-btn,
+    body.style-console .disabled-btn {
+        background:var(--panel-soft) !important;
+        color:var(--muted) !important;
+        border:1px solid var(--border) !important;
     }
 
     html.style-console body .admin-nav-link.active,
@@ -356,9 +480,18 @@ def admin_bar_css():
     html.style-console body .status-pill,
     body.style-console .status-pill,
     html.style-console body .role-pill,
-    body.style-console .role-pill {
-        border-radius:0 !important;
+    body.style-console .role-pill,
+    html.style-console body .quick-chip,
+    body.style-console .quick-chip,
+    html.style-console body .tab,
+    body.style-console .tab,
+    html.style-console body .badge,
+    body.style-console .badge,
+    html.style-console body .lead-badge,
+    body.style-console .lead-badge {
+        border-radius:4px !important;
         box-shadow:none !important;
+        background:var(--accent-soft);
     }
 
     html.style-console body button:not(.theme-option):hover,
@@ -382,6 +515,7 @@ def admin_bar_css():
     html.style-console body .admin-avatar,
     body.style-console .admin-avatar {
         background:var(--button-bg);
+        border-radius:4px;
         box-shadow:none;
     }
 
@@ -395,7 +529,40 @@ def admin_bar_css():
     body.style-console select,
     html.style-console body textarea,
     body.style-console textarea {
-        border-radius:0 !important;
+        border-radius:4px !important;
+        box-shadow:none !important;
+    }
+
+    html.style-console body input,
+    body.style-console input,
+    html.style-console body select,
+    body.style-console select,
+    html.style-console body textarea,
+    body.style-console textarea {
+        background:var(--panel);
+        border-color:var(--border);
+    }
+
+    html.style-console body .admin-font-controls,
+    body.style-console .admin-font-controls,
+    html.style-console body .admin-logout,
+    body.style-console .admin-logout,
+    html.style-console body .admin-menu-toggle,
+    body.style-console .admin-menu-toggle {
+        border-radius:4px;
+        box-shadow:none;
+    }
+
+    html.style-console body .admin-switch,
+    body.style-console .admin-switch,
+    html.style-console body .admin-slider,
+    body.style-console .admin-slider {
+        border-radius:4px;
+    }
+
+    html.style-console body .admin-slider::before,
+    body.style-console .admin-slider::before {
+        border-radius:3px;
     }
 
     .admin-bar-inner {
