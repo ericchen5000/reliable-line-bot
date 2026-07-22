@@ -785,15 +785,25 @@ def logs_ui(
         [f'<option value="{s}" {"selected" if s==size else ""}>{s} 筆</option>' for s in page_opts]
     )
     download_url = export_link(keyword, platform, source, quick, ip, ip_mode, date_from, date_to, sort_by, sort_order)
-    quick_items = [
-        ("", "全部"),
-        ("unanswered", "未回答"),
-        ("ai", "AI 客服"),
-        ("faq", "FAQ"),
-        ("site-index", "網站索引"),
-        ("transferred", "已轉 FAQ"),
-        ("needs-review", "待修 / 錯誤"),
-        ("followup", "待追蹤"),
+    quick_groups = [
+        ("總覽", [
+            ("", "全部"),
+        ]),
+        ("回答狀態", [
+            ("unanswered", "未回答"),
+            ("needs-review", "待修 / 錯誤"),
+        ]),
+        ("回答來源", [
+            ("ai", "AI 客服"),
+            ("faq", "FAQ"),
+            ("site-index", "網站索引"),
+        ]),
+        ("FAQ 動作", [
+            ("transferred", "已轉 FAQ"),
+        ]),
+        ("商機追蹤", [
+            ("followup", "待追蹤"),
+        ]),
     ]
 
     def quick_link(value):
@@ -814,8 +824,18 @@ def logs_ui(
         return "/logs" + (f"?{query}" if query else "")
 
     quick_buttons = "".join(
-        f'<a class="quick-chip {"active" if quick == value else ""}" href="{e(quick_link(value))}">{label}</a>'
-        for value, label in quick_items
+        f"""
+        <div class="quick-group">
+            <span class="quick-group-label">{e(group_label)}</span>
+            <div class="quick-group-items">
+                {"".join(
+                    f'<a class="quick-chip {"active" if quick == value else ""}" href="{e(quick_link(value))}">{label}</a>'
+                    for value, label in items
+                )}
+            </div>
+        </div>
+        """
+        for group_label, items in quick_groups
     )
 
     # =========================
@@ -1072,9 +1092,35 @@ def logs_ui(
 
     .quick-filters {
         display:flex;
-        gap:8px;
+        gap:10px;
         flex-wrap:wrap;
         margin:0 0 16px;
+        align-items:stretch;
+    }
+
+    .quick-group {
+        display:flex;
+        align-items:center;
+        gap:7px;
+        padding:6px;
+        border:1px solid var(--border);
+        border-radius:8px;
+        background:var(--panel);
+        box-shadow:var(--shadow);
+    }
+
+    .quick-group-label {
+        color:var(--muted);
+        font-size:12px;
+        font-weight:900;
+        white-space:nowrap;
+        padding:0 4px;
+    }
+
+    .quick-group-items {
+        display:flex;
+        gap:6px;
+        flex-wrap:wrap;
     }
 
     .sort-head {
@@ -1125,9 +1171,9 @@ def logs_ui(
     }
 
     .quick-chip {
-        min-height:34px;
-        padding:7px 11px;
-        border-radius:999px;
+        min-height:30px;
+        padding:6px 10px;
+        border-radius:8px;
         border:1px solid var(--border);
         background:var(--panel-soft);
         color:var(--muted);
@@ -1734,6 +1780,17 @@ def logs_ui(
         }
 
         .quick-filters {
+            display:grid;
+            grid-template-columns:1fr;
+        }
+
+        .quick-group {
+            display:grid;
+            grid-template-columns:86px minmax(0, 1fr);
+            align-items:start;
+        }
+
+        .quick-group-items {
             display:grid;
             grid-template-columns:repeat(2, minmax(0, 1fr));
         }
