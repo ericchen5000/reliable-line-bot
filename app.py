@@ -909,7 +909,7 @@ def admin_nav(active=""):
         ("/logs", "LOGS"),
         ("/faq", "知識管理"),
         ("/test-chat", "測試"),
-        ("/admin/users", "系統設定"),
+        ("/admin/users", "帳號管理"),
     ]
     links = "".join(
         f'<a class="nav-link {"active" if active == label else ""}" href="{href}">{label}</a>'
@@ -1090,24 +1090,15 @@ def admin_css():
     .metric-card .metric-time { font-size:16px; line-height:1.35; letter-spacing:0; overflow-wrap:anywhere; }
     .metric-label { color:var(--muted); font-size:13px; font-weight:800; }
     .metric-card small { color:var(--muted); font-size:12px; line-height:1.35; }
-    .settings-shortcuts { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
-    .settings-shortcuts a { min-height:34px; padding:7px 11px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); text-decoration:none; font-size:13px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
-    .settings-shortcuts a:hover { border-color:rgba(96,165,250,0.45); color:#3730a3; }
-    body.dark .settings-shortcuts a:hover { color:#93c5fd; }
-    .settings-section { margin-bottom:18px; scroll-margin-top:96px; }
-    .settings-section-head { margin:0 0 10px; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
-    .settings-section-head h3 { margin:0; font-size:20px; }
-    .settings-section-head p { margin:4px 0 0; color:var(--muted); font-size:13px; }
-    .settings-layout { display:grid; grid-template-columns:minmax(0, 1fr) 360px; gap:14px; align-items:start; }
-    .settings-main-column, .settings-side-column { min-width:0; }
-    .settings-side-column { display:grid; gap:14px; }
-    .settings-tool-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; align-items:start; }
+    .admin-manage-layout { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:14px; align-items:start; }
+    .admin-main-column, .admin-side-column { min-width:0; }
+    .admin-side-column { position:static; }
     .admin-card { padding:0; overflow:hidden; }
     .section-heading { position:relative; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:18px 46px 14px 18px; border-bottom:1px solid var(--border); }
     .section-heading h3, .tool-heading h3, .admin-note-card h3 { margin:0; font-size:18px; }
     .section-heading p, .tool-heading p, .admin-note-card p { margin:6px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
     .table-scroll { overflow-x:auto; }
-    .admin-tool-card { padding:16px; margin-bottom:0; }
+    .admin-tool-card { padding:16px; }
     .tool-heading { position:relative; display:flex; gap:12px; align-items:flex-start; margin-bottom:14px; padding-right:30px; }
     .help-tip { position:absolute; top:14px; right:16px; width:18px; height:18px; border-radius:50%; border:1px solid var(--border); background:var(--panel-soft); color:var(--muted); font-size:12px; font-weight:900; display:inline-flex; align-items:center; justify-content:center; cursor:help; }
     .tool-heading .help-tip { top:0; right:0; }
@@ -1211,8 +1202,8 @@ def admin_css():
     body.dark .changelog-more summary { color:#93c5fd; }
     body.style-console .changelog-card { border-radius:0; }
     """ + admin_bar_css() + """
-    @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .settings-layout { grid-template-columns:1fr; } .settings-side-column { grid-template-columns:repeat(2, minmax(0, 1fr)); } .changelog-card, .admin-note-card { grid-column:1 / -1; } }
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .settings-side-column, .settings-tool-grid { display:grid; grid-template-columns:1fr; } .settings-section-head { align-items:flex-start; flex-direction:column; } .section-heading { padding:16px 46px 16px 16px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
+    @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -1438,18 +1429,12 @@ def admin_users_page(request: Request, notice: str = ""):
     <body>{admin_bar_html()}<main class="page">
     <header class="topbar">
         <div>
-            <h2>系統設定</h2>
-            <p class="subtitle">集中管理帳號權限、登入安全、AI 串接、外觀設定與後台更新紀錄</p>
+            <h2>帳號管理</h2>
+            <p class="subtitle">管理後台登入權限、管理者暱稱、登入紀錄與重要操作軌跡</p>
         </div>
     </header>
-    <nav class="nav">{admin_nav("系統設定")}</nav>
+    <nav class="nav">{admin_nav("帳號管理")}</nav>
     {f'<section class="card notice-card">{html_escape(notice)}</section>' if notice else ''}
-    <nav class="settings-shortcuts" aria-label="系統設定分區">
-        <a href="#account-permissions">帳號與權限</a>
-        <a href="#login-security">登入與安全</a>
-        <a href="#system-appearance">系統與外觀</a>
-        <a href="#system-updates">更新紀錄</a>
-    </nav>
     <section class="admin-metrics">
         <div class="metric-card">
             <span class="metric-label">管理員數</span>
@@ -1473,15 +1458,8 @@ def admin_users_page(request: Request, notice: str = ""):
         </div>
     </section>
 
-    <section class="settings-layout">
-        <div class="settings-main-column">
-            <section class="settings-section" id="account-permissions">
-                <div class="settings-section-head">
-                    <div>
-                        <h3>帳號與權限</h3>
-                        <p>管理誰可以登入後台、可以編輯或只能查看，以及自己的密碼。</p>
-                    </div>
-                </div>
+    <section class="admin-manage-layout">
+        <div class="admin-main-column">
             <section class="card admin-card">
                 <div class="section-heading">
                     <div>
@@ -1491,19 +1469,7 @@ def admin_users_page(request: Request, notice: str = ""):
                 </div>
                 <table><tr>{user_table_headers}</tr>{rows}</table>
             </section>
-                <div class="settings-tool-grid">
-                    {add_user_tool_html}
-                    {password_tool_html}
-                </div>
-            </section>
 
-            <section class="settings-section" id="login-security">
-                <div class="settings-section-head">
-                    <div>
-                        <h3>登入與安全</h3>
-                        <p>查看登入工作階段、IP、裝置與重要操作軌跡。</p>
-                    </div>
-                </div>
             <section class="card admin-card admin-record-card">
                 <div class="section-heading">
                     <div>
@@ -1527,17 +1493,11 @@ def admin_users_page(request: Request, notice: str = ""):
                     <table class="audit-table"><tr><th>時間</th><th>管理者</th><th>動作</th><th>目標</th><th>補充資訊</th><th>IP</th></tr>{activity_rows}</table>
                 </div>
             </section>
-            </section>
+
+            {admin_changelog_section()}
         </div>
 
-        <aside class="settings-side-column" id="system-appearance">
-            <section class="settings-section">
-                <div class="settings-section-head">
-                    <div>
-                        <h3>系統與外觀</h3>
-                        <p>管理後台外觀、AI 串接狀態與日常維護提示。</p>
-                    </div>
-                </div>
+        <aside class="admin-side-column">
             <section class="card admin-tool-card">
                 <div class="tool-heading">
                     <span class="tool-icon">Aa</span>
@@ -1570,20 +1530,12 @@ def admin_users_page(request: Request, notice: str = ""):
 
             {ai_integrations_card()}
 
+            {add_user_tool_html}
+            {password_tool_html}
+
             <section class="card admin-note-card">
                 <h3>管理建議</h3>
                 {help_tip("離職或不再維護系統的帳號應刪除；多人共用帳號會讓操作紀錄失去追蹤意義。")}
-            </section>
-            </section>
-
-            <section class="settings-section" id="system-updates">
-                <div class="settings-section-head">
-                    <div>
-                        <h3>更新紀錄</h3>
-                        <p>查看這個後台最近調整了哪些功能與介面。</p>
-                    </div>
-                </div>
-                {admin_changelog_section()}
             </section>
         </aside>
     </section>
