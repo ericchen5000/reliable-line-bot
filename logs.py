@@ -668,7 +668,7 @@ def logs_ui(
             <td data-label="延遲" class="latency">{e(g(l,'latency','-'))}</td>
             <td data-label="來源" class="source"><span title="{e(source_value)}">{e(source_summary(source_value))}</span></td>
             <td data-label="商機" class="lead-cell">{lead_badge(l)}</td>
-            <td data-label="IP" class="ip">{e(g(l,'ip','-'))}</td>
+            <td data-label="IP" class="ip" title="{e(g(l,'ip','-'))}">{e(g(l,'ip','-'))}</td>
 
             <td data-label="更多資訊" class="log-actions">
                 <button onclick="toggleDetail({i})">點擊查看</button>
@@ -1327,6 +1327,15 @@ def logs_ui(
         overflow:hidden;
     }
 
+    .logs-table {
+        table-layout:fixed;
+    }
+
+    .logs-table th,
+    .logs-table td {
+        overflow:hidden;
+    }
+
     th {
         background:var(--panel-soft);
         padding:12px;
@@ -1372,15 +1381,18 @@ def logs_ui(
     }
 
     .msg {
-        max-width:180px;
         line-height:1.5;
-    }
-
-    .reply-cell {
-        max-width:220px;
+        max-width:none;
         overflow:hidden;
         text-overflow:ellipsis;
         white-space:nowrap;
+    }
+
+    .reply-cell {
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        max-width:none;
         color:var(--muted);
     }
 
@@ -1392,7 +1404,7 @@ def logs_ui(
 
     .source span {
         display:inline-flex;
-        max-width:130px;
+        max-width:100%;
         overflow:hidden;
         text-overflow:ellipsis;
         white-space:nowrap;
@@ -1402,6 +1414,9 @@ def logs_ui(
     .ip {
         font-family:monospace;
         color:var(--muted);
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
     }
 
     .detail-box {
@@ -1906,6 +1921,12 @@ def logs_ui(
             text-overflow:clip;
         }
 
+        .ip {
+            white-space:normal;
+            overflow:visible;
+            text-overflow:clip;
+        }
+
         .line-profile {
             flex-direction:column;
         }
@@ -1991,18 +2012,30 @@ def logs_ui(
     <div class="pages">{pages}</div>
 
     <div class="table-wrap">
-    <table>
+    <table class="logs-table">
+        <colgroup>
+            <col style="width:4%;">
+            <col style="width:13%;">
+            <col style="width:6%;">
+            <col style="width:15%;">
+            <col style="width:17%;">
+            <col style="width:6%;">
+            <col style="width:12%;">
+            <col style="width:7%;">
+            <col style="width:10%;">
+            <col style="width:10%;">
+        </colgroup>
         <tr>
-            {sort_th("ID", "id", "3%")}
-            {sort_th("時間", "time", "12%")}
-            {sort_th("平台", "platform", "5%")}
-            <th width="14%">問題</th>
-            <th width="14%">回覆</th>
-            {sort_th("延遲", "latency", "5%")}
-            {sort_th("來源", "source", "8%")}
+            {sort_th("ID", "id", "4%")}
+            {sort_th("時間", "time", "13%")}
+            {sort_th("平台", "platform", "6%")}
+            <th width="15%">問題</th>
+            <th width="17%">回覆</th>
+            {sort_th("延遲", "latency", "6%")}
+            {sort_th("來源", "source", "12%")}
             <th width="7%">商機</th>
-            {sort_th("IP", "ip", "8%")}
-            <th width="5%">更多資訊</th>
+            {sort_th("IP", "ip", "10%")}
+            <th width="10%">更多資訊</th>
         </tr>
 
         {rows}
