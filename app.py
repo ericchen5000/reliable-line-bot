@@ -1085,11 +1085,11 @@ def admin_css():
     .card { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
     .notice-card { color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; font-weight:800; }
     .admin-metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
-    .side-metrics { grid-template-columns:1fr; margin-bottom:0; }
+    .side-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; margin-bottom:18px; }
     .metric-card { background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:16px; min-height:118px; display:flex; flex-direction:column; justify-content:space-between; }
-    .side-metrics .metric-card { min-height:84px; padding:12px; }
+    .side-metrics .metric-card { min-height:92px; padding:12px; }
     .metric-card strong { display:block; font-size:32px; line-height:1.1; letter-spacing:-0.02em; color:var(--text); }
-    .side-metrics .metric-card strong { font-size:24px; }
+    .side-metrics .metric-card strong { font-size:24px; margin-top:4px; }
     .metric-card .metric-time { font-size:16px; line-height:1.35; letter-spacing:0; overflow-wrap:anywhere; }
     .side-metrics .metric-card .metric-time { font-size:13px; }
     .metric-label { color:var(--muted); font-size:13px; font-weight:800; }
@@ -1132,7 +1132,7 @@ def admin_css():
     body.style-console .theme-option small { color:var(--muted); }
     body.style-console .theme-option.active { border-color:#1f4f7a; box-shadow:none; outline:2px solid rgba(31,79,122,0.24); outline-offset:2px; }
     body.style-console.dark .theme-option.active { outline-color:rgba(103,167,216,0.35); }
-    .appearance-card { padding:12px; }
+    .appearance-card { padding:12px; margin-top:4px; }
     .appearance-card .tool-heading { margin-bottom:10px; padding-right:0; }
     .appearance-card .tool-heading h3 { font-size:14px; }
     .appearance-card .tool-icon, .appearance-card .help-tip { display:none; }
@@ -1225,7 +1225,7 @@ def admin_css():
     .admin-modal-body { padding:18px; }
     body.style-console .admin-modal-panel, body.style-console .modal-close { border-radius:4px; box-shadow:none; }
     """ + admin_bar_css() + """
-    @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .side-metrics { grid-column:1 / -1; grid-template-columns:repeat(4, minmax(0, 1fr)); } }
+    @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .side-metrics { grid-column:1 / -1; grid-template-columns:repeat(4, minmax(0, 1fr)); margin-bottom:0; } }
     @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics, .side-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; flex-direction:column; } .section-actions { width:100%; justify-content:flex-start; padding-right:0; } .section-actions button { flex:1 1 140px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
