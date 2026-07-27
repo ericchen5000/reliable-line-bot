@@ -1085,9 +1085,13 @@ def admin_css():
     .card { position:relative; background:var(--panel); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow); padding:16px; margin-bottom:14px; }
     .notice-card { color:#3730a3; background:#e0e7ff; border-color:#c7d2fe; font-weight:800; }
     .admin-metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
+    .side-metrics { grid-template-columns:1fr; margin-bottom:0; }
     .metric-card { background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); padding:16px; min-height:118px; display:flex; flex-direction:column; justify-content:space-between; }
+    .side-metrics .metric-card { min-height:84px; padding:12px; }
     .metric-card strong { display:block; font-size:32px; line-height:1.1; letter-spacing:-0.02em; color:var(--text); }
+    .side-metrics .metric-card strong { font-size:24px; }
     .metric-card .metric-time { font-size:16px; line-height:1.35; letter-spacing:0; overflow-wrap:anywhere; }
+    .side-metrics .metric-card .metric-time { font-size:13px; }
     .metric-label { color:var(--muted); font-size:13px; font-weight:800; }
     .metric-card small { color:var(--muted); font-size:12px; line-height:1.35; }
     .admin-manage-layout { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:14px; align-items:start; }
@@ -1109,7 +1113,10 @@ def admin_css():
     .full-btn { width:100%; margin-top:4px; }
     .admin-note-card { padding-right:46px; background:linear-gradient(135deg, rgba(96,165,250,0.10), rgba(167,139,250,0.10)), var(--panel); }
     .theme-option-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:12px; }
+    .theme-option-grid.compact { grid-template-columns:1fr 1fr; gap:8px; margin-top:0; }
     .theme-option { width:100%; padding:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--panel); color:var(--text); text-align:left; cursor:pointer; }
+    .theme-option.simple { text-align:center; border-radius:8px; }
+    .theme-option-simple { display:block; padding:9px 10px; color:var(--text); font-size:12px; font-weight:900; }
     .theme-option-inner { display:grid; grid-template-columns:72px 1fr; gap:12px; align-items:center; padding:12px; }
     .theme-preview { height:48px; border-radius:8px; border:1px solid var(--border); background:linear-gradient(135deg,#f7fbff,#eef4ff); position:relative; overflow:hidden; }
     .theme-preview::before { content:""; position:absolute; left:8px; top:8px; width:42px; height:8px; border-radius:999px; background:#60a5fa; }
@@ -1125,6 +1132,10 @@ def admin_css():
     body.style-console .theme-option small { color:var(--muted); }
     body.style-console .theme-option.active { border-color:#1f4f7a; box-shadow:none; outline:2px solid rgba(31,79,122,0.24); outline-offset:2px; }
     body.style-console.dark .theme-option.active { outline-color:rgba(103,167,216,0.35); }
+    .appearance-card { padding:12px; }
+    .appearance-card .tool-heading { margin-bottom:10px; padding-right:0; }
+    .appearance-card .tool-heading h3 { font-size:14px; }
+    .appearance-card .tool-icon, .appearance-card .help-tip { display:none; }
     textarea, input, select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); color:var(--text); margin-bottom:10px; }
     textarea { min-height:120px; resize:vertical; }
     button { min-height:40px; padding:8px 14px; border:none; border-radius:8px; color:white; background:var(--button-bg); font-weight:700; cursor:pointer; }
@@ -1214,8 +1225,8 @@ def admin_css():
     .admin-modal-body { padding:18px; }
     body.style-console .admin-modal-panel, body.style-console .modal-close { border-radius:4px; box-shadow:none; }
     """ + admin_bar_css() + """
-    @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; flex-direction:column; } .section-actions { width:100%; justify-content:flex-start; padding-right:0; } .section-actions button { flex:1 1 140px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
+    @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .side-metrics { grid-column:1 / -1; grid-template-columns:repeat(4, minmax(0, 1fr)); } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics, .side-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; flex-direction:column; } .section-actions { width:100%; justify-content:flex-start; padding-right:0; } .section-actions button { flex:1 1 140px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -1390,6 +1401,30 @@ def admin_users_page(request: Request, notice: str = ""):
     active_sessions = [item for item in sessions if not item.get("logout_at")]
     latest_login = sessions[-1].get("login_at", "-") if sessions else "-"
     latest_activity = activities[-1].get("time", "-") if activities else "-"
+    metrics_html = f"""
+            <section class="admin-metrics side-metrics">
+                <div class="metric-card">
+                    <span class="metric-label">管理員數</span>
+                    <strong>{len(users)}</strong>
+                    <small>可登入後台的帳號</small>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">目前登入</span>
+                    <strong>{len(active_sessions)}</strong>
+                    <small>尚未登出的工作階段</small>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">最近登入</span>
+                    <strong class="metric-time">{html_escape(latest_login)}</strong>
+                    <small>最後一筆登入紀錄</small>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">最近操作</span>
+                    <strong class="metric-time">{html_escape(latest_activity)}</strong>
+                    <small>FAQ / KB / 帳號等變動</small>
+                </div>
+            </section>
+    """
     user_table_headers = "<th>帳號</th><th>暱稱</th><th>權限</th><th>建立時間</th>"
     if not readonly:
         user_table_headers += "<th>操作</th>"
@@ -1466,28 +1501,6 @@ def admin_users_page(request: Request, notice: str = ""):
     </header>
     <nav class="nav">{admin_nav("帳號管理")}</nav>
     {f'<section class="card notice-card">{html_escape(notice)}</section>' if notice else ''}
-    <section class="admin-metrics">
-        <div class="metric-card">
-            <span class="metric-label">管理員數</span>
-            <strong>{len(users)}</strong>
-            <small>可登入後台的帳號</small>
-        </div>
-        <div class="metric-card">
-            <span class="metric-label">目前登入</span>
-            <strong>{len(active_sessions)}</strong>
-            <small>尚未登出的工作階段</small>
-        </div>
-        <div class="metric-card">
-            <span class="metric-label">最近登入</span>
-            <strong class="metric-time">{html_escape(latest_login)}</strong>
-            <small>最後一筆登入紀錄</small>
-        </div>
-        <div class="metric-card">
-            <span class="metric-label">最近操作</span>
-            <strong class="metric-time">{html_escape(latest_activity)}</strong>
-            <small>FAQ / KB / 帳號等變動</small>
-        </div>
-    </section>
 
     <section class="admin-manage-layout">
         <div class="admin-main-column">
@@ -1530,42 +1543,26 @@ def admin_users_page(request: Request, notice: str = ""):
         </div>
 
         <aside class="admin-side-column">
-            <section class="card admin-tool-card">
+            {metrics_html}
+
+            <section class="card admin-tool-card appearance-card">
                 <div class="tool-heading">
                     <span class="tool-icon">Aa</span>
                     <div>
-                        <h3>後台外觀設定</h3>
+                        <h3>外觀</h3>
                     </div>
-                    {help_tip("切換整個後台的版面風格；深夜模式設定會保留。")}
                 </div>
-                <div class="theme-option-grid">
-                    <button type="button" class="theme-option" data-style-theme="light" onclick="setAdminStyleTheme('light')">
-                        <span class="theme-option-inner">
-                            <span class="theme-preview"></span>
-                            <span>
-                                <b>Classic Light</b>
-                                <small>保留原本較柔和的卡片、圓角與藍紫漸層風格。</small>
-                            </span>
-                        </span>
+                <div class="theme-option-grid compact">
+                    <button type="button" class="theme-option simple" data-style-theme="light" onclick="setAdminStyleTheme('light')">
+                        <span class="theme-option-simple">Classic</span>
                     </button>
-                    <button type="button" class="theme-option" data-style-theme="console" onclick="setAdminStyleTheme('console')">
-                        <span class="theme-option-inner">
-                            <span class="theme-preview console"></span>
-                            <span>
-                                <b>Enterprise Console</b>
-                                <small>預設後台樣式，線條更俐落、色彩更克制、資訊密度更高。</small>
-                            </span>
-                        </span>
+                    <button type="button" class="theme-option simple" data-style-theme="console" onclick="setAdminStyleTheme('console')">
+                        <span class="theme-option-simple">Console</span>
                     </button>
                 </div>
             </section>
 
             {ai_integrations_card()}
-
-            <section class="card admin-note-card">
-                <h3>管理建議</h3>
-                {help_tip("離職或不再維護系統的帳號應刪除；多人共用帳號會讓操作紀錄失去追蹤意義。")}
-            </section>
         </aside>
     </section>
     </main>
