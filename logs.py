@@ -258,6 +258,13 @@ def parse_log_time(value):
         return None
 
 
+def compact_log_time(value):
+    parsed = parse_log_time(value)
+    if parsed:
+        return parsed.strftime("%m/%d %H:%M")
+    return str(value or "-")
+
+
 def parse_date(value, end_of_day=False):
     if not value:
         return None
@@ -659,16 +666,13 @@ def logs_ui(
         rows += f"""
         <tr>
             <td data-label="ID">{e(log_id)}</td>
-            <td data-label="時間" class="time">{e(g(l,'time'))}</td>
+            <td data-label="時間" class="time" title="{e(g(l,'time'))}">{e(compact_log_time(g(l,'time')))}</td>
             <td data-label="平台"><span class="pill">{e(g(l,'platform','LINE'))}</span></td>
 
             <td data-label="問題" class="msg">{e(str(message)[:45])}</td>
             <td data-label="回覆" class="reply-cell">{e(str(reply)[:60])}</td>
 
             <td data-label="延遲" class="latency">{e(g(l,'latency','-'))}</td>
-            <td data-label="來源" class="source"><span title="{e(source_value)}">{e(source_summary(source_value))}</span></td>
-            <td data-label="商機" class="lead-cell">{lead_badge(l)}</td>
-            <td data-label="IP" class="ip" title="{e(g(l,'ip','-'))}">{e(g(l,'ip','-'))}</td>
 
             <td data-label="更多資訊" class="log-actions">
                 <button onclick="toggleDetail({i})">點擊查看</button>
@@ -683,7 +687,7 @@ def logs_ui(
         # =========================
         rows += f"""
         <tr id="detail-{i}" class="detail-row" style="display:none;">
-            <td colspan="10">
+            <td colspan="7">
                 <div class="detail-box" id="detail-content-{i}">
 
                     <div class="detail-summary-grid">
@@ -1291,21 +1295,24 @@ def logs_ui(
     }
 
     .log-actions {
-        min-width:190px;
-        display:flex;
-        align-items:center;
+        min-width:0;
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        align-items:stretch;
         gap:8px;
-        white-space:nowrap;
+        white-space:normal;
     }
 
     .log-actions .inline-form {
+        display:flex;
         margin:0;
     }
 
     .log-actions > button,
     .log-actions .inline-form button,
     .log-actions .faq-added-pill {
-        min-width:82px;
+        width:100%;
+        min-width:0;
         min-height:36px;
         padding:7px 10px;
         white-space:nowrap;
@@ -2015,27 +2022,21 @@ def logs_ui(
     <table class="logs-table">
         <colgroup>
             <col style="width:4%;">
-            <col style="width:13%;">
-            <col style="width:6%;">
-            <col style="width:15%;">
-            <col style="width:17%;">
-            <col style="width:6%;">
-            <col style="width:12%;">
+            <col style="width:11%;">
             <col style="width:7%;">
-            <col style="width:10%;">
-            <col style="width:10%;">
+            <col style="width:27%;">
+            <col style="width:28%;">
+            <col style="width:7%;">
+            <col style="width:16%;">
         </colgroup>
         <tr>
             {sort_th("ID", "id", "4%")}
-            {sort_th("時間", "time", "13%")}
-            {sort_th("平台", "platform", "6%")}
-            <th width="15%">問題</th>
-            <th width="17%">回覆</th>
-            {sort_th("延遲", "latency", "6%")}
-            {sort_th("來源", "source", "12%")}
-            <th width="7%">商機</th>
-            {sort_th("IP", "ip", "10%")}
-            <th width="10%">更多資訊</th>
+            {sort_th("時間", "time", "11%")}
+            {sort_th("平台", "platform", "7%")}
+            <th width="27%">問題</th>
+            <th width="28%">回覆</th>
+            {sort_th("延遲", "latency", "7%")}
+            <th width="16%">更多資訊</th>
         </tr>
 
         {rows}
