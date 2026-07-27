@@ -1136,6 +1136,9 @@ def admin_css():
     .admin-user-actions { display:grid; grid-template-columns:minmax(160px, 1fr) minmax(120px, 150px) auto auto; gap:8px; align-items:start; }
     .admin-user-actions input, .admin-user-actions select { margin-bottom:0; }
     .admin-user-actions button, .admin-user-actions a, .disabled-btn { min-height:40px; padding:8px 14px; border-radius:8px; font-size:13px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; white-space:nowrap; }
+    .section-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; padding-right:22px; }
+    .section-actions button { min-height:36px; padding:8px 12px; font-size:13px; }
+    .secondary-btn { color:#3730a3; background:#e0e7ff; border:1px solid #c7d2fe; }
     .delete-btn { color:white; background:var(--danger); border:1px solid transparent; }
     .disabled-btn { color:var(--muted); background:var(--panel-soft); border:1px solid var(--border); cursor:not-allowed; }
     .role-pill { display:inline-flex; align-items:center; justify-content:center; min-width:58px; padding:5px 9px; border-radius:999px; font-size:12px; font-weight:900; }
@@ -1201,9 +1204,18 @@ def admin_css():
     .changelog-more[open] summary::before { content:"-"; }
     body.dark .changelog-more summary { color:#93c5fd; }
     body.style-console .changelog-card { border-radius:0; }
+    .admin-modal { position:fixed; inset:0; z-index:1100; display:none; align-items:center; justify-content:center; padding:22px; background:rgba(15,23,42,0.48); }
+    .admin-modal.open { display:flex; }
+    .admin-modal-panel { width:min(520px, 100%); max-height:calc(100vh - 44px); overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:10px; box-shadow:0 24px 70px rgba(15,23,42,0.22); }
+    .admin-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:16px 18px; border-bottom:1px solid var(--border); }
+    .admin-modal-head h3 { margin:0; font-size:18px; }
+    .admin-modal-head p { margin:5px 0 0; color:var(--muted); font-size:13px; line-height:1.45; }
+    .modal-close { min-width:34px; min-height:34px; padding:0; border-radius:8px; color:var(--text); background:var(--panel-soft); border:1px solid var(--border); }
+    .admin-modal-body { padding:18px; }
+    body.style-console .admin-modal-panel, body.style-console .modal-close { border-radius:4px; box-shadow:none; }
     """ + admin_bar_css() + """
     @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .admin-note-card { grid-column:1 / -1; } }
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; flex-direction:column; } .section-actions { width:100%; justify-content:flex-start; padding-right:0; } .section-actions button { flex:1 1 140px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -1381,15 +1393,28 @@ def admin_users_page(request: Request, notice: str = ""):
     user_table_headers = "<th>帳號</th><th>暱稱</th><th>權限</th><th>建立時間</th>"
     if not readonly:
         user_table_headers += "<th>操作</th>"
-    add_user_tool_html = "" if readonly else f"""
-            <section class="card admin-tool-card">
-                <div class="tool-heading">
-                    <span class="tool-icon">＋</span>
-                    <div>
-                        <h3>新增管理員</h3>
+    user_section_actions = """
+                    <div class="section-actions">
+                        <button type="button" class="secondary-btn" data-modal-open="password-modal">變更密碼</button>
                     </div>
-                    {help_tip("建立新的後台登入帳號，可設定管理者或唯讀權限。")}
+    """ if readonly else """
+                    <div class="section-actions">
+                        <button type="button" data-modal-open="add-user-modal">新增管理員</button>
+                        <button type="button" class="secondary-btn" data-modal-open="password-modal">變更密碼</button>
+                    </div>
+    """
+
+    add_user_modal_html = "" if readonly else """
+    <div class="admin-modal" id="add-user-modal" aria-hidden="true">
+        <div class="admin-modal-panel" role="dialog" aria-modal="true" aria-labelledby="add-user-title">
+            <div class="admin-modal-head">
+                <div>
+                    <h3 id="add-user-title">新增管理員</h3>
+                    <p>建立新的後台登入帳號，並設定管理者或唯讀權限。</p>
                 </div>
+                <button type="button" class="modal-close" data-modal-close aria-label="關閉">×</button>
+            </div>
+            <div class="admin-modal-body">
                 <form method="post" action="/admin/users/add">
                     <label>帳號</label>
                     <input name="username" placeholder="至少 3 個字元" required>
@@ -1402,18 +1427,22 @@ def admin_users_page(request: Request, notice: str = ""):
                     </select>
                     <button class="full-btn">新增管理員</button>
                 </form>
-            </section>
+            </div>
+        </div>
+    </div>
     """
 
-    password_tool_html = f"""
-            <section class="card admin-tool-card">
-                <div class="tool-heading">
-                    <span class="tool-icon">●</span>
-                    <div>
-                        <h3>修改我的密碼</h3>
-                    </div>
-                    {help_tip("只會更新目前登入帳號的密碼。密碼至少需要 8 個字元。")}
+    password_modal_html = """
+    <div class="admin-modal" id="password-modal" aria-hidden="true">
+        <div class="admin-modal-panel" role="dialog" aria-modal="true" aria-labelledby="password-title">
+            <div class="admin-modal-head">
+                <div>
+                    <h3 id="password-title">變更我的密碼</h3>
+                    <p>只會更新目前登入帳號的密碼，密碼至少需要 8 個字元。</p>
                 </div>
+                <button type="button" class="modal-close" data-modal-close aria-label="關閉">×</button>
+            </div>
+            <div class="admin-modal-body">
                 <form method="post" action="/admin/users/password">
                     <label>目前密碼</label>
                     <input name="old_password" type="password" placeholder="輸入目前密碼" required>
@@ -1421,7 +1450,9 @@ def admin_users_page(request: Request, notice: str = ""):
                     <input name="new_password" type="password" placeholder="至少 8 碼" required>
                     <button class="full-btn">更新密碼</button>
                 </form>
-            </section>
+            </div>
+        </div>
+    </div>
     """
 
     return HTMLResponse(f"""
@@ -1465,6 +1496,7 @@ def admin_users_page(request: Request, notice: str = ""):
                     <div>
                         <h3>管理員清單</h3>
                     </div>
+                    {user_section_actions}
                     {help_tip("管理管理者暱稱、角色權限與帳號刪除；目前登入帳號會保留不可刪除保護。")}
                 </div>
                 <table><tr>{user_table_headers}</tr>{rows}</table>
@@ -1530,9 +1562,6 @@ def admin_users_page(request: Request, notice: str = ""):
 
             {ai_integrations_card()}
 
-            {add_user_tool_html}
-            {password_tool_html}
-
             <section class="card admin-note-card">
                 <h3>管理建議</h3>
                 {help_tip("離職或不再維護系統的帳號應刪除；多人共用帳號會讓操作紀錄失去追蹤意義。")}
@@ -1540,6 +1569,8 @@ def admin_users_page(request: Request, notice: str = ""):
         </aside>
     </section>
     </main>
+    {add_user_modal_html}
+    {password_modal_html}
     <script>
     function setAdminStyleTheme(value) {{
         value = value === "console" ? "console" : "light";
@@ -1554,6 +1585,37 @@ def admin_users_page(request: Request, notice: str = ""):
     }}
     document.addEventListener("DOMContentLoaded", function() {{
         setAdminStyleTheme(localStorage.getItem("admin-style-theme") || "console");
+        document.querySelectorAll("[data-modal-open]").forEach(function(button) {{
+            button.addEventListener("click", function() {{
+                var modal = document.getElementById(button.getAttribute("data-modal-open"));
+                if(modal) {{
+                    modal.classList.add("open");
+                    modal.setAttribute("aria-hidden", "false");
+                    var firstInput = modal.querySelector("input, select, button");
+                    if(firstInput) {{ firstInput.focus(); }}
+                }}
+            }});
+        }});
+        function closeModal(modal) {{
+            if(!modal) {{ return; }}
+            modal.classList.remove("open");
+            modal.setAttribute("aria-hidden", "true");
+        }}
+        document.querySelectorAll("[data-modal-close]").forEach(function(button) {{
+            button.addEventListener("click", function() {{
+                closeModal(button.closest(".admin-modal"));
+            }});
+        }});
+        document.querySelectorAll(".admin-modal").forEach(function(modal) {{
+            modal.addEventListener("click", function(event) {{
+                if(event.target === modal) {{ closeModal(modal); }}
+            }});
+        }});
+        document.addEventListener("keydown", function(event) {{
+            if(event.key === "Escape") {{
+                document.querySelectorAll(".admin-modal.open").forEach(closeModal);
+            }}
+        }});
     }});
     </script>
     </body></html>
