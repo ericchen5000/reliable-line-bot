@@ -15,9 +15,7 @@ from analytics import (
     chart_tabs,
     days_label,
     is_unanswered,
-    repeated_questions,
     time_tabs,
-    weekly_report_text,
 )
 
 router = APIRouter()
@@ -180,8 +178,6 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
     ]
     unanswered = [item for item in report_logs if is_unanswered(item)]
     brands = brand_counter(report_logs)
-    repeats = repeated_questions(report_logs)
-    report_sources = Counter(str(item.get("source", "-")) for item in report_logs)
     grouped_sources = Counter(source_group(item.get("source", "-")) for item in report_logs)
     platforms = Counter(str(item.get("platform", "LINE") or "LINE") for item in report_logs)
     quality_counts = Counter()
@@ -197,29 +193,6 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
 
         if bool(item.get("need_followup")) or int(item.get("lead_score") or 0) >= 35:
             lead_intents[str(item.get("intent", "一般詢問") or "一般詢問")] += 1
-
-    report_text = weekly_report_text(
-        len(report_logs),
-        len(unanswered),
-        len(faq),
-        index_status.get("total_chunks", index_count()),
-        report_sources,
-        brands,
-        repeats,
-        days,
-    )
-    report_html = f"""
-        <section class="report-box" id="generated-report">
-            <div class="report-head">
-                <div>
-                    <h3>AI 客服改善建議</h3>
-                    <p class="subtitle">系統依近 {e(days_label(days))} LOGS 自動整理</p>
-                </div>
-                <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('report-text').innerText)">複製建議</button>
-            </div>
-            <div class="report-text" id="report-text">{e(report_text)}</div>
-        </section>
-    """ if generate else ""
 
     health_rows = "".join(
         f"""
@@ -312,10 +285,6 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         </div>
         """
 
-    repeat_rows = "".join(
-        f"<tr><td data-label='問題'>{e(question)}</td><td data-label='次數'>{count}</td></tr>"
-        for question, count in repeats[:8]
-    ) or "<tr><td colspan='2'>尚無重複問題</td></tr>"
     platform_chart = chart_html(platforms.most_common(8), chart, "尚無平台資料")
     source_chart = chart_html(grouped_sources.most_common(8), chart)
     quality_chart = chart_html(quality_counts.most_common(8), chart, "尚無品質資料")
@@ -892,13 +861,6 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             </div>
         </section>
 
-        <section class="section-head">
-            <div>
-                <h2>AI 客服週報與建議</h2>
-            </div>
-        </section>
-        {report_html}
-        <div class="card"><h3>重複問題</h3><table><tr><th>問題</th><th>次數</th></tr>{repeat_rows}</table></div>
         <script>
         (function(){{
             const savedTheme = localStorage.getItem("dashboard-theme");
@@ -929,9 +891,6 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             localStorage.setItem("dashboard-theme", isDark ? "dark" : "light");
         }}
 
-        if (window.location.search.includes("generate=1")) {{
-            setTimeout(() => document.getElementById("generated-report")?.scrollIntoView({{behavior:"smooth", block:"start"}}), 120);
-        }}
         </script>
     </main>
     </body>
