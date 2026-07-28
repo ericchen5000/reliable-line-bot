@@ -284,6 +284,13 @@ def e(value):
     return html.escape(str(value))
 
 
+def text_preview(value, limit=2200):
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text or "-"
+    return text[:limit].rstrip() + f"\n\n...僅顯示前 {limit} 字，完整內容可按「編輯」查看。"
+
+
 def nav_html(active=""):
     items = [
         ("/", "Dashboard"),
@@ -454,8 +461,11 @@ def faq_page(
         <tr class="inspectable-row"
             data-kind="FAQ"
             data-title="{e(item.get('question',''))}"
+            data-body-label="答案"
             data-body="{e(item.get('answer',''))}"
-            data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{faq_hits.get(i, 0)}｜最後修改：{e(item.get('updated_at') or item.get('created_at') or '-')}"
+            data-extra-label="問題"
+            data-extra="{e(item.get('question',''))}"
+            data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{faq_hits.get(i, 0)}｜答案字數：{len(str(item.get('answer','')))}｜建立：{e(item.get('created_at') or '-')}｜更新：{e(item.get('updated_at') or '-')}"
             data-owner="{e(audit_plain(item))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
@@ -515,8 +525,11 @@ def faq_page(
         <tr class="inspectable-row"
             data-kind="網站索引"
             data-title="{e(item.get('title', '-'))}"
-            data-body="{e(item.get('url', '-'))}"
-            data-meta="狀態：{'啟用' if active else '停用'}｜關鍵字：{e(keywords or '-')}｜近 7 天命中：{url_hits.get(i, 0)}"
+            data-body-label="索引內容"
+            data-body="{e('網站名稱：' + str(item.get('title', '-')) + chr(10) + '網址：' + str(item.get('url', '-')) + chr(10) + '關鍵字：' + str(keywords or '-'))}"
+            data-extra-label="網址"
+            data-extra="{e(item.get('url', '-'))}"
+            data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{url_hits.get(i, 0)}｜建立：{e(item.get('created_at') or '-')}｜更新：{e(item.get('updated_at') or '-')}"
             data-owner="{e(audit_plain(item))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
@@ -572,7 +585,10 @@ def faq_page(
         <tr class="inspectable-row"
             data-kind="KB 文件"
             data-title="{e(name)}"
-            data-body="大小：{e(item.get('size', 0))} bytes"
+            data-body-label="內容預覽"
+            data-body="{e(text_preview(read_kb_file(name, active)))}"
+            data-extra-label="檔案資訊"
+            data-extra="{e('檔名：' + str(name) + chr(10) + '路徑：' + ('knowledge/txt/' if active else 'knowledge/txt_disabled/') + str(name) + chr(10) + '大小：' + str(item.get('size', 0)) + ' bytes')}"
             data-meta="狀態：{'啟用' if active else '停用'}｜近 7 天命中：{kb_hits.get((name, active), 0)}"
             data-owner="{e(kb_last_activity_plain(name))}"
         >
@@ -1317,7 +1333,7 @@ def faq_page(
         }}
 
         .detail-drawer-panel {{
-            width:min(440px, 100%);
+            width:min(560px, 100%);
             height:100%;
             padding:18px;
             overflow:auto;
@@ -1744,13 +1760,21 @@ def faq_page(
             const drawerKind = document.getElementById("drawer-kind");
             const drawerTitle = document.getElementById("drawer-title");
             const drawerBody = document.getElementById("drawer-body");
+            const drawerBodyLabel = document.getElementById("drawer-body-label");
+            const drawerExtra = document.getElementById("drawer-extra");
+            const drawerExtraLabel = document.getElementById("drawer-extra-label");
+            const drawerExtraSection = document.getElementById("drawer-extra-section");
             const drawerMeta = document.getElementById("drawer-meta");
             const drawerOwner = document.getElementById("drawer-owner");
             function openDetailDrawer(row){{
                 if(!row) return;
                 if(drawerKind) drawerKind.textContent = row.dataset.kind || "詳情";
                 if(drawerTitle) drawerTitle.textContent = row.dataset.title || "-";
+                if(drawerBodyLabel) drawerBodyLabel.textContent = row.dataset.bodyLabel || "內容";
                 if(drawerBody) drawerBody.textContent = row.dataset.body || "-";
+                if(drawerExtraLabel) drawerExtraLabel.textContent = row.dataset.extraLabel || "補充資訊";
+                if(drawerExtra) drawerExtra.textContent = row.dataset.extra || "-";
+                if(drawerExtraSection) drawerExtraSection.style.display = row.dataset.extra ? "block" : "none";
                 if(drawerMeta) drawerMeta.textContent = row.dataset.meta || "-";
                 if(drawerOwner) drawerOwner.textContent = row.dataset.owner || "-";
                 if(drawer) drawer.classList.add("open");
@@ -2093,8 +2117,12 @@ def faq_page(
                 <button type="button" class="drawer-close" onclick="closeDetailDrawer()">關閉</button>
             </div>
             <section class="detail-drawer-section">
-                <b>內容</b>
+                <b id="drawer-body-label">內容</b>
                 <div id="drawer-body">-</div>
+            </section>
+            <section class="detail-drawer-section" id="drawer-extra-section">
+                <b id="drawer-extra-label">補充資訊</b>
+                <div id="drawer-extra">-</div>
             </section>
             <section class="detail-drawer-section">
                 <b>狀態與使用</b>
