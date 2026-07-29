@@ -9,7 +9,7 @@ from datetime import datetime
 from services.search_index import INDEX_FILE, build_all_indexes, load_status
 from admin_ui import admin_bar_css, admin_bar_html
 import admin_tools
-from ai_provider import current_ai_identity, load_ai_settings
+from ai_provider import current_ai_identity, list_local_models, load_ai_settings
 from analytics import (
     brand_counter,
     chart_html,
@@ -75,28 +75,38 @@ def index_count():
         return 0
 
 
-def health_checks():
+def health_checks(local_models_status=None):
     ai_settings = load_ai_settings()
     ai_provider = ai_settings.get("provider", "deepseek")
-    if ai_settings.get("strategy") == "smart":
-        ai_ready = bool(os.getenv("DEEPSEEK_API_KEY")) and bool(ai_settings.get("local_model"))
-        ai_label = "智慧混合 AI 設定"
-    else:
-        ai_ready = (
-            bool(os.getenv("DEEPSEEK_API_KEY"))
-            if ai_provider == "deepseek"
-            else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
-        )
-        ai_label = "DEEPSEEK_API_KEY" if ai_provider == "deepseek" else "本地模型設定"
-    return [
+    strategy = ai_settings.get("strategy", "fixed")
+    local_model = ai_settings.get("local_model")
+    local_models_status = local_models_status or {}
+    local_visible = (
+        strategy == "smart"
+        or ai_provider == "local"
+        or bool(local_model)
+        or bool(local_models_status.get("ok"))
+    )
+
+    checks = [
         ("LINE_CHANNEL_ACCESS_TOKEN", bool(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))),
         ("LINE_CHANNEL_SECRET", bool(os.getenv("LINE_CHANNEL_SECRET"))),
-        (ai_label, ai_ready),
+        ("DEEPSEEK_API_KEY", bool(os.getenv("DEEPSEEK_API_KEY"))),
+    ]
+
+    if local_visible:
+        checks.extend([
+            ("本地模型設定", bool(local_model)),
+            ("本地模型連線", bool(local_models_status.get("ok"))),
+        ])
+
+    checks.extend([
         ("FAQ 檔案", os.path.exists(FAQ_PATH)),
         ("URLS 檔案", os.path.exists("data/urls.json")),
         ("LOGS 目錄", os.path.exists("logs")),
         ("網站索引檔案", os.path.exists(INDEX_FILE)),
-    ]
+    ])
+    return checks
 
 
 def status_level(ok, warn=False):
@@ -207,6 +217,18 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         if bool(item.get("need_followup")) or int(item.get("lead_score") or 0) >= 35:
             lead_intents[str(item.get("intent", "一般詢問") or "一般詢問")] += 1
 
+    ai_settings = load_ai_settings()
+    should_check_local_models = (
+        ai_settings.get("strategy") == "smart"
+        or ai_settings.get("provider") == "local"
+        or bool(ai_settings.get("local_model"))
+    )
+    local_models_status = (
+        list_local_models(ai_settings.get("local_api_url", ""))
+        if should_check_local_models
+        else {}
+    )
+    checks = health_checks(local_models_status)
     health_rows = "".join(
         f"""
         <tr>
@@ -214,14 +236,12 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
             <td data-label="狀態"><span class="status-pill {'ok' if ok else 'bad'}">{'OK' if ok else '缺少'}</span></td>
         </tr>
         """
-        for name, ok in health_checks()
+        for name, ok in checks
     )
-    checks = health_checks()
     missing_checks = [name for name, ok in checks if not ok]
     index_chunks = int(index_status.get("total_chunks", index_count()) or 0)
     index_failed = sum(int(site.get("failed", 0) or 0) for site in index_status.get("sites", []))
     ai_identity = current_ai_identity()
-    ai_settings = load_ai_settings()
     local_model_value = ai_settings.get("local_model") or "-"
     cloud_model_value = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip() or "deepseek-chat"
     if ai_settings.get("strategy") == "smart":
