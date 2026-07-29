@@ -2,7 +2,7 @@ import os
 from core.db import log_chat
 from core.knowledge import search_knowledge
 from core.faq_runtime import match_faq
-from deepseek import ask_deepseek
+from ai_provider import ask_ai
 
 
 # --------------------------------------------------
@@ -56,7 +56,7 @@ def ai_reply(user_message: str):
 4. 回答要簡短清楚
 """
 
-    reply = ask_deepseek(prompt, user_message)
+    reply = ask_ai(prompt, user_message)
 
     # log
     log_chat("line", user_message, reply)

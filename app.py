@@ -28,7 +28,7 @@ from config import (
     SYSTEM_PROMPT_FILE,
 )
 
-from deepseek import ask_deepseek
+from ai_provider import load_ai_settings, provider_label, save_ai_settings, ask_ai
 
 app = FastAPI(title="AI Assistant")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -674,7 +674,7 @@ def search_website_content(user_message, site):
 如果網站內容沒有答案，請回答「目前網站內容沒有相關資訊」。
 """
 
-    answer = ask_deepseek(prompt, user_message)
+    answer = ask_ai(prompt, user_message)
     return answer, site_base
 
 
@@ -837,7 +837,7 @@ def search_site_index(user_message):
 如果索引內容沒有答案，請回答「目前網站索引沒有相關資訊」。
 """
 
-    answer = ask_deepseek(prompt, user_message)
+    answer = ask_ai(prompt, user_message)
 
     no_answer_markers = [
         "目前網站索引沒有相關資訊",
@@ -864,7 +864,7 @@ def ai_fallback(user_message, context=""):
 請根據內容回答（不可亂編）
 """
 
-    return ask_deepseek(prompt, user_message), "AI"
+    return ask_ai(prompt, user_message), "AI"
 
 
 # =========================
@@ -950,14 +950,13 @@ def get_deepseek_ai_integration():
     return result
 
 
-def ai_integrations_card():
+def ai_integrations_card(readonly=False):
+    settings = load_ai_settings()
+    active_provider = settings.get("provider", "deepseek")
     integrations = []
     deepseek_status = get_deepseek_ai_integration()
     if deepseek_status:
         integrations.append(deepseek_status)
-
-    if not integrations:
-        return ""
 
     cards = ""
     for item in integrations:
@@ -995,6 +994,44 @@ def ai_integrations_card():
         </div>
         """
 
+    local_configured = bool(settings.get("local_api_url"))
+    local_state_class = "ok" if local_configured else "bad"
+    local_state_text = "已設定" if local_configured else "未設定"
+    cards += f"""
+        <div class="ai-provider-card">
+            <div class="ai-provider-head">
+                <div>
+                    <b>落地模型</b>
+                    <small>支援 OpenAI 相容 API，例如 /v1/chat/completions</small>
+                </div>
+                <span class="badge {local_state_class}">{local_state_text}</span>
+            </div>
+            <p class="ai-provider-message">{'目前可切換使用。' if local_configured else '尚未設定 API URL，暫時不能切換使用。'}</p>
+            <div class="ai-model-row"><span>目前模型</span><b>{html_escape(settings.get("local_model") or "-")}</b></div>
+        </div>
+    """
+
+    provider_options = "".join([
+        f'<option value="deepseek" {"selected" if active_provider == "deepseek" else ""}>DeepSeek</option>',
+        f'<option value="local" {"selected" if active_provider == "local" else ""}>落地模型</option>',
+    ])
+    current_label = provider_label(active_provider)
+    form_html = f"""
+        <form class="ai-provider-form" method="post" action="/admin/ai-provider">
+            <label>目前回答模型</label>
+            <select name="provider">{provider_options}</select>
+            <label>落地模型 API URL</label>
+            <input name="local_api_url" value="{html_escape(settings.get("local_api_url", ""))}" placeholder="例如：http://127.0.0.1:11434/v1/chat/completions">
+            <label>落地模型名稱</label>
+            <input name="local_model" value="{html_escape(settings.get("local_model", ""))}" placeholder="例如：qwen2.5 或 llama3">
+            <label>落地模型 API Key</label>
+            <input name="local_api_key" type="password" placeholder="沒有金鑰可留空；已設定時留空代表不變更">
+            <button class="full-btn">儲存 AI 設定</button>
+        </form>
+    """
+    if readonly:
+        form_html = "<div class='ai-empty'>目前帳號為唯讀權限，只能查看 AI 串接狀態。</div>"
+
     return f"""
     <section class="card admin-tool-card">
         <div class="tool-heading">
@@ -1004,6 +1041,11 @@ def ai_integrations_card():
             </div>
             {help_tip("集中查看已串接模型、可用狀態與剩餘額度；不顯示 API Key。")}
         </div>
+        <div class="ai-active-provider">
+            <span>目前使用</span>
+            <b>{html_escape(current_label)}</b>
+        </div>
+        {form_html}
         <div class="ai-provider-list">{cards}</div>
         <a class="small-link" href="/admin/users">重新整理狀態</a>
     </section>
@@ -1184,6 +1226,10 @@ def admin_css():
     .hit { background:#dcfce7; color:#15803d; }
     .miss { background:#fee2e2; color:#b91c1c; }
     .ai-provider-list { display:grid; gap:10px; }
+    .ai-active-provider { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); margin-bottom:12px; }
+    .ai-active-provider span { color:var(--muted); font-size:12px; font-weight:900; }
+    .ai-active-provider b { color:var(--text); font-size:14px; }
+    .ai-provider-form { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); margin-bottom:12px; }
     .ai-provider-card { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); display:grid; gap:8px; }
     .ai-provider-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
     .ai-provider-head b { display:block; font-size:15px; color:var(--text); }
@@ -1199,7 +1245,7 @@ def admin_css():
     .ai-balance-row small, .ai-empty { color:var(--muted); font-size:12px; line-height:1.45; }
     .small-link { display:inline-flex; margin-top:10px; color:#3730a3; font-size:12px; font-weight:800; text-decoration:none; }
     body.dark .small-link { color:#93c5fd; }
-    body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
+    body.style-console .ai-active-provider, body.style-console .ai-provider-form, body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
     .changelog-card { margin-top:14px; }
     .changelog-list { padding:8px 18px 18px; display:grid; gap:12px; }
     .changelog-list.older { padding:8px 0 0; }
@@ -1562,7 +1608,7 @@ def admin_users_page(request: Request, notice: str = ""):
                 </div>
             </section>
 
-            {ai_integrations_card()}
+            {ai_integrations_card(readonly)}
         </aside>
     </section>
     </main>
@@ -1703,6 +1749,33 @@ def change_admin_password(
             return RedirectResponse("/admin/users?notice=密碼已更新", status_code=302)
 
     return RedirectResponse("/admin/users?notice=密碼未更新，請確認目前密碼與新密碼長度", status_code=302)
+
+
+@app.post("/admin/ai-provider")
+def update_ai_provider(
+    request: Request,
+    provider: str = Form("deepseek"),
+    local_api_url: str = Form(""),
+    local_model: str = Form(""),
+    local_api_key: str = Form("")
+):
+    if admin_tools.is_readonly_admin(request):
+        return RedirectResponse("/admin/users?notice=唯讀帳號不能修改 AI 設定", status_code=302)
+
+    provider = provider if provider in {"deepseek", "local"} else "deepseek"
+    settings = save_ai_settings({
+        "provider": provider,
+        "local_api_url": local_api_url,
+        "local_model": local_model,
+        "local_api_key": local_api_key,
+    })
+    admin_tools.log_admin_activity(
+        request,
+        "更新 AI 串接",
+        provider_label(settings.get("provider")),
+        settings.get("local_model") or "-"
+    )
+    return RedirectResponse("/admin/users?notice=AI 串接設定已更新", status_code=302)
 
 
 @app.get("/admin/users/delete/{username}")
@@ -2105,10 +2178,11 @@ async def web_lead(request: Request):
 
 @app.get("/health", response_class=HTMLResponse)
 def health_page():
+    ai_settings = load_ai_settings()
     checks = [
         ("LINE_CHANNEL_ACCESS_TOKEN", bool(LINE_CHANNEL_ACCESS_TOKEN)),
         ("LINE_CHANNEL_SECRET", bool(LINE_CHANNEL_SECRET)),
-        ("DEEPSEEK_API_KEY", bool(os.getenv("DEEPSEEK_API_KEY"))),
+        (f"AI 回答模型：{provider_label(ai_settings.get('provider'))}", bool(os.getenv("DEEPSEEK_API_KEY")) if ai_settings.get("provider") != "local" else bool(ai_settings.get("local_api_url"))),
         ("FAQ 檔案", os.path.exists("data/faq.json")),
         ("URLS 檔案", os.path.exists("data/urls.json")),
         ("LOGS 目錄", os.path.exists("logs")),

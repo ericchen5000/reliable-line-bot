@@ -8,7 +8,7 @@ import os
 import re
 from datetime import datetime, time
 from urllib.parse import urlencode
-from deepseek import ask_deepseek
+from ai_provider import ask_ai
 from admin_ui import admin_bar_css, admin_bar_html
 import admin_tools
 
@@ -2096,7 +2096,7 @@ def log_summary(log_id: int):
 """
 
     try:
-        summary = ask_deepseek(prompt, user_message)
+        summary = ask_ai(prompt, user_message)
     except Exception as exc:
         summary = f"摘要產生失敗：{exc}"
 
