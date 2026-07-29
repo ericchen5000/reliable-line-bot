@@ -741,8 +741,17 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         .bar-row {{ display:grid; grid-template-columns:120px 1fr 42px; gap:10px; align-items:center; }}
         .bar-name {{ color:var(--text); font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
         .bar-track {{ height:12px; border-radius:999px; background:var(--panel-soft); overflow:hidden; border:1px solid var(--border); }}
-        .bar-fill {{ height:100%; border-radius:999px; background:var(--button-bg); min-width:8px; }}
-        .bar-count {{ color:var(--accent); font-weight:800; font-size:13px; text-align:right; }}
+        .bar-fill {{ height:100%; border-radius:999px; background:#4f7ea8; min-width:8px; }}
+        .bar-row:nth-child(2n) .bar-fill {{ background:#6b8f71; }}
+        .bar-row:nth-child(3n) .bar-fill {{ background:#8a789f; }}
+        .bar-row:nth-child(4n) .bar-fill {{ background:#8d7b55; }}
+        .bar-row:nth-child(5n) .bar-fill {{ background:#587b8f; }}
+        .bar-count {{ color:var(--text); font-weight:800; font-size:13px; text-align:right; }}
+        body.dark .bar-fill {{ background:#7aa7d4; }}
+        body.dark .bar-row:nth-child(2n) .bar-fill {{ background:#86b88b; }}
+        body.dark .bar-row:nth-child(3n) .bar-fill {{ background:#a999c8; }}
+        body.dark .bar-row:nth-child(4n) .bar-fill {{ background:#c0a46f; }}
+        body.dark .bar-row:nth-child(5n) .bar-fill {{ background:#7aa7b8; }}
         .empty-chart {{ color:var(--muted); padding:12px; border:1px dashed var(--border); border-radius:8px; background:var(--panel-soft); }}
         .pie-wrap {{ display:grid; grid-template-columns:180px 1fr; gap:18px; align-items:center; }}
         .pie {{ width:180px; aspect-ratio:1; border-radius:50%; box-shadow:inset 0 0 0 1px var(--border), 0 12px 28px rgba(15,23,42,0.08); }}

@@ -1232,9 +1232,10 @@ def faq_page(
         }}
 
         .section-tabs a.active {{
-            color:white;
-            background:var(--button-bg);
-            border-color:transparent;
+            color:var(--text);
+            background:linear-gradient(90deg, rgba(96,165,250,0.16), var(--panel));
+            border-color:rgba(96,165,250,0.45);
+            box-shadow:inset 3px 0 0 var(--accent);
         }}
 
         .tab-panel {{

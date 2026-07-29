@@ -450,8 +450,8 @@ def admin_bar_css():
     html.style-console body .export-link,
     body.style-console .export-link {
         background:var(--button-bg) !important;
-        color:#ffffff !important;
-        border-color:transparent !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
         box-shadow:none !important;
         border-radius:4px !important;
         min-height:34px;
@@ -627,6 +627,7 @@ def admin_bar_css():
     html.style-console body button:not(.theme-option):hover,
     body.style-console button:not(.theme-option):hover {
         background:var(--button-bg-hover) !important;
+        color:var(--text) !important;
     }
 
     html.style-console body .admin-bar,
