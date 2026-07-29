@@ -1452,18 +1452,22 @@ def logs_ui(
 
     .detail-box {
         margin:8px 0;
-        padding:16px;
+        padding:18px;
         background:var(--panel);
         border-radius:8px;
         border:1px solid var(--border);
         display:grid;
-        gap:16px;
+        gap:20px;
     }
 
     .detail-summary-grid {
         display:grid;
         grid-template-columns:repeat(3, minmax(0, 1fr));
-        gap:10px;
+        gap:12px;
+        padding:14px;
+        border:1px solid var(--border);
+        border-radius:8px;
+        background:var(--panel-soft);
     }
 
     .ai-model-strip {
@@ -1475,6 +1479,7 @@ def logs_ui(
         border-radius:8px;
         border:1px solid var(--border);
         background:var(--panel-soft);
+        margin-bottom:2px;
     }
 
     .ai-model-strip span {
@@ -1502,7 +1507,7 @@ def logs_ui(
         padding:12px;
         border-radius:8px;
         border:1px solid var(--border);
-        background:var(--panel-soft);
+        background:var(--panel);
     }
 
     .detail-summary-grid b {
@@ -1544,7 +1549,7 @@ def logs_ui(
     }
 
     .block {
-        margin-top:0;
+        margin-top:2px;
         padding:14px;
         border:1px solid var(--border);
         border-radius:8px;
@@ -1553,7 +1558,7 @@ def logs_ui(
     }
 
     .block + .block {
-        margin-top:2px;
+        margin-top:6px;
     }
 
     .detail-text {
@@ -1760,7 +1765,7 @@ def logs_ui(
     }
 
     .modal-panel {
-        width:min(760px, 100%);
+        width:min(980px, 100%);
         max-height:88vh;
         overflow:auto;
         background:var(--panel);

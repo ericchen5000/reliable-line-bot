@@ -1,11 +1,13 @@
 import json
 import os
+import time
 
 import requests
 from urllib.parse import urlparse
 
 
 AI_SETTINGS_PATH = "data/ai_settings.json"
+DEFAULT_LOCAL_API_URL = "http://127.0.0.1:11434/v1/chat/completions"
 DEFAULT_SETTINGS = {
     "provider": "deepseek",
     "local_api_url": "",
@@ -40,10 +42,17 @@ def load_ai_settings():
 
 def save_ai_settings(settings):
     current = load_ai_settings()
+    provider = str(settings.get("provider", current["provider"]) or "deepseek").strip()
+    local_api_url = str(settings.get("local_api_url", current["local_api_url"]) or "").strip()
+    local_model = str(settings.get("local_model", current["local_model"]) or "").strip()
+
+    if provider == "local" and local_model and not local_api_url:
+        local_api_url = DEFAULT_LOCAL_API_URL
+
     current.update({
-        "provider": str(settings.get("provider", current["provider"]) or "deepseek").strip(),
-        "local_api_url": str(settings.get("local_api_url", current["local_api_url"]) or "").strip(),
-        "local_model": str(settings.get("local_model", current["local_model"]) or "").strip(),
+        "provider": provider,
+        "local_api_url": local_api_url,
+        "local_model": local_model,
     })
 
     local_api_key = str(settings.get("local_api_key", "") or "").strip()
@@ -168,7 +177,28 @@ def ask_ai(system_prompt, user_message):
     settings = load_ai_settings()
 
     if settings.get("provider") == "local":
-        return ask_local_model(system_prompt, user_message, settings)
+        try:
+            return ask_local_model(system_prompt, user_message, settings)
+        except Exception:
+            time.sleep(1)
+            try:
+                return ask_local_model(system_prompt, user_message, settings)
+            except Exception as local_exc:
+                if os.getenv("DEEPSEEK_API_KEY", "").strip():
+                    try:
+                        return ask_deepseek_model(system_prompt, user_message)
+                    except Exception as cloud_exc:
+                        return (
+                            "目前 AI 模型暫時無法回應，請稍後再試。"
+                            f"\n\n落地模型錯誤：{friendly_ai_error(local_exc)}"
+                            f"\nDeepSeek 備援錯誤：{friendly_ai_error(cloud_exc)}"
+                        )
+
+                return (
+                    "目前落地模型暫時無法回應，請稍後再試，或請管理者確認 Ollama 是否啟動、"
+                    "模型是否已下載、VPS 記憶體是否足夠。"
+                    f"\n\n錯誤摘要：{friendly_ai_error(local_exc)}"
+                )
 
     return ask_deepseek_model(system_prompt, user_message)
 
@@ -186,17 +216,28 @@ def ask_deepseek_model(system_prompt, user_message):
 
 def ask_local_model(system_prompt, user_message, settings=None):
     settings = settings or load_ai_settings()
-    api_url = settings.get("local_api_url", "").strip()
+    api_url = settings.get("local_api_url", "").strip() or DEFAULT_LOCAL_API_URL
     model = settings.get("local_model", "").strip() or os.getenv("LOCAL_AI_MODEL", "local-model").strip()
     api_key = settings.get("local_api_key", "").strip()
 
     if not api_url:
         raise RuntimeError("尚未設定落地模型 API URL")
 
-    return post_openai_compatible(api_url, model, api_key, system_prompt, user_message)
+    return post_openai_compatible(api_url, model, api_key, system_prompt, user_message, timeout=180)
 
 
-def post_openai_compatible(api_url, model, api_key, system_prompt, user_message):
+def friendly_ai_error(exc):
+    text = str(exc)
+    if "RemoteDisconnected" in text or "Connection aborted" in text:
+        return "落地模型服務中途關閉連線，可能是模型載入失敗、記憶體不足或 Ollama 服務尚未準備好。"
+    if "Connection refused" in text or "Failed to establish" in text:
+        return "無法連線到模型服務，請確認 Ollama 是否正在執行。"
+    if "Read timed out" in text or "timed out" in text:
+        return "模型回應逾時，可能是模型太大或 VPS 資源不足。"
+    return text[:300]
+
+
+def post_openai_compatible(api_url, model, api_key, system_prompt, user_message, timeout=90):
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -210,7 +251,7 @@ def post_openai_compatible(api_url, model, api_key, system_prompt, user_message)
         "temperature": 0.3,
     }
 
-    response = requests.post(api_url, headers=headers, json=payload, timeout=90)
+    response = requests.post(api_url, headers=headers, json=payload, timeout=timeout)
     response.raise_for_status()
     data = response.json()
 

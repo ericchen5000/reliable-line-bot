@@ -465,7 +465,7 @@ def analyze_image(content, filename="", content_type="image/jpeg"):
 
 def answer_image_question(image_text):
     question = f"使用者傳了一張圖片，圖片辨識結果如下：\n\n{image_text}\n\n請根據圖片內容，用客服口吻協助判斷使用者可能遇到的問題，並提供下一步建議。"
-    reply, source = ai_reply(question)
+    reply, source = safe_ai_reply(question)
     return reply, source, question
 
 
@@ -901,6 +901,16 @@ def ai_reply(user_message):
 
     reply, _ = ai_fallback(user_message)
     return reply, "AI客服"
+
+
+def safe_ai_reply(user_message):
+    try:
+        return ai_reply(user_message)
+    except Exception as exc:
+        return (
+            "目前 AI 客服暫時無法回應，請稍後再試；若您方便，也可以留下聯絡資訊，將由專人協助。",
+            "AI錯誤"
+        )
 
 
 def admin_nav(active=""):
@@ -1911,7 +1921,7 @@ def test_chat_page(message: str = ""):
     if message:
         steps = trace_reply_flow(message)
         started_at = time.time()
-        answer, source = ai_reply(message)
+        answer, source = safe_ai_reply(message)
         elapsed = round(time.time() - started_at, 3)
         trace_html = "".join(
             f"""
@@ -2125,7 +2135,7 @@ async def web_chat_response(request: Request):
     if not message:
         raise HTTPException(status_code=400, detail="請輸入問題")
 
-    reply, source = ai_reply(message)
+    reply, source = safe_ai_reply(message)
     lead = classify_lead(message, reply, source)
     reply = apply_handoff_message(reply, lead)
     latency = round(time.time() - start, 3)
@@ -2390,7 +2400,7 @@ async def line_webhook(request: Request):
 
         if message_type == "text":
             user_msg = event["message"]["text"]
-            reply, source = ai_reply(user_msg)
+            reply, source = safe_ai_reply(user_msg)
             image_extra = {}
         elif message_type == "image":
             message_id = event["message"].get("id")
