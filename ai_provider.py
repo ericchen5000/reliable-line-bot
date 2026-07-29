@@ -71,7 +71,7 @@ def save_ai_settings(settings):
 
 def provider_label(provider=None):
     value = provider or load_ai_settings().get("provider", "deepseek")
-    return "落地模型" if value == "local" else "DeepSeek"
+    return "本地模型" if value == "local" else "DeepSeek"
 
 
 def current_ai_identity():
@@ -190,12 +190,12 @@ def ask_ai(system_prompt, user_message):
                     except Exception as cloud_exc:
                         return (
                             "目前 AI 模型暫時無法回應，請稍後再試。"
-                            f"\n\n落地模型錯誤：{friendly_ai_error(local_exc)}"
+                            f"\n\n本地模型錯誤：{friendly_ai_error(local_exc)}"
                             f"\nDeepSeek 備援錯誤：{friendly_ai_error(cloud_exc)}"
                         )
 
                 return (
-                    "目前落地模型暫時無法回應，請稍後再試，或請管理者確認 Ollama 是否啟動、"
+                    "目前本地模型暫時無法回應，請稍後再試，或請管理者確認 Ollama 是否啟動、"
                     "模型是否已下載、VPS 記憶體是否足夠。"
                     f"\n\n錯誤摘要：{friendly_ai_error(local_exc)}"
                 )
@@ -221,7 +221,7 @@ def ask_local_model(system_prompt, user_message, settings=None):
     api_key = settings.get("local_api_key", "").strip()
 
     if not api_url:
-        raise RuntimeError("尚未設定落地模型 API URL")
+        raise RuntimeError("尚未設定本地模型 API URL")
 
     return post_openai_compatible(api_url, model, api_key, system_prompt, user_message, timeout=180)
 
@@ -229,7 +229,7 @@ def ask_local_model(system_prompt, user_message, settings=None):
 def friendly_ai_error(exc):
     text = str(exc)
     if "RemoteDisconnected" in text or "Connection aborted" in text:
-        return "落地模型服務中途關閉連線，可能是模型載入失敗、記憶體不足或 Ollama 服務尚未準備好。"
+        return "本地模型服務中途關閉連線，可能是模型載入失敗、記憶體不足或 Ollama 服務尚未準備好。"
     if "Connection refused" in text or "Failed to establish" in text:
         return "無法連線到模型服務，請確認 Ollama 是否正在執行。"
     if "Read timed out" in text or "timed out" in text:

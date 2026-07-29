@@ -1026,7 +1026,7 @@ def ai_integrations_card(readonly=False):
         available_models_html = f"""
             <div class="local-model-list">
                 <div>
-                    <b>可用落地模型</b>
+                    <b>可用本地模型</b>
                     <small>{html_escape(local_models.get("source", "已偵測模型"))}</small>
                 </div>
                 <div class="local-model-tags">
@@ -1037,7 +1037,7 @@ def ai_integrations_card(readonly=False):
         """
     model_field = f"""
         <div class="local-model-fields" data-local-fields>
-            <label>落地模型名稱</label>
+            <label>本地模型名稱</label>
             <select name="local_model">
                 <option value="">請選擇模型</option>
                 {detected_model_options}
@@ -1045,7 +1045,7 @@ def ai_integrations_card(readonly=False):
         </div>
     """ if local_models.get("ok") else f"""
         <div class="local-model-fields" data-local-fields>
-            <label>落地模型名稱</label>
+            <label>本地模型名稱</label>
             <input name="local_model" value="{html_escape(settings.get("local_model", ""))}" placeholder="例如：qwen2.5:3b 或 gemma3:4b">
         </div>
     """
@@ -1065,7 +1065,7 @@ def ai_integrations_card(readonly=False):
                 <label class="ai-switch-option {'active' if active_provider == 'local' else ''}">
                     <input type="radio" name="provider" value="local" {'checked' if active_provider == 'local' else ''}>
                     <span>
-                        <b>落地模型</b>
+                        <b>本地模型</b>
                         <small>{'已抓到模型' if local_models.get('ok') else '可手動設定'}</small>
                     </span>
                 </label>
@@ -1074,9 +1074,9 @@ def ai_integrations_card(readonly=False):
             {available_models_html}
             <details class="ai-advanced"{advanced_open} data-local-fields>
                 <summary>進階設定</summary>
-                <label>落地模型 API URL</label>
+                <label>本地模型 API URL</label>
                 <input name="local_api_url" value="{html_escape(local_api_value)}" placeholder="例如：http://127.0.0.1:11434/v1/chat/completions">
-                <label>落地模型 API Key</label>
+                <label>本地模型 API Key</label>
                 <input name="local_api_key" type="password" placeholder="沒有金鑰可留空；已設定時留空代表不變更">
             </details>
             <button class="full-btn">儲存 AI 設定</button>

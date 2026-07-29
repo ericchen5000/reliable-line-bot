@@ -83,7 +83,7 @@ def health_checks():
         if ai_provider == "deepseek"
         else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
     )
-    ai_label = "DEEPSEEK_API_KEY" if ai_provider == "deepseek" else "落地模型設定"
+    ai_label = "DEEPSEEK_API_KEY" if ai_provider == "deepseek" else "本地模型設定"
     return [
         ("LINE_CHANNEL_ACCESS_TOKEN", bool(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))),
         ("LINE_CHANNEL_SECRET", bool(os.getenv("LINE_CHANNEL_SECRET"))),
@@ -219,7 +219,9 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
     ai_identity = current_ai_identity()
     ai_settings = load_ai_settings()
     ai_provider_value = ai_identity.get("provider_label") or "未設定"
-    ai_model_detail = f"目前模型：{ai_identity.get('model')}" if ai_identity.get("model") else "目前模型尚未指定"
+    ai_model_value = ai_identity.get("model") or ""
+    ai_status_value = f"{ai_provider_value} - {ai_model_value}" if ai_model_value else ai_provider_value
+    ai_model_detail = "目前 AI 回答模式與模型名稱"
     ai_ready = (
         bool(os.getenv("DEEPSEEK_API_KEY"))
         if ai_identity.get("provider") == "deepseek"
@@ -249,7 +251,7 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         ),
         status_card(
             "AI 串接",
-            ai_provider_value,
+            ai_status_value,
             ai_model_detail,
             status_level(ai_ready),
             "/admin/users#ai-integrations"

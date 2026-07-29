@@ -398,6 +398,7 @@ def filter_logs(
             logs = [
                 l for l in logs
                 if str(l.get("ai_provider", "")).lower() == "local"
+                or "本地" in str(l.get("ai_provider_label", ""))
                 or "落地" in str(l.get("ai_provider_label", ""))
             ]
         elif quick == "transferred":
@@ -824,7 +825,7 @@ def logs_ui(
         ]),
         ("AI 模型", [
             ("cloud-ai", "雲端模型"),
-            ("local-ai", "落地模型"),
+            ("local-ai", "本地模型"),
         ]),
         ("FAQ 動作", [
             ("transferred", "已轉 FAQ"),
