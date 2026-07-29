@@ -388,6 +388,18 @@ def filter_logs(
                 or str(l.get("source", "")).startswith("http")
                 or str(l.get("source", "")).startswith("URL-")
             ]
+        elif quick == "cloud-ai":
+            logs = [
+                l for l in logs
+                if str(l.get("ai_provider", "")).lower() == "deepseek"
+                or str(l.get("ai_provider_label", "")).lower() == "deepseek"
+            ]
+        elif quick == "local-ai":
+            logs = [
+                l for l in logs
+                if str(l.get("ai_provider", "")).lower() == "local"
+                or "落地" in str(l.get("ai_provider_label", ""))
+            ]
         elif quick == "transferred":
             logs = [
                 l for l in logs
@@ -809,6 +821,10 @@ def logs_ui(
             ("ai", "AI 客服"),
             ("faq", "FAQ"),
             ("site-index", "網站索引"),
+        ]),
+        ("AI 模型", [
+            ("cloud-ai", "雲端模型"),
+            ("local-ai", "落地模型"),
         ]),
         ("FAQ 動作", [
             ("transferred", "已轉 FAQ"),
@@ -1441,7 +1457,7 @@ def logs_ui(
         border-radius:8px;
         border:1px solid var(--border);
         display:grid;
-        gap:12px;
+        gap:16px;
     }
 
     .detail-summary-grid {
@@ -1534,6 +1550,10 @@ def logs_ui(
         border-radius:8px;
         background:var(--panel-soft);
         font-size:13px;
+    }
+
+    .block + .block {
+        margin-top:2px;
     }
 
     .detail-text {

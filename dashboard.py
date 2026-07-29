@@ -9,6 +9,7 @@ from datetime import datetime
 from services.search_index import INDEX_FILE, build_all_indexes, load_status
 from admin_ui import admin_bar_css, admin_bar_html
 import admin_tools
+from ai_provider import current_ai_identity, load_ai_settings
 from analytics import (
     brand_counter,
     chart_html,
@@ -75,10 +76,18 @@ def index_count():
 
 
 def health_checks():
+    ai_settings = load_ai_settings()
+    ai_provider = ai_settings.get("provider", "deepseek")
+    ai_ready = (
+        bool(os.getenv("DEEPSEEK_API_KEY"))
+        if ai_provider == "deepseek"
+        else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
+    )
+    ai_label = "DEEPSEEK_API_KEY" if ai_provider == "deepseek" else "落地模型設定"
     return [
         ("LINE_CHANNEL_ACCESS_TOKEN", bool(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))),
         ("LINE_CHANNEL_SECRET", bool(os.getenv("LINE_CHANNEL_SECRET"))),
-        ("DEEPSEEK_API_KEY", bool(os.getenv("DEEPSEEK_API_KEY"))),
+        (ai_label, ai_ready),
         ("FAQ 檔案", os.path.exists(FAQ_PATH)),
         ("URLS 檔案", os.path.exists("data/urls.json")),
         ("LOGS 目錄", os.path.exists("logs")),
@@ -207,6 +216,15 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
     missing_checks = [name for name, ok in checks if not ok]
     index_chunks = int(index_status.get("total_chunks", index_count()) or 0)
     index_failed = sum(int(site.get("failed", 0) or 0) for site in index_status.get("sites", []))
+    ai_identity = current_ai_identity()
+    ai_settings = load_ai_settings()
+    ai_provider_value = ai_identity.get("provider_label") or "未設定"
+    ai_model_detail = f"目前模型：{ai_identity.get('model')}" if ai_identity.get("model") else "目前模型尚未指定"
+    ai_ready = (
+        bool(os.getenv("DEEPSEEK_API_KEY"))
+        if ai_identity.get("provider") == "deepseek"
+        else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
+    )
     status_cards = "".join([
         status_card(
             "系統設定",
@@ -231,10 +249,10 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
         ),
         status_card(
             "AI 串接",
-            "已設定" if os.getenv("DEEPSEEK_API_KEY") else "未設定",
-            "DeepSeek API Key 狀態",
-            status_level(bool(os.getenv("DEEPSEEK_API_KEY"))),
-            "#health-check"
+            ai_provider_value,
+            ai_model_detail,
+            status_level(ai_ready),
+            "/admin/users#ai-integrations"
         ),
     ])
 

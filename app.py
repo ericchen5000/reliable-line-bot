@@ -1000,10 +1000,30 @@ def ai_integrations_card(readonly=False):
     local_state_class = "ok" if local_ready else "bad"
     local_state_text = "已偵測" if local_models.get("ok") else "已設定" if local_configured else "未設定"
     current_label = provider_label(active_provider)
+    current_identity = current_ai_identity()
     detected_model_options = "".join(
         f'<option value="{html_escape(model)}" {"selected" if settings.get("local_model") == model else ""}>{html_escape(model)}</option>'
         for model in local_models.get("models", [])
     )
+    available_models_html = ""
+    if local_models.get("models"):
+        model_tags = "".join(
+            f"<span>{html_escape(model)}</span>"
+            for model in local_models.get("models", [])[:10]
+        )
+        extra_count = max(0, len(local_models.get("models", [])) - 10)
+        available_models_html = f"""
+            <div class="local-model-list">
+                <div>
+                    <b>可用落地模型</b>
+                    <small>{html_escape(local_models.get("source", "已偵測模型"))}</small>
+                </div>
+                <div class="local-model-tags">
+                    {model_tags}
+                    {f'<span>+{extra_count}</span>' if extra_count else ''}
+                </div>
+            </div>
+        """
     model_field = f"""
         <div class="local-model-fields" data-local-fields>
             <label>落地模型名稱</label>
@@ -1040,6 +1060,7 @@ def ai_integrations_card(readonly=False):
                 </label>
             </div>
             {model_field}
+            {available_models_html}
             <details class="ai-advanced"{advanced_open} data-local-fields>
                 <summary>進階設定</summary>
                 <label>落地模型 API URL</label>
@@ -1054,7 +1075,7 @@ def ai_integrations_card(readonly=False):
         form_html = "<div class='ai-empty'>目前帳號為唯讀權限，只能查看 AI 串接狀態。</div>"
 
     return f"""
-    <section class="card admin-tool-card">
+    <section class="card admin-tool-card" id="ai-integrations">
         <div class="tool-heading">
             <span class="tool-icon">AI</span>
             <div>
@@ -1064,7 +1085,7 @@ def ai_integrations_card(readonly=False):
         </div>
         <div class="ai-active-provider">
             <span>目前使用</span>
-            <b>{html_escape(current_label)}</b>
+            <b>{html_escape(current_label)}{f' / {html_escape(current_identity.get("model") or "-")}' if current_identity.get("model") else ''}</b>
         </div>
         {form_html}
         <div class="ai-provider-list">{cards}</div>
@@ -1252,14 +1273,19 @@ def admin_css():
     .ai-active-provider b { color:var(--text); font-size:14px; }
     .ai-provider-form { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); margin-bottom:12px; }
     .ai-switch-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
-    .ai-switch-option { position:relative; display:flex; align-items:center; gap:10px; min-height:64px; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); cursor:pointer; }
+    .ai-switch-option { position:relative; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:64px; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); cursor:pointer; }
     .ai-switch-option input { position:absolute; opacity:0; pointer-events:none; }
     .ai-switch-option b { display:block; color:var(--text); font-size:14px; line-height:1.25; }
     .ai-switch-option small { display:block; margin-top:3px; color:var(--muted); font-size:11px; font-weight:800; }
-    .ai-switch-option::before { content:""; width:18px; height:18px; border-radius:50%; border:2px solid var(--border); background:var(--panel); flex:0 0 auto; }
+    .ai-switch-option::after { content:""; width:9px; height:9px; border-radius:50%; background:var(--border); flex:0 0 auto; }
     .ai-switch-option.active { border-color:#60a5fa; background:rgba(96,165,250,0.12); box-shadow:0 0 0 3px rgba(96,165,250,0.12); }
-    .ai-switch-option.active::before { border-color:#60a5fa; box-shadow:inset 0 0 0 4px var(--panel); background:#60a5fa; }
+    .ai-switch-option.active::after { background:#60a5fa; box-shadow:0 0 0 4px rgba(96,165,250,0.16); }
     .local-model-fields { margin-top:4px; }
+    .local-model-list { margin:0 0 12px; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); display:grid; gap:8px; }
+    .local-model-list b { display:block; color:var(--text); font-size:13px; }
+    .local-model-list small { display:block; margin-top:2px; color:var(--muted); font-size:11px; font-weight:800; }
+    .local-model-tags { display:flex; flex-wrap:wrap; gap:6px; }
+    .local-model-tags span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-size:12px; font-weight:800; }
     .ai-provider-form[data-provider="deepseek"] [data-local-fields] { display:none; }
     .ai-advanced { margin:2px 0 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); padding:0 10px; }
     .ai-advanced summary { min-height:38px; display:flex; align-items:center; cursor:pointer; color:var(--muted); font-size:12px; font-weight:900; list-style:none; }
@@ -1281,7 +1307,7 @@ def admin_css():
     .ai-balance-row small, .ai-empty { color:var(--muted); font-size:12px; line-height:1.45; }
     .small-link { display:inline-flex; margin-top:10px; color:#3730a3; font-size:12px; font-weight:800; text-decoration:none; }
     body.dark .small-link { color:#93c5fd; }
-    body.style-console .ai-active-provider, body.style-console .ai-provider-form, body.style-console .ai-switch-option, body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
+    body.style-console .ai-active-provider, body.style-console .ai-provider-form, body.style-console .ai-switch-option, body.style-console .local-model-list, body.style-console .local-model-tags span, body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
     .changelog-card { margin-top:14px; }
     .changelog-list { padding:8px 18px 18px; display:grid; gap:12px; }
     .changelog-list.older { padding:8px 0 0; }
@@ -1861,8 +1887,12 @@ def trace_reply_flow(message):
     kb, kb_source = search_knowledge(message)
     steps.append(("KB", bool(kb), kb_source if kb else "未命中"))
 
-    indexed_answer, indexed_source = search_site_index(message)
-    steps.append(("網站索引", bool(indexed_answer), indexed_source if indexed_answer else "未命中或低信心"))
+    active_prefixes, disabled_prefixes = load_index_url_rules()
+    site_hits = [
+        page for page in retrieve(message, top_k=1)
+        if is_page_allowed_by_index_rules(page.get("url") or page.get("site_base"), active_prefixes, disabled_prefixes)
+    ]
+    steps.append(("網站索引", bool(site_hits), f"找到 {len(site_hits)} 筆候選資料" if site_hits else "未命中索引候選"))
 
     url_data = search_urls(message)
     steps.append(("即時網站搜尋", bool(url_data), url_data.get("title", "命中") if url_data else "未命中 urls.json keywords"))
@@ -1875,10 +1905,14 @@ def test_chat_page(message: str = ""):
     answer = ""
     source = ""
     trace_html = ""
+    elapsed = None
+    ai_identity = current_ai_identity()
 
     if message:
         steps = trace_reply_flow(message)
+        started_at = time.time()
         answer, source = ai_reply(message)
+        elapsed = round(time.time() - started_at, 3)
         trace_html = "".join(
             f"""
             <div class="step">
@@ -1899,6 +1933,8 @@ def test_chat_page(message: str = ""):
         </div>
         <div class="card">
             <h3>測試結果</h3>
+            <p><b>AI 模型：</b>{html_escape(ai_identity.get("provider_label", "-"))}{f' / {html_escape(ai_identity.get("model") or "-")}' if ai_identity.get("model") else ''}</p>
+            <p><b>測試耗時：</b>{html_escape(elapsed)} 秒</p>
             <p><b>資料來源：</b>{html_escape(source)}</p>
             <div style="white-space:pre-wrap; line-height:1.7;">{html_escape(answer)}</div>
         </div>
@@ -1909,8 +1945,8 @@ def test_chat_page(message: str = ""):
     <body>{admin_bar_html()}<main class="page">
     <header class="topbar">
         <div>
-            <h2>LINE 問答測試</h2>
-            <p class="subtitle">不用打開 LINE，直接測目前 AI 客服回答流程</p>
+            <h2>AI 問答測試</h2>
+            <p class="subtitle">直接測目前 AI 客服回答流程</p>
         </div>
         <label class="theme-control">
             <span>深夜模式</span>
