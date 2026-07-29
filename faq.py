@@ -990,9 +990,23 @@ def faq_page(
 
         table {{
             width:100%;
+            table-layout:fixed;
             border-collapse:collapse;
             background:var(--panel);
         }}
+
+        .manage-table .col-check {{ width:44px; }}
+        .manage-table .col-no {{ width:68px; }}
+        .manage-table .col-status {{ width:88px; }}
+        .manage-table .col-hits {{ width:116px; }}
+        .manage-table .col-updated {{ width:138px; }}
+        .manage-table .col-actions {{ width:330px; }}
+        .faq-table .col-question {{ width:23%; }}
+        .url-table .col-title {{ width:17%; }}
+        .url-table .col-url {{ width:24%; }}
+        .url-table .col-keywords {{ width:18%; }}
+        .kb-table .col-name {{ width:auto; }}
+        .kb-table .col-size {{ width:104px; }}
 
         th {{
             text-align:left;
@@ -1047,6 +1061,7 @@ def faq_page(
             font-size:13px;
             vertical-align:top;
             line-height:1.6;
+            overflow-wrap:anywhere;
         }}
 
         tr:hover {{
@@ -1054,7 +1069,6 @@ def faq_page(
         }}
 
         .question-cell {{
-            width:28%;
             font-weight:700;
         }}
 
@@ -1077,8 +1091,7 @@ def faq_page(
         }}
 
         .actions-cell {{
-            min-width:330px;
-            width:330px;
+            min-width:0;
         }}
 
         .actions {{
@@ -2083,7 +2096,17 @@ def faq_page(
             </div>
             '''}
             <div class="table-wrap">
-            <table>
+            <table class="manage-table faq-table">
+                <colgroup>
+                    {'' if readonly else '<col class="col-check">'}
+                    <col class="col-no">
+                    <col class="col-status">
+                    <col class="col-question">
+                    <col class="col-answer">
+                    <col class="col-hits">
+                    <col class="col-updated">
+                    <col class="col-actions">
+                </colgroup>
                 <tr>
                     {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'ids\']"></th>'}
                     <th class="sortable-th" data-sort-key="no" data-sort-type="number"><span class="sort-label">編號<span class="sort-indicator"></span></span></th>
@@ -2158,7 +2181,18 @@ def faq_page(
             </div>
             '''}
             <div class="table-wrap">
-            <table>
+            <table class="manage-table url-table">
+                <colgroup>
+                    {'' if readonly else '<col class="col-check">'}
+                    <col class="col-no">
+                    <col class="col-status">
+                    <col class="col-title">
+                    <col class="col-url">
+                    <col class="col-keywords">
+                    <col class="col-hits">
+                    <col class="col-updated">
+                    <col class="col-actions">
+                </colgroup>
                 <tr>
                     {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'ids\']"></th>'}
                     <th class="sortable-th" data-sort-key="no" data-sort-type="number"><span class="sort-label">編號<span class="sort-indicator"></span></span></th>
@@ -2240,7 +2274,17 @@ def faq_page(
             </div>
             '''}
             <div class="table-wrap">
-            <table>
+            <table class="manage-table kb-table">
+                <colgroup>
+                    {'' if readonly else '<col class="col-check">'}
+                    <col class="col-no">
+                    <col class="col-status">
+                    <col class="col-name">
+                    <col class="col-size">
+                    <col class="col-hits">
+                    <col class="col-updated">
+                    <col class="col-actions">
+                </colgroup>
                 <tr>
                     {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'items\']"></th>'}
                     <th class="sortable-th" data-sort-key="no" data-sort-type="number"><span class="sort-label">編號<span class="sort-indicator"></span></span></th>
