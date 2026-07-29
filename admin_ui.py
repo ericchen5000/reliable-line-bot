@@ -273,6 +273,27 @@ def admin_bar_css():
         background:var(--bg) !important;
     }
 
+    body.has-admin-bar {
+        --button-bg:#2563eb;
+        --button-bg-hover:#1d4ed8;
+        --accent:#2563eb;
+        --accent-strong:#1d4ed8;
+        --accent-soft:#eff6ff;
+        --warning:#64748b;
+        --success:#334155;
+    }
+
+    body.has-admin-bar.dark,
+    html.dark body.has-admin-bar {
+        --button-bg:#3b82f6;
+        --button-bg-hover:#2563eb;
+        --accent:#60a5fa;
+        --accent-strong:#bfdbfe;
+        --accent-soft:rgba(96,165,250,0.14);
+        --warning:#64748b;
+        --success:#475569;
+    }
+
     html.style-console body.dark,
     body.dark.style-console {
         --bg:#0f151c;
@@ -436,6 +457,78 @@ def admin_bar_css():
         min-height:34px;
         font-size:13px;
         font-weight:800;
+    }
+
+    body.has-admin-bar button:not(.theme-option):not(.admin-menu-toggle),
+    body.has-admin-bar .btn-edit,
+    body.has-admin-bar .faq-transfer-btn,
+    body.has-admin-bar .full-btn,
+    body.has-admin-bar .primary-action,
+    body.has-admin-bar .report-box button {
+        background:var(--button-bg) !important;
+        color:#ffffff !important;
+        border:1px solid transparent !important;
+        box-shadow:none !important;
+    }
+
+    body.has-admin-bar button:not(.theme-option):not(.admin-menu-toggle):hover,
+    body.has-admin-bar .btn-edit:hover,
+    body.has-admin-bar .faq-transfer-btn:hover,
+    body.has-admin-bar .full-btn:hover,
+    body.has-admin-bar .primary-action:hover,
+    body.has-admin-bar .report-box button:hover {
+        background:var(--button-bg-hover) !important;
+    }
+
+    body.has-admin-bar .btn-detail,
+    body.has-admin-bar .export-link,
+    body.has-admin-bar .cancel-link,
+    body.has-admin-bar .secondary-btn,
+    body.has-admin-bar .clear-link,
+    body.has-admin-bar .drawer-close,
+    body.has-admin-bar .form-modal-close,
+    body.has-admin-bar .readonly-pill,
+    body.has-admin-bar .disabled-btn {
+        background:var(--panel-soft) !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
+        box-shadow:none !important;
+    }
+
+    body.has-admin-bar .btn-toggle,
+    body.has-admin-bar .btn-toggle.toggle-on,
+    body.has-admin-bar .quality-warn,
+    body.has-admin-bar .quality-row button,
+    body.has-admin-bar .followup-form button {
+        background:#64748b !important;
+        color:#ffffff !important;
+        border:1px solid transparent !important;
+        box-shadow:none !important;
+    }
+
+    body.has-admin-bar.dark .btn-toggle,
+    body.has-admin-bar.dark .btn-toggle.toggle-on,
+    body.has-admin-bar.dark .quality-warn,
+    body.has-admin-bar.dark .quality-row button,
+    body.has-admin-bar.dark .followup-form button {
+        background:#475569 !important;
+    }
+
+    body.has-admin-bar .btn-del,
+    body.has-admin-bar .delete-btn,
+    body.has-admin-bar .quality-danger,
+    body.has-admin-bar button[name="action"][value="delete"] {
+        background:#dc2626 !important;
+        color:#ffffff !important;
+        border:1px solid transparent !important;
+        box-shadow:none !important;
+    }
+
+    body.has-admin-bar .btn-del:hover,
+    body.has-admin-bar .delete-btn:hover,
+    body.has-admin-bar .quality-danger:hover,
+    body.has-admin-bar button[name="action"][value="delete"]:hover {
+        background:#b91c1c !important;
     }
 
     html.style-console body a[class*="btn"],

@@ -477,8 +477,8 @@ def faq_page(
     readonly = admin_tools.is_readonly_admin(request)
     active_tab = tab if tab in {"faq", "url", "kb"} else "faq"
     batch_faq_colspan = 8 if not readonly else 7
-    batch_url_colspan = 8 if not readonly else 7
-    batch_kb_colspan = 7 if not readonly else 6
+    batch_url_colspan = 9 if not readonly else 8
+    batch_kb_colspan = 8 if not readonly else 7
 
     if edit_url is not None:
         active_tab = "url"
@@ -529,12 +529,12 @@ def faq_page(
             data-owner="{e(audit_plain(item))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
-            <td data-label="ID">{i+1}</td>
-            <td data-label="狀態">{status_badge(active)}</td>
-            <td data-label="問題" class="question-cell">{e(item.get('question',''))}</td>
-            <td data-label="答案" class="answer-cell">{e(item.get('answer',''))}</td>
-            <td data-label="近 7 天命中">{hit_badge(faq_hits.get(i, 0))}</td>
-            <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
+            <td data-label="編號" class="row-number" data-sort-key="no" data-sort-value="{i+1}">{i+1}</td>
+            <td data-label="狀態" data-sort-key="status" data-sort-value="{1 if active else 0}">{status_badge(active)}</td>
+            <td data-label="問題" class="question-cell" data-sort-key="question" data-sort-value="{e(item.get('question',''))}">{e(item.get('question',''))}</td>
+            <td data-label="答案" class="answer-cell" data-sort-key="answer" data-sort-value="{e(item.get('answer',''))}">{e(item.get('answer',''))}</td>
+            <td data-label="近 7 天命中" data-sort-key="hits" data-sort-value="{faq_hits.get(i, 0)}">{hit_badge(faq_hits.get(i, 0))}</td>
+            <td data-label="最後修改" class="meta-cell" data-sort-key="updated" data-sort-value="{e(item.get('updated_at') or item.get('created_at') or '')}">{audit_text(item)}</td>
 
             <td data-label="操作" class="actions-cell">
                 <div class="actions">
@@ -593,12 +593,13 @@ def faq_page(
             data-owner="{e(audit_plain(item))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
-            <td data-label="狀態">{status_badge(active)}</td>
-            <td data-label="網站">{e(item.get('title', '-'))}</td>
-            <td data-label="網址">{e(item.get('url', '-'))}</td>
-            <td data-label="關鍵字">{e(keywords)}</td>
-            <td data-label="近 7 天命中">{hit_badge(url_hits.get(i, 0))}</td>
-            <td data-label="最後修改" class="meta-cell">{audit_text(item)}</td>
+            <td data-label="編號" class="row-number" data-sort-key="no" data-sort-value="{i+1}">{i+1}</td>
+            <td data-label="狀態" data-sort-key="status" data-sort-value="{1 if active else 0}">{status_badge(active)}</td>
+            <td data-label="網站" data-sort-key="title" data-sort-value="{e(item.get('title', '-'))}">{e(item.get('title', '-'))}</td>
+            <td data-label="網址" data-sort-key="url" data-sort-value="{e(item.get('url', '-'))}">{e(item.get('url', '-'))}</td>
+            <td data-label="關鍵字" data-sort-key="keywords" data-sort-value="{e(keywords)}">{e(keywords)}</td>
+            <td data-label="近 7 天命中" data-sort-key="hits" data-sort-value="{url_hits.get(i, 0)}">{hit_badge(url_hits.get(i, 0))}</td>
+            <td data-label="最後修改" class="meta-cell" data-sort-key="updated" data-sort-value="{e(item.get('updated_at') or item.get('created_at') or '')}">{audit_text(item)}</td>
             <td data-label="操作" class="actions-cell">
                 <div class="actions">
                 {url_action_html}
@@ -626,7 +627,7 @@ def faq_page(
     kb_cleanup_mode = load_ai_settings().get("kb_cleanup_mode", "ai_light")
 
     kb_rows = ""
-    for item in files:
+    for file_no, item in enumerate(files, start=1):
         name = item.get("name", "")
         active = item.get("active", True)
         encoded_name = quote(name)
@@ -654,11 +655,12 @@ def faq_page(
             data-owner="{e(kb_last_activity_plain(name))}"
         >
             {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="items" value="{e(item_value)}"></td>'}
-            <td data-label="狀態">{status_badge(active)}</td>
-            <td data-label="檔名">{e(name)}</td>
-            <td data-label="大小">{e(item.get('size', 0))} bytes</td>
-            <td data-label="近 7 天命中">{hit_badge(kb_hits.get((name, active), 0))}</td>
-            <td data-label="最後修改" class="meta-cell">{kb_last_activity(name)}</td>
+            <td data-label="編號" class="row-number" data-sort-key="no" data-sort-value="{file_no}">{file_no}</td>
+            <td data-label="狀態" data-sort-key="status" data-sort-value="{1 if active else 0}">{status_badge(active)}</td>
+            <td data-label="檔名" data-sort-key="name" data-sort-value="{e(name)}">{e(name)}</td>
+            <td data-label="大小" data-sort-key="size" data-sort-value="{e(item.get('size', 0))}">{e(item.get('size', 0))} bytes</td>
+            <td data-label="近 7 天命中" data-sort-key="hits" data-sort-value="{kb_hits.get((name, active), 0)}">{hit_badge(kb_hits.get((name, active), 0))}</td>
+            <td data-label="最後修改" class="meta-cell" data-sort-key="updated" data-sort-value="{e(kb_last_activity_plain(name))}">{kb_last_activity(name)}</td>
             <td data-label="操作" class="actions-cell">
                 <div class="actions">
                 {kb_action_html}
@@ -999,6 +1001,44 @@ def faq_page(
             color:var(--muted);
             font-size:13px;
             white-space:nowrap;
+        }}
+
+        .sortable-th {{
+            cursor:pointer;
+            user-select:none;
+            transition:color 0.15s ease, background 0.15s ease;
+        }}
+
+        .sortable-th:hover {{
+            color:var(--text);
+            background:rgba(96,165,250,0.12);
+        }}
+
+        .sort-label {{
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+        }}
+
+        .sort-indicator {{
+            width:14px;
+            color:var(--muted);
+            font-size:11px;
+            line-height:1;
+        }}
+
+        .sort-indicator::before {{
+            content:"↕";
+        }}
+
+        .sortable-th.sort-asc .sort-indicator::before {{
+            content:"↑";
+            color:var(--accent);
+        }}
+
+        .sortable-th.sort-desc .sort-indicator::before {{
+            content:"↓";
+            color:var(--accent);
         }}
 
         td {{
@@ -1793,6 +1833,60 @@ def faq_page(
                 }});
             }});
 
+            function sortValue(row, key){{
+                const cell = row.querySelector("[data-sort-key='" + key + "']");
+                if(!cell){{
+                    return "";
+                }}
+                return cell.getAttribute("data-sort-value") || cell.textContent || "";
+            }}
+
+            function normalizeNumber(value){{
+                const number = Number(String(value || "").replace(/[^0-9.-]/g, ""));
+                return Number.isFinite(number) ? number : 0;
+            }}
+
+            function updateRowNumbers(table){{
+                table.querySelectorAll("tr.inspectable-row .row-number").forEach(function(cell, index){{
+                    cell.textContent = String(index + 1);
+                }});
+            }}
+
+            document.querySelectorAll(".sortable-th").forEach(function(header){{
+                header.addEventListener("click", function(){{
+                    const table = header.closest("table");
+                    const key = header.getAttribute("data-sort-key");
+                    const type = header.getAttribute("data-sort-type") || "text";
+                    if(!table || !key){{
+                        return;
+                    }}
+
+                    const nextDir = header.classList.contains("sort-asc") ? "desc" : "asc";
+                    table.querySelectorAll(".sortable-th").forEach(function(item){{
+                        item.classList.remove("sort-asc", "sort-desc");
+                    }});
+                    header.classList.add(nextDir === "asc" ? "sort-asc" : "sort-desc");
+
+                    const rows = Array.from(table.querySelectorAll("tr.inspectable-row"));
+                    rows.sort(function(a, b){{
+                        const aValue = sortValue(a, key);
+                        const bValue = sortValue(b, key);
+                        let result = 0;
+                        if(type === "number"){{
+                            result = normalizeNumber(aValue) - normalizeNumber(bValue);
+                        }} else {{
+                            result = String(aValue).localeCompare(String(bValue), "zh-Hant", {{numeric:true, sensitivity:"base"}});
+                        }}
+                        return nextDir === "asc" ? result : -result;
+                    }});
+
+                    rows.forEach(function(row){{
+                        row.parentNode.appendChild(row);
+                    }});
+                    updateRowNumbers(table);
+                }});
+            }});
+
             const cancel = document.getElementById("confirm-cancel");
             const ok = document.getElementById("confirm-ok");
             if(cancel && modal){{
@@ -1992,12 +2086,12 @@ def faq_page(
             <table>
                 <tr>
                     {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'ids\']"></th>'}
-                    <th>ID</th>
-                    <th>狀態</th>
-                    <th>問題</th>
-                    <th>答案</th>
-                    <th>近 7 天命中</th>
-                    <th>最後修改</th>
+                    <th class="sortable-th" data-sort-key="no" data-sort-type="number"><span class="sort-label">編號<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="status" data-sort-type="number"><span class="sort-label">狀態<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="question"><span class="sort-label">問題<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="answer"><span class="sort-label">答案<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="hits" data-sort-type="number"><span class="sort-label">近 7 天命中<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="updated"><span class="sort-label">最後修改<span class="sort-indicator"></span></span></th>
                     <th>操作</th>
                 </tr>
                 {rows}
@@ -2067,12 +2161,13 @@ def faq_page(
             <table>
                 <tr>
                     {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'ids\']"></th>'}
-                    <th>狀態</th>
-                    <th>網站</th>
-                    <th>網址</th>
-                    <th>關鍵字</th>
-                    <th>近 7 天命中</th>
-                    <th>最後修改</th>
+                    <th class="sortable-th" data-sort-key="no" data-sort-type="number"><span class="sort-label">編號<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="status" data-sort-type="number"><span class="sort-label">狀態<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="title"><span class="sort-label">網站<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="url"><span class="sort-label">網址<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="keywords"><span class="sort-label">關鍵字<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="hits" data-sort-type="number"><span class="sort-label">近 7 天命中<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="updated"><span class="sort-label">最後修改<span class="sort-indicator"></span></span></th>
                     <th>操作</th>
                 </tr>
                 {url_rows}
@@ -2148,11 +2243,12 @@ def faq_page(
             <table>
                 <tr>
                     {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'items\']"></th>'}
-                    <th>狀態</th>
-                    <th>檔名</th>
-                    <th>大小</th>
-                    <th>近 7 天命中</th>
-                    <th>最後修改</th>
+                    <th class="sortable-th" data-sort-key="no" data-sort-type="number"><span class="sort-label">編號<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="status" data-sort-type="number"><span class="sort-label">狀態<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="name"><span class="sort-label">檔名<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="size" data-sort-type="number"><span class="sort-label">大小<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="hits" data-sort-type="number"><span class="sort-label">近 7 天命中<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="updated"><span class="sort-label">最後修改<span class="sort-indicator"></span></span></th>
                     <th>操作</th>
                 </tr>
                 {kb_rows}
