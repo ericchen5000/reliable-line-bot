@@ -473,7 +473,7 @@ def export_logs(
     output = io.StringIO()
     output.write("\ufeff")
     writer = csv.writer(output)
-    writer.writerow(["ID", "時間", "平台", "問題", "回覆", "延遲", "來源", "商機意圖", "商機分數", "待追蹤", "IP"])
+    writer.writerow(["ID", "時間", "平台", "問題", "回覆", "延遲", "來源", "AI 供應商", "AI 模型", "商機意圖", "商機分數", "待追蹤", "IP"])
 
     for i, item in enumerate(logs):
         writer.writerow([
@@ -484,6 +484,8 @@ def export_logs(
             g(item, "reply", ""),
             g(item, "latency", "-"),
             g(item, "source", "-"),
+            g(item, "ai_provider_label", "-"),
+            g(item, "ai_model", "-"),
             g(item, "intent", "-"),
             g(item, "lead_score", 0),
             "是" if item.get("need_followup") else "否",
@@ -695,6 +697,7 @@ def logs_ui(
                         <div><b>時間</b><span>{e(g(l,'time'))}</span></div>
                         <div><b>延遲</b><span>{e(g(l,'latency','-'))} 秒</span></div>
                         <div><b>來源摘要</b><span title="{e(source_value)}">{e(source_summary(source_value))}</span></div>
+                        <div><b>AI 模型</b><span>{e(g(l,'ai_provider_label','-'))} / {e(g(l,'ai_model','-'))}</span></div>
                         <div class="summary-action-card"><b>商機狀態</b><span>{e(g(l, 'intent', '一般詢問'))} / {e(g(l, 'lead_score', 0))}</span>{followup_controls}</div>
                         <div><b>IP</b><span>{e(g(l,'ip','-'))}</span></div>
                     </div>

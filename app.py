@@ -28,7 +28,7 @@ from config import (
     SYSTEM_PROMPT_FILE,
 )
 
-from ai_provider import load_ai_settings, provider_label, save_ai_settings, ask_ai, list_local_models
+from ai_provider import load_ai_settings, provider_label, save_ai_settings, ask_ai, list_local_models, current_ai_identity
 
 app = FastAPI(title="AI Assistant")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -2265,6 +2265,7 @@ def save_log(user, message, reply, request: Request, platform, latency, source, 
     ip = request.headers.get("x-forwarded-for") or request.client.host or "-"
 
     lead = lead or classify_lead(message, reply, source)
+    ai_identity = current_ai_identity()
 
     row = {
         "id": len(logs) + 1,
@@ -2276,6 +2277,9 @@ def save_log(user, message, reply, request: Request, platform, latency, source, 
         "latency": latency,
         "ip": ip,
         "source": source,
+        "ai_provider": ai_identity["provider"],
+        "ai_provider_label": ai_identity["provider_label"],
+        "ai_model": ai_identity["model"],
         "intent": lead.get("intent", "一般詢問"),
         "lead_score": lead.get("lead_score", 0),
         "lead_reason": lead.get("lead_reason", ""),

@@ -65,6 +65,21 @@ def provider_label(provider=None):
     return "落地模型" if value == "local" else "DeepSeek"
 
 
+def current_ai_identity():
+    settings = load_ai_settings()
+    provider = settings.get("provider", "deepseek")
+    if provider == "local":
+        model = settings.get("local_model", "").strip() or os.getenv("LOCAL_AI_MODEL", "local-model").strip()
+    else:
+        model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip()
+
+    return {
+        "provider": provider,
+        "provider_label": provider_label(provider),
+        "model": model or "-",
+    }
+
+
 def local_model_base_urls(api_url=""):
     urls = []
     candidates = [str(api_url or "").strip(), "http://127.0.0.1:11434/v1/chat/completions"]
