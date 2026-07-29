@@ -1,4 +1,19 @@
+from pathlib import Path
+
+
+VERSION_FILE = Path(__file__).resolve().parent / "VERSION"
+
+
+def system_version():
+    try:
+        version = VERSION_FILE.read_text(encoding="utf-8").strip()
+    except Exception:
+        version = ""
+    return version or "dev"
+
+
 def admin_bar_html():
+    version = system_version()
     return """
     <script>
     (function(){
@@ -24,6 +39,7 @@ def admin_bar_html():
                 <a class="admin-nav-link" data-path="/admin/users" href="/admin/users">帳號管理</a>
             </nav>
             <div class="admin-actions">
+                <span class="admin-version" title="目前系統版本">{VERSION}</span>
                 <a class="admin-identity" href="/admin/users" title="帳號管理">
                     <span class="admin-avatar" id="admin-avatar" aria-hidden="true">管</span>
                     <b id="admin-name">管理員</b>
@@ -168,7 +184,7 @@ def admin_bar_html():
         }
     })();
     </script>
-    """
+    """.replace("{VERSION}", version)
 
 
 def admin_bar_css():
@@ -663,6 +679,22 @@ def admin_bar_css():
         gap:10px;
     }
 
+    .admin-version {
+        min-height:26px;
+        padding:5px 9px;
+        border:1px solid var(--border);
+        border-radius:999px;
+        background:var(--panel-soft);
+        color:var(--muted);
+        font-size:12px;
+        font-weight:900;
+        line-height:1;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        white-space:nowrap;
+    }
+
     .admin-identity,
     .admin-logout {
         color:var(--text);
@@ -841,6 +873,10 @@ def admin_bar_css():
             gap:8px;
             min-width:0;
             order:1;
+        }
+
+        .admin-version {
+            display:none;
         }
 
         .admin-menu-toggle {
