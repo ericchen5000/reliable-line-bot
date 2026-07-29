@@ -274,8 +274,8 @@ def admin_bar_css():
     }
 
     body.has-admin-bar {
-        --button-bg:#2563eb;
-        --button-bg-hover:#1d4ed8;
+        --button-bg:#ffffff;
+        --button-bg-hover:#f8fafc;
         --accent:#2563eb;
         --accent-strong:#1d4ed8;
         --accent-soft:#eff6ff;
@@ -285,8 +285,8 @@ def admin_bar_css():
 
     body.has-admin-bar.dark,
     html.dark body.has-admin-bar {
-        --button-bg:#3b82f6;
-        --button-bg-hover:#2563eb;
+        --button-bg:#17212c;
+        --button-bg-hover:#202c38;
         --accent:#60a5fa;
         --accent-strong:#bfdbfe;
         --accent-soft:rgba(96,165,250,0.14);
@@ -466,8 +466,8 @@ def admin_bar_css():
     body.has-admin-bar .primary-action,
     body.has-admin-bar .report-box button {
         background:var(--button-bg) !important;
-        color:#ffffff !important;
-        border:1px solid transparent !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
         box-shadow:none !important;
     }
 
@@ -500,9 +500,9 @@ def admin_bar_css():
     body.has-admin-bar .quality-warn,
     body.has-admin-bar .quality-row button,
     body.has-admin-bar .followup-form button {
-        background:#64748b !important;
-        color:#ffffff !important;
-        border:1px solid transparent !important;
+        background:var(--button-bg) !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
         box-shadow:none !important;
     }
 
@@ -511,16 +511,16 @@ def admin_bar_css():
     body.has-admin-bar.dark .quality-warn,
     body.has-admin-bar.dark .quality-row button,
     body.has-admin-bar.dark .followup-form button {
-        background:#475569 !important;
+        background:var(--button-bg) !important;
     }
 
     body.has-admin-bar .btn-del,
     body.has-admin-bar .delete-btn,
     body.has-admin-bar .quality-danger,
     body.has-admin-bar button[name="action"][value="delete"] {
-        background:#dc2626 !important;
-        color:#ffffff !important;
-        border:1px solid transparent !important;
+        background:var(--button-bg) !important;
+        color:#b91c1c !important;
+        border:1px solid var(--border) !important;
         box-shadow:none !important;
     }
 
@@ -528,7 +528,14 @@ def admin_bar_css():
     body.has-admin-bar .delete-btn:hover,
     body.has-admin-bar .quality-danger:hover,
     body.has-admin-bar button[name="action"][value="delete"]:hover {
-        background:#b91c1c !important;
+        background:#fef2f2 !important;
+    }
+
+    body.has-admin-bar.dark .btn-del:hover,
+    body.has-admin-bar.dark .delete-btn:hover,
+    body.has-admin-bar.dark .quality-danger:hover,
+    body.has-admin-bar.dark button[name="action"][value="delete"]:hover {
+        background:rgba(248,113,113,0.12) !important;
     }
 
     html.style-console body a[class*="btn"],
@@ -564,16 +571,18 @@ def admin_bar_css():
 
     html.style-console body .clear-link,
     body.style-console .clear-link {
-        background:#dc2626 !important;
-        color:#ffffff !important;
+        background:var(--button-bg) !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
     }
 
     html.style-console body .quality-warn,
     body.style-console .quality-warn,
     html.style-console body .btn-toggle,
     body.style-console .btn-toggle {
-        background:#b7791f !important;
-        color:#ffffff !important;
+        background:var(--button-bg) !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
     }
 
     html.style-console body .quality-danger,
@@ -582,14 +591,16 @@ def admin_bar_css():
     body.style-console .btn-del,
     html.style-console body .delete-btn,
     body.style-console .delete-btn {
-        background:#b91c1c !important;
-        color:#ffffff !important;
+        background:var(--button-bg) !important;
+        color:#b91c1c !important;
+        border:1px solid var(--border) !important;
     }
 
     html.style-console body .btn-toggle.toggle-on,
     body.style-console .btn-toggle.toggle-on {
-        background:#047857 !important;
-        color:#ffffff !important;
+        background:var(--button-bg) !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
     }
 
     html.style-console body .faq-added-pill,
