@@ -28,7 +28,7 @@ from config import (
     SYSTEM_PROMPT_FILE,
 )
 
-from ai_provider import load_ai_settings, provider_label, save_ai_settings, ask_ai
+from ai_provider import load_ai_settings, provider_label, save_ai_settings, ask_ai, list_local_models
 
 app = FastAPI(title="AI Assistant")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -953,6 +953,7 @@ def get_deepseek_ai_integration():
 def ai_integrations_card(readonly=False):
     settings = load_ai_settings()
     active_provider = settings.get("provider", "deepseek")
+    local_models = list_local_models(settings.get("local_api_url", ""))
     integrations = []
     deepseek_status = get_deepseek_ai_integration()
     if deepseek_status:
@@ -995,35 +996,61 @@ def ai_integrations_card(readonly=False):
         """
 
     local_configured = bool(settings.get("local_api_url"))
-    local_state_class = "ok" if local_configured else "bad"
-    local_state_text = "已設定" if local_configured else "未設定"
+    local_ready = local_configured or local_models.get("ok")
+    local_state_class = "ok" if local_ready else "bad"
+    local_state_text = "已偵測" if local_models.get("ok") else "已設定" if local_configured else "未設定"
     cards += f"""
         <div class="ai-provider-card">
             <div class="ai-provider-head">
                 <div>
                     <b>落地模型</b>
-                    <small>支援 OpenAI 相容 API，例如 /v1/chat/completions</small>
+                    <small>支援 Ollama 與 OpenAI 相容 API</small>
                 </div>
                 <span class="badge {local_state_class}">{local_state_text}</span>
             </div>
-            <p class="ai-provider-message">{'目前可切換使用。' if local_configured else '尚未設定 API URL，暫時不能切換使用。'}</p>
+            <p class="ai-provider-message">{html_escape(local_models.get("message") or ("目前可切換使用。" if local_configured else "尚未設定 API URL，暫時不能切換使用。"))}</p>
             <div class="ai-model-row"><span>目前模型</span><b>{html_escape(settings.get("local_model") or "-")}</b></div>
         </div>
     """
 
-    provider_options = "".join([
-        f'<option value="deepseek" {"selected" if active_provider == "deepseek" else ""}>DeepSeek</option>',
-        f'<option value="local" {"selected" if active_provider == "local" else ""}>落地模型</option>',
-    ])
     current_label = provider_label(active_provider)
+    detected_model_options = "".join(
+        f'<option value="{html_escape(model)}" {"selected" if settings.get("local_model") == model else ""}>{html_escape(model)}</option>'
+        for model in local_models.get("models", [])
+    )
+    model_field = f"""
+            <label>落地模型名稱</label>
+            <select name="local_model">
+                <option value="">請選擇模型</option>
+                {detected_model_options}
+            </select>
+    """ if local_models.get("ok") else f"""
+            <label>落地模型名稱</label>
+            <input name="local_model" value="{html_escape(settings.get("local_model", ""))}" placeholder="例如：qwen2.5:3b 或 gemma3:4b">
+    """
+    local_api_value = settings.get("local_api_url", "") or ("http://127.0.0.1:11434/v1/chat/completions" if local_models.get("ok") else "")
     form_html = f"""
         <form class="ai-provider-form" method="post" action="/admin/ai-provider">
             <label>目前回答模型</label>
-            <select name="provider">{provider_options}</select>
+            <div class="ai-switch-grid">
+                <label class="ai-switch-option {'active' if active_provider == 'deepseek' else ''}">
+                    <input type="radio" name="provider" value="deepseek" {'checked' if active_provider == 'deepseek' else ''}>
+                    <span>
+                        <b>DeepSeek</b>
+                        <small>雲端 API</small>
+                    </span>
+                </label>
+                <label class="ai-switch-option {'active' if active_provider == 'local' else ''}">
+                    <input type="radio" name="provider" value="local" {'checked' if active_provider == 'local' else ''}>
+                    <span>
+                        <b>落地模型</b>
+                        <small>{'已抓到模型' if local_models.get('ok') else '可手動設定'}</small>
+                    </span>
+                </label>
+            </div>
             <label>落地模型 API URL</label>
-            <input name="local_api_url" value="{html_escape(settings.get("local_api_url", ""))}" placeholder="例如：http://127.0.0.1:11434/v1/chat/completions">
-            <label>落地模型名稱</label>
-            <input name="local_model" value="{html_escape(settings.get("local_model", ""))}" placeholder="例如：qwen2.5 或 llama3">
+            <input name="local_api_url" value="{html_escape(local_api_value)}" placeholder="例如：http://127.0.0.1:11434/v1/chat/completions">
+            {model_field}
             <label>落地模型 API Key</label>
             <input name="local_api_key" type="password" placeholder="沒有金鑰可留空；已設定時留空代表不變更">
             <button class="full-btn">儲存 AI 設定</button>
@@ -1230,6 +1257,14 @@ def admin_css():
     .ai-active-provider span { color:var(--muted); font-size:12px; font-weight:900; }
     .ai-active-provider b { color:var(--text); font-size:14px; }
     .ai-provider-form { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); margin-bottom:12px; }
+    .ai-switch-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+    .ai-switch-option { position:relative; display:flex; align-items:center; gap:10px; min-height:64px; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); cursor:pointer; }
+    .ai-switch-option input { position:absolute; opacity:0; pointer-events:none; }
+    .ai-switch-option b { display:block; color:var(--text); font-size:14px; line-height:1.25; }
+    .ai-switch-option small { display:block; margin-top:3px; color:var(--muted); font-size:11px; font-weight:800; }
+    .ai-switch-option::before { content:""; width:18px; height:18px; border-radius:50%; border:2px solid var(--border); background:var(--panel); flex:0 0 auto; }
+    .ai-switch-option.active { border-color:#60a5fa; background:rgba(96,165,250,0.12); box-shadow:0 0 0 3px rgba(96,165,250,0.12); }
+    .ai-switch-option.active::before { border-color:#60a5fa; box-shadow:inset 0 0 0 4px var(--panel); background:#60a5fa; }
     .ai-provider-card { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); display:grid; gap:8px; }
     .ai-provider-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
     .ai-provider-head b { display:block; font-size:15px; color:var(--text); }
@@ -1245,7 +1280,7 @@ def admin_css():
     .ai-balance-row small, .ai-empty { color:var(--muted); font-size:12px; line-height:1.45; }
     .small-link { display:inline-flex; margin-top:10px; color:#3730a3; font-size:12px; font-weight:800; text-decoration:none; }
     body.dark .small-link { color:#93c5fd; }
-    body.style-console .ai-active-provider, body.style-console .ai-provider-form, body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
+    body.style-console .ai-active-provider, body.style-console .ai-provider-form, body.style-console .ai-switch-option, body.style-console .ai-provider-card, body.style-console .ai-balance-row, body.style-console .ai-model-row { border-radius:0; }
     .changelog-card { margin-top:14px; }
     .changelog-list { padding:8px 18px 18px; display:grid; gap:12px; }
     .changelog-list.older { padding:8px 0 0; }
@@ -1658,6 +1693,14 @@ def admin_users_page(request: Request, notice: str = ""):
             if(event.key === "Escape") {{
                 document.querySelectorAll(".admin-modal.open").forEach(closeModal);
             }}
+        }});
+        document.querySelectorAll(".ai-switch-option input").forEach(function(input) {{
+            input.addEventListener("change", function() {{
+                document.querySelectorAll(".ai-switch-option").forEach(function(option) {{
+                    var radio = option.querySelector("input");
+                    option.classList.toggle("active", radio && radio.checked);
+                }});
+            }});
         }});
     }});
     </script>

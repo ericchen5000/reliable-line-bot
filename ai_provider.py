@@ -2,6 +2,7 @@ import json
 import os
 
 import requests
+from urllib.parse import urlparse
 
 
 AI_SETTINGS_PATH = "data/ai_settings.json"
@@ -62,6 +63,90 @@ def save_ai_settings(settings):
 def provider_label(provider=None):
     value = provider or load_ai_settings().get("provider", "deepseek")
     return "落地模型" if value == "local" else "DeepSeek"
+
+
+def local_model_base_urls(api_url=""):
+    urls = []
+    candidates = [str(api_url or "").strip(), "http://127.0.0.1:11434/v1/chat/completions"]
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+
+        parsed = urlparse(candidate)
+        if not parsed.scheme or not parsed.netloc:
+            continue
+
+        root = f"{parsed.scheme}://{parsed.netloc}"
+        path = parsed.path.rstrip("/")
+
+        if path.endswith("/v1/chat/completions"):
+            urls.append((root, root + "/api/tags", root + "/v1/models"))
+        elif path.endswith("/api/chat"):
+            urls.append((root, root + "/api/tags", root + "/v1/models"))
+        else:
+            urls.append((root, root + "/api/tags", root.rstrip("/") + "/v1/models"))
+
+    result = []
+    seen = set()
+    for item in urls:
+        if item[0] not in seen:
+            seen.add(item[0])
+            result.append(item)
+    return result
+
+
+def list_local_models(api_url=""):
+    errors = []
+
+    for _, ollama_tags_url, openai_models_url in local_model_base_urls(api_url):
+        try:
+            response = requests.get(ollama_tags_url, timeout=3)
+            if response.ok:
+                data = response.json()
+                models = data.get("models", [])
+                names = [
+                    str(item.get("name", "")).strip()
+                    for item in models
+                    if isinstance(item, dict) and item.get("name")
+                ]
+                if names:
+                    return {
+                        "ok": True,
+                        "source": "Ollama",
+                        "models": names,
+                        "message": f"已抓到 {len(names)} 個 Ollama 模型",
+                    }
+        except Exception as exc:
+            errors.append(str(exc))
+
+        try:
+            response = requests.get(openai_models_url, timeout=3)
+            if response.ok:
+                data = response.json()
+                models = data.get("data", [])
+                names = [
+                    str(item.get("id", "")).strip()
+                    for item in models
+                    if isinstance(item, dict) and item.get("id")
+                ]
+                if names:
+                    return {
+                        "ok": True,
+                        "source": "OpenAI 相容模型清單",
+                        "models": names,
+                        "message": f"已抓到 {len(names)} 個模型",
+                    }
+        except Exception as exc:
+            errors.append(str(exc))
+
+    return {
+        "ok": False,
+        "source": "-",
+        "models": [],
+        "message": "目前抓不到模型清單，可手動輸入模型名稱。",
+        "errors": errors[-2:],
+    }
 
 
 def ask_ai(system_prompt, user_message):
