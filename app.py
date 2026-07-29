@@ -1057,6 +1057,8 @@ def ai_integrations_card(readonly=False):
     """
     local_api_value = settings.get("local_api_url", "") or ("http://127.0.0.1:11434/v1/chat/completions" if local_models.get("ok") else "")
     advanced_open = " open" if active_provider == "local" and not local_models.get("ok") and not local_configured else ""
+    reply_char_limit = html_escape(settings.get("reply_char_limit", "600") or "600")
+    kb_cleanup_mode = settings.get("kb_cleanup_mode", "ai_light")
     form_html = f"""
         <form class="ai-provider-form" method="post" action="/admin/ai-provider" data-provider="{html_escape(active_provider)}">
             <div class="ai-strategy-field">
@@ -1085,6 +1087,19 @@ def ai_integrations_card(readonly=False):
             </div>
             {model_field}
             {available_models_html}
+            <div class="ai-two-fields">
+                <div>
+                    <label>回答字數上限</label>
+                    <input name="reply_char_limit" type="number" min="150" max="2000" step="50" value="{reply_char_limit}" placeholder="例如：600">
+                </div>
+                <div>
+                    <label>KB 上傳整理</label>
+                    <select name="kb_cleanup_mode">
+                        <option value="ai_light" {"selected" if kb_cleanup_mode == "ai_light" else ""}>AI 輕整理</option>
+                        <option value="basic" {"selected" if kb_cleanup_mode == "basic" else ""}>只清除雜訊</option>
+                    </select>
+                </div>
+            </div>
             <details class="ai-advanced"{advanced_open} data-local-fields>
                 <summary>進階設定</summary>
                 <label>本地模型 API URL</label>
@@ -1306,6 +1321,7 @@ def admin_css():
     .ai-switch-option.active { border-color:#60a5fa; background:rgba(96,165,250,0.12); box-shadow:0 0 0 3px rgba(96,165,250,0.12); }
     .ai-switch-option.active::after { background:#60a5fa; box-shadow:0 0 0 4px rgba(96,165,250,0.16); }
     .local-model-fields { margin-top:4px; }
+    .ai-two-fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:4px 0 12px; }
     .local-model-list { margin:0 0 12px; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); display:grid; gap:8px; }
     .local-model-list b { display:block; color:var(--text); font-size:13px; }
     .local-model-list small { display:block; margin-top:2px; color:var(--muted); font-size:11px; font-weight:800; }
@@ -1359,7 +1375,7 @@ def admin_css():
     body.style-console .admin-modal-panel, body.style-console .modal-close { border-radius:4px; box-shadow:none; }
     """ + admin_bar_css() + """
     @media (max-width:1080px) { .admin-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } .admin-manage-layout { grid-template-columns:1fr; } .admin-side-column { position:static; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; } .side-metrics { grid-column:1 / -1; grid-template-columns:repeat(4, minmax(0, 1fr)); margin-bottom:0; } }
-    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics, .side-metrics { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; flex-direction:column; } .section-actions { width:100%; justify-content:flex-start; padding-right:0; } .section-actions button { flex:1 1 140px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
+    @media (max-width:860px) { body { padding:14px; } .topbar { flex-direction:column; align-items:stretch; } .theme-control { width:100%; justify-content:space-between; } h2 { font-size:24px; } .admin-metrics, .side-metrics, .ai-two-fields { grid-template-columns:1fr; } .admin-side-column { display:block; } .section-heading { padding:16px 46px 16px 16px; flex-direction:column; } .section-actions { width:100%; justify-content:flex-start; padding-right:0; } .section-actions button { flex:1 1 140px; } .changelog-list { padding:4px 16px 16px; } .changelog-item { grid-template-columns:1fr; gap:6px; } .nav-toggle { display:flex; width:100%; min-height:40px; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-weight:700; align-items:center; justify-content:space-between; } .nav-menu { display:none; grid-template-columns:1fr; gap:8px; margin-top:8px; } .nav.open .nav-menu { display:grid; } .nav-link { width:100%; } table, tbody, tr, td { display:block; width:100%; } table { background:transparent; } tr { border:1px solid var(--border); border-radius:8px; overflow:hidden; margin:12px; background:var(--panel); } tr:first-child { display:none; } td { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:10px; } td::before { content:attr(data-label); color:var(--muted); font-weight:700; } .login-table th, .login-table td, .audit-table th, .audit-table td { width:100% !important; } .admin-user-actions { grid-template-columns:1fr; } .admin-user-actions button, .admin-user-actions a, .disabled-btn { width:100%; } }
     """
 
 
@@ -1857,7 +1873,9 @@ def update_ai_provider(
     strategy: str = Form("fixed"),
     local_api_url: str = Form(""),
     local_model: str = Form(""),
-    local_api_key: str = Form("")
+    local_api_key: str = Form(""),
+    reply_char_limit: str = Form("600"),
+    kb_cleanup_mode: str = Form("ai_light")
 ):
     if admin_tools.is_readonly_admin(request):
         return RedirectResponse("/admin/users?notice=唯讀帳號不能修改 AI 設定", status_code=302)
@@ -1869,6 +1887,8 @@ def update_ai_provider(
         "local_api_url": local_api_url,
         "local_model": local_model,
         "local_api_key": local_api_key,
+        "reply_char_limit": reply_char_limit,
+        "kb_cleanup_mode": kb_cleanup_mode,
     })
     admin_tools.log_admin_activity(
         request,

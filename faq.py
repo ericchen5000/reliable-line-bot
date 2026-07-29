@@ -12,6 +12,7 @@ from urllib.parse import quote, urlencode
 from xml.etree import ElementTree
 from admin_ui import admin_bar_css, admin_bar_html
 import admin_tools
+from ai_provider import ask_ai, load_ai_settings
 
 router = APIRouter()
 
@@ -196,10 +197,69 @@ def clean_extracted_text(value):
 
     for line in text.splitlines():
         line = re.sub(r"[ \t]+", " ", line).strip()
+        if not line:
+            continue
+        if re.fullmatch(r"第\s*\d+\s*頁", line):
+            continue
+        if re.fullmatch(r"\d+", line):
+            continue
+        if line in {"style.visibility", "ppt_x", "ppt_y", "ppt_w", "ppt_h", "style.rotation"}:
+            continue
+        if re.search(r"全文共\s*\d+\s*頁", line):
+            continue
         if line:
             lines.append(line)
 
     return "\n".join(lines)
+
+
+def chunk_text_for_ai(text, limit=6500):
+    chunks = []
+    current = []
+    current_len = 0
+
+    for paragraph in str(text or "").splitlines():
+        paragraph = paragraph.strip()
+        if not paragraph:
+            continue
+        if current_len + len(paragraph) > limit and current:
+            chunks.append("\n".join(current))
+            current = []
+            current_len = 0
+        current.append(paragraph)
+        current_len += len(paragraph)
+
+    if current:
+        chunks.append("\n".join(current))
+
+    return chunks or [str(text or "").strip()]
+
+
+def ai_light_cleanup_kb_text(text):
+    base_text = clean_extracted_text(text)
+    if not base_text.strip():
+        return ""
+
+    prompt = """
+你是企業知識庫文字整理助手。
+請將使用者提供的 PDF / PPT / DOCX 抽取文字整理成乾淨 KB 文字。
+
+整理規則：
+- 可以移除頁碼、頁首、頁尾、投影片殘留代碼、重複雜訊。
+- 可以修正不自然斷行，讓句子更順。
+- 可以用小標題整理段落，但不要過度改寫。
+- 不可以新增原文沒有的產品功能、規格、案例、保證或行銷說法。
+- 數字、型號、品牌、網址、電話、規格必須盡量保留原文。
+- 如果原文資訊不完整，請保留既有內容，不要自行補完。
+- 請只輸出整理後文字，不要說明你的整理過程。
+""".strip()
+    cleaned_chunks = []
+
+    for chunk in chunk_text_for_ai(base_text):
+        cleaned = ask_ai(prompt, chunk, task="kb_cleanup")
+        cleaned_chunks.append(clean_extracted_text(cleaned))
+
+    return clean_extracted_text("\n\n".join(cleaned_chunks))
 
 
 def local_name(tag):
@@ -563,6 +623,7 @@ def faq_page(
     kb_edit_content = read_kb_file(kb_edit_name, kb_edit_active) if kb_edit_name else ""
     kb_is_edit = bool(kb_edit_name and os.path.exists(kb_path(kb_edit_name, kb_edit_active)))
     kb_form_title = f"編輯 KB 文件：{kb_edit_name}" if kb_is_edit else "新增 KB 文件"
+    kb_cleanup_mode = load_ai_settings().get("kb_cleanup_mode", "ai_light")
 
     kb_rows = ""
     for item in files:
@@ -2059,9 +2120,13 @@ def faq_page(
                 <div class="top-title">上傳文件轉 KB</div>
                 <form method="post" action="/faq/kb/upload" enctype="multipart/form-data">
                     <input type="file" name="file" accept=".txt,.pdf,.docx" required>
+                    <select name="cleanup_mode">
+                        <option value="ai_light" {"selected" if kb_cleanup_mode == "ai_light" else ""}>AI 輕整理</option>
+                        <option value="basic" {"selected" if kb_cleanup_mode == "basic" else ""}>只清除雜訊</option>
+                    </select>
                     <button>上傳並轉成 KB</button>
                 </form>
-                <p class="hint">支援 TXT、DOCX、PDF。系統會抽出文字後另存成 knowledge/txt 裡的 .txt。</p>
+                <p class="hint">支援 TXT、DOCX、PDF。AI 輕整理會修正斷行與雜訊，但不新增原文沒有的內容。</p>
                 </div>
             </div>
         </div>
@@ -2504,24 +2569,41 @@ def edit_kb(
 
 
 @router.post("/faq/kb/upload")
-async def upload_kb(request: Request, file: UploadFile = File(...)):
+async def upload_kb(
+    request: Request,
+    file: UploadFile = File(...),
+    cleanup_mode: str = Form("")
+):
     os.makedirs(KB_DIR, exist_ok=True)
     name = converted_kb_filename(file.filename)
     content = await file.read()
 
     try:
-        text = extract_kb_text(file.filename, content)
+        text = clean_extracted_text(extract_kb_text(file.filename, content))
     except Exception as exc:
         return RedirectResponse(kb_notice_url(str(exc)), status_code=302)
 
     if not text.strip():
         return RedirectResponse(kb_notice_url("轉換後沒有可讀取的文字內容"), status_code=302)
 
+    mode = cleanup_mode if cleanup_mode in {"basic", "ai_light"} else load_ai_settings().get("kb_cleanup_mode", "ai_light")
+    notice_suffix = "只清除雜訊"
+    if mode == "ai_light":
+        try:
+            cleaned_text = ai_light_cleanup_kb_text(text)
+            if cleaned_text.strip():
+                text = cleaned_text
+                notice_suffix = "AI 輕整理"
+            else:
+                notice_suffix = "AI 輕整理未取得內容，已保留清雜訊版本"
+        except Exception:
+            notice_suffix = "AI 輕整理失敗，已保留清雜訊版本"
+
     with open(os.path.join(KB_DIR, name), "w", encoding="utf-8") as f:
         f.write(text.strip() + "\n")
-    admin_tools.log_admin_activity(request, "KB 上傳", name, file.filename or "")
+    admin_tools.log_admin_activity(request, "KB 上傳", name, f"{file.filename or ''} / {notice_suffix}")
 
-    return RedirectResponse(kb_notice_url(f"KB 已上傳並轉換完成：knowledge/txt/{name}"), status_code=302)
+    return RedirectResponse(kb_notice_url(f"KB 已上傳並轉換完成：knowledge/txt/{name}（{notice_suffix}）"), status_code=302)
 
 
 @router.get("/faq/kb/toggle/{filename}")

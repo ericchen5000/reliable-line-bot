@@ -14,6 +14,8 @@ DEFAULT_SETTINGS = {
     "local_api_url": "",
     "local_model": "",
     "local_api_key": "",
+    "reply_char_limit": "600",
+    "kb_cleanup_mode": "ai_light",
 }
 
 
@@ -50,6 +52,8 @@ def save_ai_settings(settings):
     strategy = str(settings.get("strategy", current["strategy"]) or "fixed").strip()
     local_api_url = str(settings.get("local_api_url", current["local_api_url"]) or "").strip()
     local_model = str(settings.get("local_model", current["local_model"]) or "").strip()
+    reply_char_limit = str(settings.get("reply_char_limit", current["reply_char_limit"]) or "600").strip()
+    kb_cleanup_mode = str(settings.get("kb_cleanup_mode", current["kb_cleanup_mode"]) or "ai_light").strip()
 
     if (provider == "local" or strategy == "smart") and local_model and not local_api_url:
         local_api_url = DEFAULT_LOCAL_API_URL
@@ -59,6 +63,8 @@ def save_ai_settings(settings):
         "strategy": strategy,
         "local_api_url": local_api_url,
         "local_model": local_model,
+        "reply_char_limit": normalize_reply_char_limit(reply_char_limit),
+        "kb_cleanup_mode": kb_cleanup_mode if kb_cleanup_mode in {"basic", "ai_light"} else "ai_light",
     })
 
     local_api_key = str(settings.get("local_api_key", "") or "").strip()
@@ -76,6 +82,36 @@ def save_ai_settings(settings):
         json.dump(current, f, ensure_ascii=False, indent=2)
 
     return current
+
+
+def normalize_reply_char_limit(value):
+    try:
+        limit = int(str(value or "").strip())
+    except:
+        limit = 600
+    return str(max(150, min(2000, limit)))
+
+
+def reply_char_limit(settings=None):
+    settings = settings or load_ai_settings()
+    return int(normalize_reply_char_limit(settings.get("reply_char_limit", "600")))
+
+
+def answer_max_tokens(settings=None):
+    limit = reply_char_limit(settings)
+    return max(300, min(2600, int(limit * 1.8)))
+
+
+def apply_reply_length_rule(system_prompt, settings=None):
+    limit = reply_char_limit(settings)
+    return (
+        f"{system_prompt}\n\n"
+        "回答長度規則：\n"
+        f"- 請將正式回答控制在約 {limit} 個中文字以內。\n"
+        "- 請在字數範圍內完整回答，不要因為長度限制而在句子中途斷掉。\n"
+        "- 優先回答使用者真正問的重點；若內容很多，請摘要重點，不要展開過多細節。\n"
+        "- 不要提到你受到字數限制。"
+    )
 
 
 def provider_label(provider=None):
@@ -197,34 +233,40 @@ def list_local_models(api_url=""):
 
 def ask_ai(system_prompt, user_message, task="general"):
     settings = load_ai_settings()
+    if task == "kb_cleanup":
+        max_tokens = 2600
+    else:
+        system_prompt = apply_reply_length_rule(system_prompt, settings)
+        max_tokens = answer_max_tokens(settings)
 
     if settings.get("strategy") == "smart":
         if task in {"site_index", "website", "summary"}:
-            return ask_local_with_cloud_fallback(system_prompt, user_message, settings)
-        return ask_deepseek_model(system_prompt, user_message)
+            return ask_local_with_cloud_fallback(system_prompt, user_message, settings, max_tokens=max_tokens)
+        return ask_deepseek_model(system_prompt, user_message, settings=settings, max_tokens=max_tokens)
 
     if settings.get("provider") == "local":
-        return ask_local_with_cloud_fallback(system_prompt, user_message, settings)
+        return ask_local_with_cloud_fallback(system_prompt, user_message, settings, max_tokens=max_tokens)
 
-    return ask_deepseek_model(system_prompt, user_message)
+    return ask_deepseek_model(system_prompt, user_message, settings=settings, max_tokens=max_tokens)
 
 
-def ask_local_with_cloud_fallback(system_prompt, user_message, settings=None):
+def ask_local_with_cloud_fallback(system_prompt, user_message, settings=None, max_tokens=None):
     settings = settings or load_ai_settings()
+    max_tokens = max_tokens or answer_max_tokens(settings)
 
     if not settings.get("local_model", "").strip() and not os.getenv("LOCAL_AI_MODEL", "").strip():
-        return ask_deepseek_model(system_prompt, user_message)
+        return ask_deepseek_model(system_prompt, user_message, settings=settings, max_tokens=max_tokens)
 
     try:
-        return ask_local_model(system_prompt, user_message, settings)
+        return ask_local_model(system_prompt, user_message, settings, max_tokens=max_tokens)
     except Exception:
         time.sleep(1)
         try:
-            return ask_local_model(system_prompt, user_message, settings)
+            return ask_local_model(system_prompt, user_message, settings, max_tokens=max_tokens)
         except Exception as local_exc:
             if os.getenv("DEEPSEEK_API_KEY", "").strip():
                 try:
-                    return ask_deepseek_model(system_prompt, user_message)
+                    return ask_deepseek_model(system_prompt, user_message, settings=settings, max_tokens=max_tokens)
                 except Exception as cloud_exc:
                     return (
                         "目前 AI 模型暫時無法回應，請稍後再試。"
@@ -239,7 +281,8 @@ def ask_local_with_cloud_fallback(system_prompt, user_message, settings=None):
             )
 
 
-def ask_deepseek_model(system_prompt, user_message):
+def ask_deepseek_model(system_prompt, user_message, settings=None, max_tokens=None):
+    settings = settings or load_ai_settings()
     api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     api_url = os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions").strip()
     model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip()
@@ -247,10 +290,10 @@ def ask_deepseek_model(system_prompt, user_message):
     if not api_key:
         raise RuntimeError("尚未設定 DEEPSEEK_API_KEY")
 
-    return post_openai_compatible(api_url, model, api_key, system_prompt, user_message)
+    return post_openai_compatible(api_url, model, api_key, system_prompt, user_message, max_tokens=max_tokens or answer_max_tokens(settings))
 
 
-def ask_local_model(system_prompt, user_message, settings=None):
+def ask_local_model(system_prompt, user_message, settings=None, max_tokens=None):
     settings = settings or load_ai_settings()
     api_url = settings.get("local_api_url", "").strip() or DEFAULT_LOCAL_API_URL
     model = settings.get("local_model", "").strip() or os.getenv("LOCAL_AI_MODEL", "local-model").strip()
@@ -259,7 +302,7 @@ def ask_local_model(system_prompt, user_message, settings=None):
     if not api_url:
         raise RuntimeError("尚未設定本地模型 API URL")
 
-    return post_openai_compatible(api_url, model, api_key, system_prompt, user_message, timeout=180)
+    return post_openai_compatible(api_url, model, api_key, system_prompt, user_message, timeout=180, max_tokens=max_tokens or answer_max_tokens(settings))
 
 
 def friendly_ai_error(exc):
@@ -273,7 +316,7 @@ def friendly_ai_error(exc):
     return text[:300]
 
 
-def post_openai_compatible(api_url, model, api_key, system_prompt, user_message, timeout=90):
+def post_openai_compatible(api_url, model, api_key, system_prompt, user_message, timeout=90, max_tokens=700):
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -285,7 +328,7 @@ def post_openai_compatible(api_url, model, api_key, system_prompt, user_message,
             {"role": "user", "content": user_message},
         ],
         "temperature": 0.3,
-        "max_tokens": 700,
+        "max_tokens": max_tokens,
     }
 
     response = requests.post(api_url, headers=headers, json=payload, timeout=timeout)
