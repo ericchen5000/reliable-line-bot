@@ -675,7 +675,7 @@ def search_website_content(user_message, site):
 如果網站內容沒有答案，請回答「目前網站內容沒有相關資訊」。
 """
 
-    answer = ask_ai(prompt, user_message)
+    answer = ask_ai(prompt, user_message, task="website")
     return answer, site_base
 
 
@@ -838,7 +838,7 @@ def search_site_index(user_message):
 如果索引內容沒有答案，請回答「目前網站索引沒有相關資訊」。
 """
 
-    answer = ask_ai(prompt, user_message)
+    answer = ask_ai(prompt, user_message, task="site_index")
 
     no_answer_markers = [
         "目前網站索引沒有相關資訊",
@@ -865,7 +865,7 @@ def ai_fallback(user_message, context=""):
 請根據內容回答（不可亂編）
 """
 
-    return ask_ai(prompt, user_message), "AI"
+    return ask_ai(prompt, user_message, task="fallback"), "AI"
 
 
 # =========================
@@ -1012,6 +1012,12 @@ def ai_integrations_card(readonly=False):
     local_state_text = "已偵測" if local_models.get("ok") else "已設定" if local_configured else "未設定"
     current_label = provider_label(active_provider)
     current_identity = current_ai_identity()
+    active_strategy = settings.get("strategy", "fixed")
+    current_strategy_text = (
+        f"智慧混合 / 本地模型 {settings.get('local_model') or '-'} + DeepSeek"
+        if active_strategy == "smart"
+        else f"{current_label}{f' / {current_identity.get('model') or '-'}' if current_identity.get('model') else ''}"
+    )
     detected_model_options = "".join(
         f'<option value="{html_escape(model)}" {"selected" if settings.get("local_model") == model else ""}>{html_escape(model)}</option>'
         for model in local_models.get("models", [])
@@ -1053,6 +1059,13 @@ def ai_integrations_card(readonly=False):
     advanced_open = " open" if active_provider == "local" and not local_models.get("ok") and not local_configured else ""
     form_html = f"""
         <form class="ai-provider-form" method="post" action="/admin/ai-provider" data-provider="{html_escape(active_provider)}">
+            <div class="ai-strategy-field">
+                <label>回答策略</label>
+                <select name="strategy">
+                    <option value="fixed" {"selected" if active_strategy == "fixed" else ""}>固定使用目前選擇模型</option>
+                    <option value="smart" {"selected" if active_strategy == "smart" else ""}>智慧混合：已知資料優先本地，複雜問題走雲端</option>
+                </select>
+            </div>
             <label>目前回答模型</label>
             <div class="ai-switch-grid">
                 <label class="ai-switch-option {'active' if active_provider == 'deepseek' else ''}">
@@ -1095,8 +1108,8 @@ def ai_integrations_card(readonly=False):
             {help_tip("集中查看已串接模型、可用狀態與剩餘額度；不顯示 API Key。")}
         </div>
         <div class="ai-active-provider">
-            <span>目前使用</span>
-            <b>{html_escape(current_label)}{f' / {html_escape(current_identity.get("model") or "-")}' if current_identity.get("model") else ''}</b>
+            <span>目前策略</span>
+            <b>{html_escape(current_strategy_text)}</b>
         </div>
         {form_html}
         <div class="ai-provider-list">{cards}</div>
@@ -1283,6 +1296,7 @@ def admin_css():
     .ai-active-provider span { color:var(--muted); font-size:12px; font-weight:900; }
     .ai-active-provider b { color:var(--text); font-size:14px; }
     .ai-provider-form { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel); margin-bottom:12px; }
+    .ai-strategy-field { margin-bottom:12px; }
     .ai-switch-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
     .ai-switch-option { position:relative; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:64px; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); cursor:pointer; }
     .ai-switch-option input { position:absolute; opacity:0; pointer-events:none; }
@@ -1840,6 +1854,7 @@ def change_admin_password(
 def update_ai_provider(
     request: Request,
     provider: str = Form("deepseek"),
+    strategy: str = Form("fixed"),
     local_api_url: str = Form(""),
     local_model: str = Form(""),
     local_api_key: str = Form("")
@@ -1850,6 +1865,7 @@ def update_ai_provider(
     provider = provider if provider in {"deepseek", "local"} else "deepseek"
     settings = save_ai_settings({
         "provider": provider,
+        "strategy": strategy,
         "local_api_url": local_api_url,
         "local_model": local_model,
         "local_api_key": local_api_key,
@@ -1857,7 +1873,7 @@ def update_ai_provider(
     admin_tools.log_admin_activity(
         request,
         "更新 AI 串接",
-        provider_label(settings.get("provider")),
+        "智慧混合" if settings.get("strategy") == "smart" else provider_label(settings.get("provider")),
         settings.get("local_model") or "-"
     )
     return RedirectResponse("/admin/users?notice=AI 串接設定已更新", status_code=302)

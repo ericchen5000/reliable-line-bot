@@ -10,6 +10,7 @@ AI_SETTINGS_PATH = "data/ai_settings.json"
 DEFAULT_LOCAL_API_URL = "http://127.0.0.1:11434/v1/chat/completions"
 DEFAULT_SETTINGS = {
     "provider": "deepseek",
+    "strategy": "fixed",
     "local_api_url": "",
     "local_model": "",
     "local_api_key": "",
@@ -34,6 +35,9 @@ def load_ai_settings():
     if settings["provider"] not in {"deepseek", "local"}:
         settings["provider"] = "deepseek"
 
+    if settings["strategy"] not in {"fixed", "smart"}:
+        settings["strategy"] = "fixed"
+
     settings["local_api_url"] = os.getenv("LOCAL_AI_API_URL", settings["local_api_url"]).strip()
     settings["local_model"] = os.getenv("LOCAL_AI_MODEL", settings["local_model"]).strip()
     settings["local_api_key"] = os.getenv("LOCAL_AI_API_KEY", settings["local_api_key"]).strip()
@@ -43,14 +47,16 @@ def load_ai_settings():
 def save_ai_settings(settings):
     current = load_ai_settings()
     provider = str(settings.get("provider", current["provider"]) or "deepseek").strip()
+    strategy = str(settings.get("strategy", current["strategy"]) or "fixed").strip()
     local_api_url = str(settings.get("local_api_url", current["local_api_url"]) or "").strip()
     local_model = str(settings.get("local_model", current["local_model"]) or "").strip()
 
-    if provider == "local" and local_model and not local_api_url:
+    if (provider == "local" or strategy == "smart") and local_model and not local_api_url:
         local_api_url = DEFAULT_LOCAL_API_URL
 
     current.update({
         "provider": provider,
+        "strategy": strategy,
         "local_api_url": local_api_url,
         "local_model": local_model,
     })
@@ -61,6 +67,9 @@ def save_ai_settings(settings):
 
     if current["provider"] not in {"deepseek", "local"}:
         current["provider"] = "deepseek"
+
+    if current["strategy"] not in {"fixed", "smart"}:
+        current["strategy"] = "fixed"
 
     os.makedirs(os.path.dirname(AI_SETTINGS_PATH), exist_ok=True)
     with open(AI_SETTINGS_PATH, "w", encoding="utf-8") as f:
@@ -77,6 +86,17 @@ def provider_label(provider=None):
 def current_ai_identity():
     settings = load_ai_settings()
     provider = settings.get("provider", "deepseek")
+    if settings.get("strategy") == "smart":
+        cloud_model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip()
+        local_model = settings.get("local_model", "").strip() or os.getenv("LOCAL_AI_MODEL", "-").strip()
+        return {
+            "provider": "smart",
+            "provider_label": "智慧混合",
+            "model": f"本地模型 {local_model or '-'} + DeepSeek {cloud_model}",
+            "strategy": "smart",
+            "strategy_label": "智慧混合",
+        }
+
     if provider == "local":
         model = settings.get("local_model", "").strip() or os.getenv("LOCAL_AI_MODEL", "local-model").strip()
     else:
@@ -86,6 +106,8 @@ def current_ai_identity():
         "provider": provider,
         "provider_label": provider_label(provider),
         "model": model or "-",
+        "strategy": settings.get("strategy", "fixed"),
+        "strategy_label": "智慧混合" if settings.get("strategy") == "smart" else "固定模型",
     }
 
 
@@ -173,34 +195,48 @@ def list_local_models(api_url=""):
     }
 
 
-def ask_ai(system_prompt, user_message):
+def ask_ai(system_prompt, user_message, task="general"):
     settings = load_ai_settings()
 
-    if settings.get("provider") == "local":
-        try:
-            return ask_local_model(system_prompt, user_message, settings)
-        except Exception:
-            time.sleep(1)
-            try:
-                return ask_local_model(system_prompt, user_message, settings)
-            except Exception as local_exc:
-                if os.getenv("DEEPSEEK_API_KEY", "").strip():
-                    try:
-                        return ask_deepseek_model(system_prompt, user_message)
-                    except Exception as cloud_exc:
-                        return (
-                            "目前 AI 模型暫時無法回應，請稍後再試。"
-                            f"\n\n本地模型錯誤：{friendly_ai_error(local_exc)}"
-                            f"\nDeepSeek 備援錯誤：{friendly_ai_error(cloud_exc)}"
-                        )
+    if settings.get("strategy") == "smart":
+        if task in {"site_index", "website", "summary"}:
+            return ask_local_with_cloud_fallback(system_prompt, user_message, settings)
+        return ask_deepseek_model(system_prompt, user_message)
 
-                return (
-                    "目前本地模型暫時無法回應，請稍後再試，或請管理者確認 Ollama 是否啟動、"
-                    "模型是否已下載、VPS 記憶體是否足夠。"
-                    f"\n\n錯誤摘要：{friendly_ai_error(local_exc)}"
-                )
+    if settings.get("provider") == "local":
+        return ask_local_with_cloud_fallback(system_prompt, user_message, settings)
 
     return ask_deepseek_model(system_prompt, user_message)
+
+
+def ask_local_with_cloud_fallback(system_prompt, user_message, settings=None):
+    settings = settings or load_ai_settings()
+
+    if not settings.get("local_model", "").strip() and not os.getenv("LOCAL_AI_MODEL", "").strip():
+        return ask_deepseek_model(system_prompt, user_message)
+
+    try:
+        return ask_local_model(system_prompt, user_message, settings)
+    except Exception:
+        time.sleep(1)
+        try:
+            return ask_local_model(system_prompt, user_message, settings)
+        except Exception as local_exc:
+            if os.getenv("DEEPSEEK_API_KEY", "").strip():
+                try:
+                    return ask_deepseek_model(system_prompt, user_message)
+                except Exception as cloud_exc:
+                    return (
+                        "目前 AI 模型暫時無法回應，請稍後再試。"
+                        f"\n\n本地模型錯誤：{friendly_ai_error(local_exc)}"
+                        f"\nDeepSeek 備援錯誤：{friendly_ai_error(cloud_exc)}"
+                    )
+
+            return (
+                "目前本地模型暫時無法回應，請稍後再試，或請管理者確認 Ollama 是否啟動、"
+                "模型是否已下載、VPS 記憶體是否足夠。"
+                f"\n\n錯誤摘要：{friendly_ai_error(local_exc)}"
+            )
 
 
 def ask_deepseek_model(system_prompt, user_message):

@@ -2162,7 +2162,7 @@ def log_summary(log_id: int):
 """
 
     try:
-        summary = ask_ai(prompt, user_message)
+        summary = ask_ai(prompt, user_message, task="summary")
     except Exception as exc:
         summary = f"摘要產生失敗：{exc}"
 

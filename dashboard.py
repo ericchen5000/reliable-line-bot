@@ -78,12 +78,16 @@ def index_count():
 def health_checks():
     ai_settings = load_ai_settings()
     ai_provider = ai_settings.get("provider", "deepseek")
-    ai_ready = (
-        bool(os.getenv("DEEPSEEK_API_KEY"))
-        if ai_provider == "deepseek"
-        else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
-    )
-    ai_label = "DEEPSEEK_API_KEY" if ai_provider == "deepseek" else "本地模型設定"
+    if ai_settings.get("strategy") == "smart":
+        ai_ready = bool(os.getenv("DEEPSEEK_API_KEY")) and bool(ai_settings.get("local_model"))
+        ai_label = "智慧混合 AI 設定"
+    else:
+        ai_ready = (
+            bool(os.getenv("DEEPSEEK_API_KEY"))
+            if ai_provider == "deepseek"
+            else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
+        )
+        ai_label = "DEEPSEEK_API_KEY" if ai_provider == "deepseek" else "本地模型設定"
     return [
         ("LINE_CHANNEL_ACCESS_TOKEN", bool(os.getenv("LINE_CHANNEL_ACCESS_TOKEN"))),
         ("LINE_CHANNEL_SECRET", bool(os.getenv("LINE_CHANNEL_SECRET"))),
@@ -220,13 +224,20 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
     ai_settings = load_ai_settings()
     ai_provider_value = ai_identity.get("provider_label") or "未設定"
     ai_model_value = ai_identity.get("model") or ""
-    ai_status_value = f"{ai_provider_value} - {ai_model_value}" if ai_model_value else ai_provider_value
-    ai_model_detail = "目前 AI 回答模式與模型名稱"
-    ai_ready = (
-        bool(os.getenv("DEEPSEEK_API_KEY"))
-        if ai_identity.get("provider") == "deepseek"
-        else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
-    )
+    if ai_settings.get("strategy") == "smart":
+        ai_status_value = f"智慧混合 - 本地模型 {ai_settings.get('local_model') or '-'} + DeepSeek"
+        ai_model_detail = "已知資料整理優先本地模型，複雜問題走雲端模型"
+    else:
+        ai_status_value = f"{ai_provider_value} - {ai_model_value}" if ai_model_value else ai_provider_value
+        ai_model_detail = "目前 AI 回答模式與模型名稱"
+    if ai_settings.get("strategy") == "smart":
+        ai_ready = bool(os.getenv("DEEPSEEK_API_KEY")) and bool(ai_settings.get("local_model"))
+    else:
+        ai_ready = (
+            bool(os.getenv("DEEPSEEK_API_KEY"))
+            if ai_identity.get("provider") == "deepseek"
+            else bool(ai_settings.get("local_api_url")) and bool(ai_settings.get("local_model"))
+        )
     status_cards = "".join([
         status_card(
             "系統設定",
