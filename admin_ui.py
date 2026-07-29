@@ -230,6 +230,16 @@ def admin_bar_css():
         font-size:18px;
     }
 
+    html.style-light body,
+    body.style-light {
+        --shadow:none;
+    }
+
+    html.style-light body *,
+    body.style-light * {
+        box-shadow:none !important;
+    }
+
     html.style-console body,
     body.style-console {
         --bg:#f5f6f8;
