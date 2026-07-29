@@ -449,13 +449,13 @@ def admin_bar_css():
     body.style-console .btn-edit,
     html.style-console body .export-link,
     body.style-console .export-link {
-        background:var(--button-bg) !important;
+        background:var(--panel) !important;
         color:var(--text) !important;
         border:1px solid var(--border) !important;
         box-shadow:none !important;
         border-radius:4px !important;
         min-height:34px;
-        font-size:13px;
+        font-size:14px;
         font-weight:800;
     }
 
@@ -571,7 +571,7 @@ def admin_bar_css():
 
     html.style-console body .clear-link,
     body.style-console .clear-link {
-        background:var(--button-bg) !important;
+        background:var(--panel) !important;
         color:var(--text) !important;
         border:1px solid var(--border) !important;
     }
@@ -580,7 +580,7 @@ def admin_bar_css():
     body.style-console .quality-warn,
     html.style-console body .btn-toggle,
     body.style-console .btn-toggle {
-        background:var(--button-bg) !important;
+        background:var(--panel) !important;
         color:var(--text) !important;
         border:1px solid var(--border) !important;
     }
@@ -591,14 +591,14 @@ def admin_bar_css():
     body.style-console .btn-del,
     html.style-console body .delete-btn,
     body.style-console .delete-btn {
-        background:var(--button-bg) !important;
+        background:var(--panel) !important;
         color:#b91c1c !important;
         border:1px solid var(--border) !important;
     }
 
     html.style-console body .btn-toggle.toggle-on,
     body.style-console .btn-toggle.toggle-on {
-        background:var(--button-bg) !important;
+        background:var(--panel) !important;
         color:var(--text) !important;
         border:1px solid var(--border) !important;
     }
@@ -627,6 +627,59 @@ def admin_bar_css():
     html.style-console body button:not(.theme-option):hover,
     body.style-console button:not(.theme-option):hover {
         background:var(--button-bg-hover) !important;
+        color:var(--text) !important;
+    }
+
+    body.has-admin-bar button:not(.theme-option),
+    body.has-admin-bar a[class*="btn"],
+    body.has-admin-bar .btn-edit,
+    body.has-admin-bar .btn-del,
+    body.has-admin-bar .btn-toggle,
+    body.has-admin-bar .btn-detail,
+    body.has-admin-bar .faq-transfer-btn,
+    body.has-admin-bar .clear-link,
+    body.has-admin-bar .export-link,
+    body.has-admin-bar .cancel-link,
+    body.has-admin-bar .primary-action,
+    body.has-admin-bar .disabled-btn,
+    body.has-admin-bar .readonly-pill {
+        font-size:14px !important;
+    }
+
+    body.has-admin-bar.style-console button:not(.theme-option):not(.admin-menu-toggle),
+    body.has-admin-bar.style-console a[class*="btn"],
+    body.has-admin-bar.style-console .btn-edit,
+    body.has-admin-bar.style-console .btn-toggle,
+    body.has-admin-bar.style-console .btn-detail,
+    body.has-admin-bar.style-console .faq-transfer-btn,
+    body.has-admin-bar.style-console .clear-link,
+    body.has-admin-bar.style-console .export-link,
+    body.has-admin-bar.style-console .cancel-link,
+    body.has-admin-bar.style-console .primary-action {
+        background:var(--panel) !important;
+        color:var(--text) !important;
+        border:1px solid var(--border) !important;
+        box-shadow:none !important;
+    }
+
+    body.has-admin-bar.style-console .btn-del,
+    body.has-admin-bar.style-console .delete-btn,
+    body.has-admin-bar.style-console button[name="action"][value="delete"] {
+        background:var(--panel) !important;
+        color:#b91c1c !important;
+        border:1px solid var(--border) !important;
+        box-shadow:none !important;
+    }
+
+    body.has-admin-bar.style-console .admin-font-controls button {
+        background:transparent !important;
+        color:var(--muted) !important;
+        border:0 !important;
+        font-size:13px !important;
+    }
+
+    body.has-admin-bar.style-console .admin-font-controls button:hover {
+        background:var(--panel-soft) !important;
         color:var(--text) !important;
     }
 
