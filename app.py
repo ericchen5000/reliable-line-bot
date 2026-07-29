@@ -500,7 +500,7 @@ def search_faq(question):
 def handle_official_brand_query(question):
     text = str(question or "").lower()
     brand_terms = ["代理", "品牌", "產品", "product", "brand"]
-    ask_terms = ["哪些", "有什麼", "有哪些", "介紹", "list", "what"]
+    ask_terms = ["哪些", "有什麼", "有哪些", "介紹", "瞭解", "了解", "認識", "說明", "list", "what"]
 
     if not any(term in text for term in brand_terms):
         return None, None
@@ -509,11 +509,12 @@ def handle_official_brand_query(question):
         return None, None
 
     reply = (
-        "定承資訊目前主要代理以下四個品牌：\n\n"
-        "1. Penguin Solutions（Stratus）：高可用與容錯運算平台\n"
-        "2. Neverfail：營運持續與應用不中斷備援\n"
-        "3. VATES：XCP-ng / Xen Orchestra 虛擬化平台\n"
-        "4. Array Networks：VPN、應用交付與安全存取解決方案"
+        "定承資訊目前主要代理四個品牌：\n\n"
+        "1. Penguin Solutions（Stratus）：高可用與容錯運算平台，協助關鍵系統不中斷運作。\n"
+        "2. Neverfail：營運持續與應用不中斷備援，降低服務中斷風險。\n"
+        "3. VATES：XCP-ng / Xen Orchestra 虛擬化平台，提供開源虛擬化與集中管理。\n"
+        "4. Array Networks：VPN、應用交付與安全存取解決方案。\n\n"
+        "如果您想了解特定產品，我可以再針對 Stratus、Neverfail、VATES 或 Array Networks 做介紹。"
     )
     return reply, "RULE"
 

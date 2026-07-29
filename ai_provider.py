@@ -249,6 +249,7 @@ def post_openai_compatible(api_url, model, api_key, system_prompt, user_message,
             {"role": "user", "content": user_message},
         ],
         "temperature": 0.3,
+        "max_tokens": 700,
     }
 
     response = requests.post(api_url, headers=headers, json=payload, timeout=timeout)

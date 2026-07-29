@@ -1,6 +1,15 @@
 [
   {
     "date": "2026/07/29",
+    "title": "品牌產品回答防呆修正",
+    "changes": [
+      "將「產品了解 / 產品瞭解 / 品牌介紹」等問法納入固定品牌規則，避免 AI 自由產生錯誤代理品牌。",
+      "品牌與產品總覽問題固定回答 Penguin Solutions（Stratus）、Neverfail、VATES、Array Networks 四個品牌。",
+      "AI 回答新增長度上限，降低回覆過長或內容重複的機率。"
+    ]
+  },
+  {
+    "date": "2026/07/29",
     "title": "落地模型斷線保護",
     "changes": [
       "落地模型呼叫新增預設 Ollama API URL，避免切換模型時因 URL 空白造成失敗。",
