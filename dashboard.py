@@ -222,14 +222,17 @@ def dashboard(request: Request, generate: int = 0, days: int = 7, chart: str = "
     index_failed = sum(int(site.get("failed", 0) or 0) for site in index_status.get("sites", []))
     ai_identity = current_ai_identity()
     ai_settings = load_ai_settings()
-    ai_provider_value = ai_identity.get("provider_label") or "未設定"
-    ai_model_value = ai_identity.get("model") or ""
+    local_model_value = ai_settings.get("local_model") or "-"
+    cloud_model_value = os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip() or "deepseek-chat"
     if ai_settings.get("strategy") == "smart":
-        ai_status_value = f"智慧混合 - 本地模型 {ai_settings.get('local_model') or '-'} + DeepSeek"
+        ai_status_value = f"智慧（本地-{local_model_value}）"
         ai_model_detail = "已知資料整理優先本地模型，複雜問題走雲端模型"
+    elif ai_identity.get("provider") == "local":
+        ai_status_value = f"本地-{local_model_value}"
+        ai_model_detail = "固定使用目前選擇的本地模型"
     else:
-        ai_status_value = f"{ai_provider_value} - {ai_model_value}" if ai_model_value else ai_provider_value
-        ai_model_detail = "目前 AI 回答模式與模型名稱"
+        ai_status_value = f"雲端-{cloud_model_value}"
+        ai_model_detail = "固定使用目前設定的雲端模型"
     if ai_settings.get("strategy") == "smart":
         ai_ready = bool(os.getenv("DEEPSEEK_API_KEY")) and bool(ai_settings.get("local_model"))
     else:
