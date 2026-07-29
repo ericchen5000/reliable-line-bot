@@ -692,12 +692,17 @@ def logs_ui(
             <td colspan="7">
                 <div class="detail-box" id="detail-content-{i}">
 
+                    <div class="ai-model-strip">
+                        <span>AI 模型</span>
+                        <b>{e(g(l,'ai_provider_label','-'))}</b>
+                        <em>{e(g(l,'ai_model','-'))}</em>
+                    </div>
+
                     <div class="detail-summary-grid">
                         <div><b>平台</b><span>{e(g(l,'platform','LINE'))}</span></div>
                         <div><b>時間</b><span>{e(g(l,'time'))}</span></div>
                         <div><b>延遲</b><span>{e(g(l,'latency','-'))} 秒</span></div>
                         <div><b>來源摘要</b><span title="{e(source_value)}">{e(source_summary(source_value))}</span></div>
-                        <div><b>AI 模型</b><span>{e(g(l,'ai_provider_label','-'))} / {e(g(l,'ai_model','-'))}</span></div>
                         <div class="summary-action-card"><b>商機狀態</b><span>{e(g(l, 'intent', '一般詢問'))} / {e(g(l, 'lead_score', 0))}</span>{followup_controls}</div>
                         <div><b>IP</b><span>{e(g(l,'ip','-'))}</span></div>
                     </div>
@@ -1443,6 +1448,38 @@ def logs_ui(
         display:grid;
         grid-template-columns:repeat(3, minmax(0, 1fr));
         gap:10px;
+    }
+
+    .ai-model-strip {
+        display:flex;
+        align-items:center;
+        gap:8px;
+        flex-wrap:wrap;
+        padding:9px 10px;
+        border-radius:8px;
+        border:1px solid var(--border);
+        background:var(--panel-soft);
+    }
+
+    .ai-model-strip span {
+        color:var(--muted);
+        font-size:12px;
+        font-weight:800;
+    }
+
+    .ai-model-strip b,
+    .ai-model-strip em {
+        display:inline-flex;
+        align-items:center;
+        min-height:26px;
+        padding:4px 8px;
+        border-radius:999px;
+        background:var(--panel);
+        border:1px solid var(--border);
+        color:var(--text);
+        font-size:12px;
+        font-style:normal;
+        font-weight:800;
     }
 
     .detail-summary-grid div {

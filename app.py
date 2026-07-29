@@ -999,38 +999,29 @@ def ai_integrations_card(readonly=False):
     local_ready = local_configured or local_models.get("ok")
     local_state_class = "ok" if local_ready else "bad"
     local_state_text = "已偵測" if local_models.get("ok") else "已設定" if local_configured else "未設定"
-    cards += f"""
-        <div class="ai-provider-card">
-            <div class="ai-provider-head">
-                <div>
-                    <b>落地模型</b>
-                    <small>支援 Ollama 與 OpenAI 相容 API</small>
-                </div>
-                <span class="badge {local_state_class}">{local_state_text}</span>
-            </div>
-            <p class="ai-provider-message">{html_escape(local_models.get("message") or ("目前可切換使用。" if local_configured else "尚未設定 API URL，暫時不能切換使用。"))}</p>
-            <div class="ai-model-row"><span>目前模型</span><b>{html_escape(settings.get("local_model") or "-")}</b></div>
-        </div>
-    """
-
     current_label = provider_label(active_provider)
     detected_model_options = "".join(
         f'<option value="{html_escape(model)}" {"selected" if settings.get("local_model") == model else ""}>{html_escape(model)}</option>'
         for model in local_models.get("models", [])
     )
     model_field = f"""
+        <div class="local-model-fields" data-local-fields>
             <label>落地模型名稱</label>
             <select name="local_model">
                 <option value="">請選擇模型</option>
                 {detected_model_options}
             </select>
+        </div>
     """ if local_models.get("ok") else f"""
+        <div class="local-model-fields" data-local-fields>
             <label>落地模型名稱</label>
             <input name="local_model" value="{html_escape(settings.get("local_model", ""))}" placeholder="例如：qwen2.5:3b 或 gemma3:4b">
+        </div>
     """
     local_api_value = settings.get("local_api_url", "") or ("http://127.0.0.1:11434/v1/chat/completions" if local_models.get("ok") else "")
+    advanced_open = " open" if active_provider == "local" and not local_models.get("ok") and not local_configured else ""
     form_html = f"""
-        <form class="ai-provider-form" method="post" action="/admin/ai-provider">
+        <form class="ai-provider-form" method="post" action="/admin/ai-provider" data-provider="{html_escape(active_provider)}">
             <label>目前回答模型</label>
             <div class="ai-switch-grid">
                 <label class="ai-switch-option {'active' if active_provider == 'deepseek' else ''}">
@@ -1048,11 +1039,14 @@ def ai_integrations_card(readonly=False):
                     </span>
                 </label>
             </div>
-            <label>落地模型 API URL</label>
-            <input name="local_api_url" value="{html_escape(local_api_value)}" placeholder="例如：http://127.0.0.1:11434/v1/chat/completions">
             {model_field}
-            <label>落地模型 API Key</label>
-            <input name="local_api_key" type="password" placeholder="沒有金鑰可留空；已設定時留空代表不變更">
+            <details class="ai-advanced"{advanced_open} data-local-fields>
+                <summary>進階設定</summary>
+                <label>落地模型 API URL</label>
+                <input name="local_api_url" value="{html_escape(local_api_value)}" placeholder="例如：http://127.0.0.1:11434/v1/chat/completions">
+                <label>落地模型 API Key</label>
+                <input name="local_api_key" type="password" placeholder="沒有金鑰可留空；已設定時留空代表不變更">
+            </details>
             <button class="full-btn">儲存 AI 設定</button>
         </form>
     """
@@ -1265,6 +1259,13 @@ def admin_css():
     .ai-switch-option::before { content:""; width:18px; height:18px; border-radius:50%; border:2px solid var(--border); background:var(--panel); flex:0 0 auto; }
     .ai-switch-option.active { border-color:#60a5fa; background:rgba(96,165,250,0.12); box-shadow:0 0 0 3px rgba(96,165,250,0.12); }
     .ai-switch-option.active::before { border-color:#60a5fa; box-shadow:inset 0 0 0 4px var(--panel); background:#60a5fa; }
+    .local-model-fields { margin-top:4px; }
+    .ai-provider-form[data-provider="deepseek"] [data-local-fields] { display:none; }
+    .ai-advanced { margin:2px 0 10px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); padding:0 10px; }
+    .ai-advanced summary { min-height:38px; display:flex; align-items:center; cursor:pointer; color:var(--muted); font-size:12px; font-weight:900; list-style:none; }
+    .ai-advanced summary::-webkit-details-marker { display:none; }
+    .ai-advanced summary::after { content:"+"; margin-left:auto; color:var(--text); }
+    .ai-advanced[open] summary::after { content:"-"; }
     .ai-provider-card { padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--panel-soft); display:grid; gap:8px; }
     .ai-provider-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
     .ai-provider-head b { display:block; font-size:15px; color:var(--text); }
@@ -1700,6 +1701,10 @@ def admin_users_page(request: Request, notice: str = ""):
                     var radio = option.querySelector("input");
                     option.classList.toggle("active", radio && radio.checked);
                 }});
+                var form = input.closest(".ai-provider-form");
+                if(form) {{
+                    form.setAttribute("data-provider", input.value);
+                }}
             }});
         }});
     }});
