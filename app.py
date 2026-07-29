@@ -28,7 +28,7 @@ from config import (
     SYSTEM_PROMPT_FILE,
 )
 
-from ai_provider import load_ai_settings, provider_label, save_ai_settings, ask_ai, list_local_models, current_ai_identity
+from ai_provider import load_ai_settings, provider_label, save_ai_settings, ask_ai, list_local_models, current_ai_identity, reply_char_limit
 
 app = FastAPI(title="AI Assistant")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -868,6 +868,62 @@ def ai_fallback(user_message, context=""):
     return ask_ai(prompt, user_message, task="fallback"), "AI"
 
 
+def trim_to_sentence(value, limit):
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+
+    cut = text[:limit].rstrip()
+    sentence_marks = ["。", "！", "？", "\n"]
+    last = max(cut.rfind(mark) for mark in sentence_marks)
+
+    if last >= int(limit * 0.55):
+        return cut[:last + 1].strip()
+
+    return cut.rstrip("，、；：,. ") + "。"
+
+
+def finalize_reply_length(user_message, reply, source):
+    answer = str(reply or "").strip()
+    if not answer:
+        return answer
+
+    settings = load_ai_settings()
+    limit = reply_char_limit(settings)
+
+    if len(answer) <= int(limit * 1.1):
+        return answer
+
+    if str(source) in {"AI錯誤", "IMAGE"}:
+        return trim_to_sentence(answer, limit)
+
+    prompt = f"""
+你是客服回答整理助手。
+請根據「原始回答」整理成更精簡但完整的客服回答。
+
+規則：
+- 回答控制在約 {limit} 個中文字以內。
+- 不要新增原始回答沒有的產品功能、規格、承諾或案例。
+- 保留重要產品名稱、數字、型號與限制條件。
+- 請完整收尾，不要在句子中途斷掉。
+- 不要提到字數限制，也不要說明整理過程。
+
+資料來源：{source}
+原始回答：
+{answer}
+""".strip()
+
+    try:
+        compact = ask_ai(prompt, user_message, task="answer_compact")
+        compact = str(compact or "").strip()
+        if compact:
+            return trim_to_sentence(compact, int(limit * 1.15))
+    except Exception:
+        pass
+
+    return trim_to_sentence(answer, limit)
+
+
 # =========================
 # ROUTER (FINAL STABLE VERSION)
 # =========================
@@ -906,7 +962,8 @@ def ai_reply(user_message):
 
 def safe_ai_reply(user_message):
     try:
-        return ai_reply(user_message)
+        reply, source = ai_reply(user_message)
+        return finalize_reply_length(user_message, reply, source), source
     except Exception as exc:
         return (
             "目前 AI 客服暫時無法回應，請稍後再試；若您方便，也可以留下聯絡資訊，將由專人協助。",
