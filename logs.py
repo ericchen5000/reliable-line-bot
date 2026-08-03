@@ -136,6 +136,7 @@ def user_profile_html(item):
 
     if platform == "WEB":
         fields = [
+            ("稱呼", item.get("web_visitor_name", "")),
             ("WEB Session ID", item.get("web_session_id", item.get("user", ""))),
             ("瀏覽器", item.get("browser", "")),
             ("裝置", item.get("device", "")),

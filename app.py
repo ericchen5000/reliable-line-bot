@@ -2236,6 +2236,64 @@ def public_chat_page():
       font-weight:700;
     }
     .quick:hover { border-color:#b9d8dc; color:#172033; transform:translateY(-1px); }
+    .intro-card {
+      width:min(620px, 92%);
+      margin:16px auto 0;
+      padding:16px;
+      border:1px solid #dfe8ee;
+      border-radius:18px;
+      background:#fff;
+      text-align:left;
+      box-shadow:0 10px 28px rgba(15,23,42,.05);
+    }
+    .intro-title { margin:0 0 6px; color:#172033; font-size:16px; font-weight:900; }
+    .intro-copy { margin:0 0 12px; color:#64748b; font-size:14px; line-height:1.7; }
+    .name-row { display:flex; gap:8px; }
+    #visitorName {
+      flex:1;
+      min-width:0;
+      height:42px;
+      border:1px solid #dce7ef;
+      border-radius:12px;
+      padding:0 12px;
+      color:#172033;
+      background:#f8fbfc;
+      font-size:15px;
+      outline:0;
+    }
+    .name-action {
+      min-width:76px;
+      height:42px;
+      border:1px solid #dce7ef;
+      border-radius:12px;
+      background:#fff;
+      color:#334155;
+      cursor:pointer;
+      font-size:14px;
+      font-weight:900;
+    }
+    .name-action.primary {
+      border-color:#0089ce;
+      background:#0089ce;
+      color:#fff;
+    }
+    .visitor-line {
+      display:none;
+      justify-content:center;
+      align-items:center;
+      gap:8px;
+      margin:14px auto 0;
+      color:#64748b;
+      font-size:13px;
+      font-weight:800;
+    }
+    .visitor-line button {
+      border:0;
+      background:transparent;
+      color:#0089ce;
+      cursor:pointer;
+      font:inherit;
+    }
     .chat-log {
       flex:1 1 auto;
       min-height:0;
@@ -2357,6 +2415,9 @@ def public_chat_page():
       .hero { padding:54px 16px 10px; }
       .hero h1 { font-size:30px; margin-bottom:16px; }
       .quick { width:100%; min-height:40px; font-size:14px; }
+      .intro-card { width:100%; padding:14px; }
+      .name-row { flex-direction:column; }
+      .name-action { width:100%; }
       .chat-log { padding:12px 14px 18px; }
       .bubble, .user .bubble { max-width:92%; }
       .content { font-size:15px; }
@@ -2378,6 +2439,19 @@ def public_chat_page():
       <header class="hero">
         <h1>我可以為您提供什麼協助？</h1>
         <div class="quick-list" id="quickList"></div>
+        <div class="intro-card" id="introCard">
+          <p class="intro-title">先讓我知道怎麼稱呼您</p>
+          <p class="intro-copy">不一定要填，略過也可以直接詢問。若留下稱呼，之後回覆會更自然一些。</p>
+          <div class="name-row">
+            <input id="visitorName" autocomplete="name" placeholder="例如：Eric">
+            <button class="name-action primary" id="saveName" type="button">儲存</button>
+            <button class="name-action" id="skipName" type="button">略過</button>
+          </div>
+        </div>
+        <div class="visitor-line" id="visitorLine">
+          <span id="visitorText"></span>
+          <button id="editName" type="button">修改</button>
+        </div>
       </header>
       <section class="chat-log" id="log" aria-live="polite"></section>
       <footer class="composer">
@@ -2398,7 +2472,17 @@ def public_chat_page():
     const sendButton = document.getElementById("send");
     const meta = document.getElementById("meta");
     const quickList = document.getElementById("quickList");
-    const sessionId = "web-page-" + Math.random().toString(36).slice(2, 10);
+    const introCard = document.getElementById("introCard");
+    const visitorNameInput = document.getElementById("visitorName");
+    const visitorLine = document.getElementById("visitorLine");
+    const visitorText = document.getElementById("visitorText");
+    const storagePrefix = "reliable-public-chat:";
+    const sessionKey = storagePrefix + "session-id";
+    const nameKey = storagePrefix + "visitor-name";
+    const skipNameKey = storagePrefix + "skip-name";
+    const messagesKey = storagePrefix + "messages";
+    let sessionId = localStorage.getItem(sessionKey) || ("web-page-" + Math.random().toString(36).slice(2, 10));
+    localStorage.setItem(sessionKey, sessionId);
     const presets = [
       "請介紹定承資訊",
       "你們代理哪些品牌？",
@@ -2409,6 +2493,58 @@ def public_chat_page():
       "Neverfail是做什麼的？",
       "網站有知識庫可以參考嗎？"
     ];
+
+    function visitorName() {
+      return (localStorage.getItem(nameKey) || "").trim();
+    }
+
+    function saveVisitorName(value) {
+      const name = String(value || "").trim().replace(/\\s+/g, " ").slice(0, 40);
+      if (!name) return false;
+      localStorage.setItem(nameKey, name);
+      localStorage.removeItem(skipNameKey);
+      syncIntro();
+      return true;
+    }
+
+    function syncIntro() {
+      const name = visitorName();
+      const skipped = localStorage.getItem(skipNameKey) === "1";
+      if (visitorNameInput) visitorNameInput.value = name;
+      if (name) {
+        introCard.style.display = "none";
+        visitorLine.style.display = "flex";
+        visitorText.textContent = name + "，歡迎回來";
+      } else {
+        visitorLine.style.display = "none";
+        introCard.style.display = skipped ? "none" : "";
+      }
+    }
+
+    function savedMessages() {
+      try {
+        const data = JSON.parse(localStorage.getItem(messagesKey) || "[]");
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveMessage(role, text, sources) {
+      const messages = savedMessages();
+      messages.push({ role:role, text:String(text || ""), sources:Array.isArray(sources) ? sources : [] });
+      localStorage.setItem(messagesKey, JSON.stringify(messages.slice(-40)));
+    }
+
+    function restoreMessages() {
+      savedMessages().forEach(function(item) {
+        addMessage(item.role, item.text, item.sources || [], false);
+      });
+      if (log.children.length) {
+        body.classList.remove("empty");
+        log.scrollTop = log.scrollHeight;
+      }
+    }
 
     function escapeHtml(value) {
       return String(value || "")
@@ -2440,7 +2576,8 @@ def public_chat_page():
       return `<div class="source-card">${title}<small>${type}</small></div>`;
     }
 
-    function addMessage(role, text, sources) {
+    function addMessage(role, text, sources, persist) {
+      if (persist !== false) saveMessage(role, text, sources);
       body.classList.remove("empty");
       const row = document.createElement("div");
       row.className = "message-row " + role;
@@ -2468,13 +2605,13 @@ def public_chat_page():
       if (!value || sendButton.disabled) return;
       question.value = "";
       addMessage("user", value);
-      const typing = addMessage("ai", "正在整理答案...", []);
+      const typing = addMessage("ai", "正在整理答案...", [], false);
       setBusy(true);
       try {
         const res = await fetch("/web/chat", {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
-          body:JSON.stringify({ message:value, session_id:sessionId })
+          body:JSON.stringify({ message:value, session_id:sessionId, visitor_name:visitorName() })
         });
         const data = await res.json();
         typing.remove();
@@ -2504,11 +2641,36 @@ def public_chat_page():
       btn.addEventListener("click", function() { send(text); });
       quickList.appendChild(btn);
     });
+    document.getElementById("saveName").addEventListener("click", function() {
+      if (saveVisitorName(visitorNameInput.value)) question.focus();
+      else visitorNameInput.focus();
+    });
+    document.getElementById("skipName").addEventListener("click", function() {
+      localStorage.setItem(skipNameKey, "1");
+      syncIntro();
+      question.focus();
+    });
+    document.getElementById("editName").addEventListener("click", function() {
+      localStorage.removeItem(skipNameKey);
+      introCard.style.display = "";
+      visitorLine.style.display = "none";
+      visitorNameInput.focus();
+    });
+    visitorNameInput.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        saveVisitorName(visitorNameInput.value);
+        question.focus();
+      }
+    });
     form.addEventListener("submit", function(event) { event.preventDefault(); send(); });
     document.getElementById("reset").addEventListener("click", function() {
       log.innerHTML = "";
       meta.textContent = "";
       question.value = "";
+      localStorage.removeItem(messagesKey);
+      sessionId = "web-page-" + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(sessionKey, sessionId);
       body.classList.add("empty");
       question.focus();
     });
@@ -2521,6 +2683,8 @@ def public_chat_page():
     document.getElementById("collapse").addEventListener("click", function() {
       log.style.display = log.style.display === "none" ? "" : "none";
     });
+    syncIntro();
+    restoreMessages();
     question.focus();
   </script>
 </body>
@@ -2651,6 +2815,21 @@ def contact_payload(payload):
     }
 
 
+def clean_web_visitor_name(value):
+    name = " ".join(str(value or "").strip().split())
+    return name[:40]
+
+
+def personalize_web_reply(reply, visitor_name, context_entries):
+    name = clean_web_visitor_name(visitor_name)
+    text = str(reply or "").strip()
+
+    if not name or not text or context_entries:
+        return text
+
+    return f"{name} 您好，{text}"
+
+
 async def web_chat_response(request: Request):
     start = time.time()
 
@@ -2661,6 +2840,7 @@ async def web_chat_response(request: Request):
 
     message = str(payload.get("message", "")).strip()
     session_id = str(payload.get("session_id", "web")).strip() or "web"
+    visitor_name = clean_web_visitor_name(payload.get("visitor_name") or payload.get("name"))
 
     if not message:
         raise HTTPException(status_code=400, detail="請輸入問題")
@@ -2668,6 +2848,8 @@ async def web_chat_response(request: Request):
     context_entries = recent_conversation_entries(session_id)
     search_message = contextual_search_message(message, context_entries)
     reply, source = safe_ai_reply(message, search_message=search_message)
+    if visitor_name:
+        reply = personalize_web_reply(reply, visitor_name, context_entries)
     lead = classify_lead(message, reply, source)
     reply = apply_handoff_message(reply, lead)
     latency = round(time.time() - start, 3)
@@ -2684,6 +2866,7 @@ async def web_chat_response(request: Request):
         {
             "context_used": bool(search_message != message),
             "context_turns": len(context_entries),
+            "web_visitor_name": visitor_name,
         }
     )
 
@@ -2695,6 +2878,7 @@ async def web_chat_response(request: Request):
         "intent": lead["intent"],
         "lead_score": lead["lead_score"],
         "need_followup": lead["need_followup"],
+        "visitor_name": visitor_name,
         "latency": latency
     }
 
