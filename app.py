@@ -2204,15 +2204,47 @@ def public_chat_page():
       background:rgba(255,255,255,.96);
       box-shadow:0 22px 70px rgba(15,23,42,.10);
     }
-    .tools { position:absolute; top:20px; left:22px; z-index:5; display:flex; gap:8px; }
+    .topbar {
+      position:absolute;
+      top:18px;
+      left:22px;
+      right:22px;
+      z-index:5;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      pointer-events:none;
+    }
+    .tools {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding:5px;
+      border:1px solid #e5eef3;
+      border-radius:999px;
+      background:rgba(255,255,255,.82);
+      box-shadow:0 8px 24px rgba(15,23,42,.06);
+      backdrop-filter:blur(12px);
+      pointer-events:auto;
+    }
     .tool-btn {
-      width:36px; height:36px; border:0; border-radius:10px; background:transparent;
-      color:#64748b; cursor:pointer; font-size:22px; line-height:1;
+      height:34px;
+      min-width:46px;
+      padding:0 12px;
+      border:0;
+      border-radius:999px;
+      background:transparent;
+      color:#64748b;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:800;
+      line-height:1;
     }
     .tool-btn:hover { background:#eef6f8; color:#172033; }
-    .hero { flex:0 0 auto; padding:54px 34px 12px; text-align:center; }
+    .hero { flex:0 0 auto; padding:78px 34px 14px; text-align:center; }
     .hero h1 {
-      margin:0 0 22px;
+      margin:0 0 18px;
       font-size:clamp(32px,4.2vw,52px);
       line-height:1.15;
       font-weight:800;
@@ -2222,8 +2254,20 @@ def public_chat_page():
       background-clip:text;
       color:transparent;
     }
-    .quick-list { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+    .quick-list {
+      width:min(980px,100%);
+      margin:0 auto;
+      display:flex;
+      flex-wrap:nowrap;
+      justify-content:flex-start;
+      gap:10px;
+      overflow-x:auto;
+      padding:0 2px 8px;
+      scrollbar-width:none;
+    }
+    .quick-list::-webkit-scrollbar { display:none; }
     .quick {
+      flex:0 0 auto;
       min-height:42px;
       padding:9px 16px;
       border:1px solid #d9e7ec;
@@ -2279,13 +2323,27 @@ def public_chat_page():
     }
     .visitor-line {
       display:none;
-      justify-content:center;
+      justify-content:flex-end;
       align-items:center;
       gap:8px;
-      margin:14px auto 0;
+      max-width:min(360px, 46vw);
+      margin:0;
+      padding:8px 12px;
+      border:1px solid #e5eef3;
+      border-radius:999px;
+      background:rgba(255,255,255,.86);
+      box-shadow:0 8px 24px rgba(15,23,42,.06);
+      backdrop-filter:blur(12px);
       color:#64748b;
       font-size:13px;
       font-weight:800;
+      pointer-events:auto;
+    }
+    .visitor-line span {
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
     .visitor-line button {
       border:0;
@@ -2411,10 +2469,14 @@ def public_chat_page():
       body { overflow:auto; }
       .page { min-height:100%; height:auto; padding:12px; }
       .shell { width:100%; min-height:calc(100vh - 24px); height:auto; border-radius:22px; }
-      .tools { top:14px; left:14px; }
-      .hero { padding:54px 16px 10px; }
+      .topbar { top:12px; left:12px; right:12px; gap:10px; }
+      .tools { gap:4px; padding:4px; }
+      .tool-btn { min-width:38px; padding:0 9px; font-size:12px; }
+      .visitor-line { max-width:52vw; padding:7px 10px; font-size:12px; }
+      .hero { padding:66px 16px 10px; }
       .hero h1 { font-size:30px; margin-bottom:16px; }
-      .quick { width:100%; min-height:40px; font-size:14px; }
+      .quick-list { justify-content:flex-start; }
+      .quick { min-height:40px; font-size:14px; }
       .intro-card { width:100%; padding:14px; }
       .name-row { flex-direction:column; }
       .name-action { width:100%; }
@@ -2431,10 +2493,16 @@ def public_chat_page():
 <body class="empty">
   <main class="page">
     <section class="shell">
-      <div class="tools">
-        <button class="tool-btn" id="fullscreen" type="button" title="全螢幕">↗</button>
-        <button class="tool-btn" id="reset" type="button" title="重新開始">↻</button>
-        <button class="tool-btn" id="collapse" type="button" title="收合對話">−</button>
+      <div class="topbar">
+        <div class="tools">
+          <button class="tool-btn" id="fullscreen" type="button" title="全螢幕">全螢幕</button>
+          <button class="tool-btn" id="reset" type="button" title="重新開始">重來</button>
+          <button class="tool-btn" id="collapse" type="button" title="收合對話">收合</button>
+        </div>
+        <div class="visitor-line" id="visitorLine">
+          <span id="visitorText"></span>
+          <button id="editName" type="button">修改</button>
+        </div>
       </div>
       <header class="hero">
         <h1>我可以為您提供什麼協助？</h1>
@@ -2447,10 +2515,6 @@ def public_chat_page():
             <button class="name-action primary" id="saveName" type="button">儲存</button>
             <button class="name-action" id="skipName" type="button">略過</button>
           </div>
-        </div>
-        <div class="visitor-line" id="visitorLine">
-          <span id="visitorText"></span>
-          <button id="editName" type="button">修改</button>
         </div>
       </header>
       <section class="chat-log" id="log" aria-live="polite"></section>
