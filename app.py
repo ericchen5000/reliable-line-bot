@@ -2897,10 +2897,12 @@ async def web_chat_alias(request: Request):
 async def web_image(
     request: Request,
     file: UploadFile = File(...),
-    session_id: str = Form("web")
+    session_id: str = Form("web"),
+    visitor_name: str = Form("")
 ):
     start = time.time()
     content = await file.read()
+    visitor_name = clean_web_visitor_name(visitor_name)
 
     if not content:
         raise HTTPException(status_code=400, detail="圖片內容是空的")
@@ -2931,6 +2933,7 @@ async def web_image(
             "attachment_type": "image",
             "attachment_path": analysis.get("image_path", ""),
             "image_text": analysis.get("text", ""),
+            "web_visitor_name": visitor_name,
         }
     )
 
@@ -2939,7 +2942,8 @@ async def web_image(
         "source": source,
         "image_text": analysis.get("text", ""),
         "image_ready": analysis["ok"],
-        "latency": latency
+        "latency": latency,
+        "visitor_name": visitor_name,
     }
 
 
