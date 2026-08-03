@@ -632,6 +632,7 @@ def logs_ui(
         source_value = g(l, "source", "-")
         log_id = g(l, "id", i + 1)
         quality = g(l, "quality", "")
+        context_status = "已使用 / 參考 {} 輪".format(g(l, "context_turns", 0)) if l.get("context_used") else "未使用"
         quality_text = {
             "good": "良好",
             "fix": "待修",
@@ -718,6 +719,7 @@ def logs_ui(
                         <div><b>來源摘要</b><span title="{e(source_value)}">{e(source_summary(source_value))}</span></div>
                         <div class="summary-action-card"><b>商機狀態</b><span>{e(g(l, 'intent', '一般詢問'))} / {e(g(l, 'lead_score', 0))}</span>{followup_controls}</div>
                         <div><b>IP</b><span>{e(g(l,'ip','-'))}</span></div>
+                        <div><b>上下文搜尋</b><span>{e(context_status)}</span></div>
                     </div>
 
                     <div class="block">

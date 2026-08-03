@@ -84,6 +84,14 @@ IMAGE_UPLOAD_DIR = "logs/images"
 VISION_API_URL = os.getenv("VISION_API_URL", "").strip()
 VISION_API_KEY = os.getenv("VISION_API_KEY", "").strip()
 VISION_MODEL = os.getenv("VISION_MODEL", "gpt-4o-mini").strip()
+try:
+    CHAT_CONTEXT_TURNS = int(os.getenv("CHAT_CONTEXT_TURNS", "4"))
+except ValueError:
+    CHAT_CONTEXT_TURNS = 4
+FOLLOWUP_HINTS = (
+    "剛剛", "剛才", "前面", "上面", "上一個", "上一題", "這個", "那個",
+    "它", "他", "她", "差在哪", "差異", "比較", "還有", "所以", "那", "呢"
+)
 
 
 async def site_index_scheduler():
@@ -568,6 +576,68 @@ def fetch_url_content(url):
 
 
 # =========================
+# CONVERSATION CONTEXT
+# =========================
+def load_chat_logs():
+    if not os.path.exists(LOG_PATH):
+        return []
+
+    try:
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except:
+        return []
+
+
+def recent_conversation_entries(user, limit=CHAT_CONTEXT_TURNS):
+    user_key = str(user or "").strip()
+    if not user_key or limit <= 0:
+        return []
+
+    entries = []
+    for row in reversed(load_chat_logs()):
+        row_user = str(row.get("user") or row.get("web_session_id") or row.get("line_user_id") or "").strip()
+        if row_user != user_key:
+            continue
+
+        message = str(row.get("message") or "").strip()
+        reply = str(row.get("reply") or "").strip()
+        if not message or not reply:
+            continue
+
+        entries.append(row)
+        if len(entries) >= limit:
+            break
+
+    return list(reversed(entries))
+
+
+def looks_like_followup(message):
+    text = str(message or "").strip().lower()
+    if not text:
+        return False
+
+    if len(text) <= 12:
+        followup_prefixes = ("那", "所以", "還有", "比較", "差", "它", "他", "她", "這", "這個", "那個")
+        followup_suffixes = ("呢", "嗎", "?", "？")
+        return text.startswith(followup_prefixes) or text.endswith(followup_suffixes)
+
+    return any(hint.lower() in text for hint in FOLLOWUP_HINTS)
+
+
+def contextual_search_message(message, entries):
+    if not entries or not looks_like_followup(message):
+        return message
+
+    previous_question = str(entries[-1].get("message") or "").strip()
+    if not previous_question:
+        return message
+
+    return f"{previous_question} {message}"
+
+
+# =========================
 # URL CONFIG
 # =========================
 def search_urls(user_message):
@@ -595,7 +665,7 @@ def search_urls(user_message):
     return None
 
 
-def search_website_content(user_message, site):
+def search_website_content(user_message, site, answer_message=None):
     url = site.get("url", "")
     title = site.get("title") or url
     site_base = normalize_site_base(url)
@@ -675,7 +745,7 @@ def search_website_content(user_message, site):
 如果網站內容沒有答案，請回答「目前網站內容沒有相關資訊」。
 """
 
-    answer = ask_ai(prompt, user_message, task="website")
+    answer = ask_ai(prompt, answer_message or user_message, task="website")
     return answer, site_base
 
 
@@ -800,7 +870,7 @@ def is_page_allowed_by_index_rules(page_url, active_prefixes, disabled_prefixes)
     return bool(matching_active)
 
 
-def search_site_index(user_message):
+def search_site_index(user_message, answer_message=None):
     pages = retrieve(user_message, top_k=3)
     active_prefixes, disabled_prefixes = load_index_url_rules()
     pages = [
@@ -838,7 +908,7 @@ def search_site_index(user_message):
 如果索引內容沒有答案，請回答「目前網站索引沒有相關資訊」。
 """
 
-    answer = ask_ai(prompt, user_message, task="site_index")
+    answer = ask_ai(prompt, answer_message or user_message, task="site_index")
 
     no_answer_markers = [
         "目前網站索引沒有相關資訊",
@@ -927,32 +997,40 @@ def finalize_reply_length(user_message, reply, source):
 # =========================
 # ROUTER (FINAL STABLE VERSION)
 # =========================
-def ai_reply(user_message):
+def ai_reply(user_message, search_message=None):
+    lookup_message = search_message or user_message
 
-    official_brand, official_brand_source = handle_official_brand_query(user_message)
+    official_brand, official_brand_source = handle_official_brand_query(lookup_message)
     if official_brand:
         return official_brand, official_brand_source
 
-    faq, _ = search_faq(user_message)
+    faq, _ = search_faq(lookup_message)
     if faq:
         return faq, "FAQ"
 
-    company, _ = handle_company(user_message)
+    company, _ = handle_company(lookup_message)
     if company:
         return company, "COMPANY"
 
-    kb, src = search_knowledge(user_message)
+    kb, src = search_knowledge(lookup_message)
     if kb:
         return kb, src
 
-    indexed_answer, indexed_source = search_site_index(user_message)
+    indexed_answer, indexed_source = search_site_index(
+        lookup_message,
+        answer_message=user_message
+    )
     if indexed_answer:
         return indexed_answer, indexed_source
 
-    url_data = search_urls(user_message)
+    url_data = search_urls(lookup_message)
 
     if url_data:
-        answer, source = search_website_content(user_message, url_data)
+        answer, source = search_website_content(
+            lookup_message,
+            url_data,
+            answer_message=user_message
+        )
         if answer:
             return answer, source
 
@@ -960,9 +1038,9 @@ def ai_reply(user_message):
     return reply, "AI客服"
 
 
-def safe_ai_reply(user_message):
+def safe_ai_reply(user_message, search_message=None):
     try:
-        reply, source = ai_reply(user_message)
+        reply, source = ai_reply(user_message, search_message=search_message)
         return finalize_reply_length(user_message, reply, source), source
     except Exception as exc:
         return (
@@ -2587,7 +2665,9 @@ async def web_chat_response(request: Request):
     if not message:
         raise HTTPException(status_code=400, detail="請輸入問題")
 
-    reply, source = safe_ai_reply(message)
+    context_entries = recent_conversation_entries(session_id)
+    search_message = contextual_search_message(message, context_entries)
+    reply, source = safe_ai_reply(message, search_message=search_message)
     lead = classify_lead(message, reply, source)
     reply = apply_handoff_message(reply, lead)
     latency = round(time.time() - start, 3)
@@ -2600,7 +2680,11 @@ async def web_chat_response(request: Request):
         "WEB",
         latency,
         source,
-        lead
+        lead,
+        {
+            "context_used": bool(search_message != message),
+            "context_turns": len(context_entries),
+        }
     )
 
     return {
@@ -2852,7 +2936,9 @@ async def line_webhook(request: Request):
 
         if message_type == "text":
             user_msg = event["message"]["text"]
-            reply, source = safe_ai_reply(user_msg)
+            context_entries = recent_conversation_entries(user_id)
+            search_message = contextual_search_message(user_msg, context_entries)
+            reply, source = safe_ai_reply(user_msg, search_message=search_message)
             image_extra = {}
         elif message_type == "image":
             message_id = event["message"].get("id")
@@ -2895,6 +2981,11 @@ async def line_webhook(request: Request):
         extra = {}
         extra.update(line_profile)
         extra.update(image_extra)
+        if message_type == "text":
+            extra.update({
+                "context_used": bool(search_message != user_msg),
+                "context_turns": len(context_entries),
+            })
 
         save_log(
             user_id,
