@@ -2191,24 +2191,24 @@ def public_chat_page():
         linear-gradient(180deg,#f8fbfc 0%,#f0f7f8 100%);
       overflow:hidden;
     }
-    .page { width:100%; height:100%; padding:28px; display:flex; align-items:center; justify-content:center; }
+    .page { width:100%; height:100%; padding:14px; display:flex; align-items:center; justify-content:center; }
     .shell {
-      width:min(1180px, calc(100vw - 48px));
-      height:min(820px, calc(100vh - 48px));
+      width:min(1500px, calc(100vw - 28px));
+      height:min(940px, calc(100vh - 28px));
       position:relative;
       display:flex;
       flex-direction:column;
       overflow:hidden;
       border:1px solid #dfe8ee;
-      border-radius:30px;
+      border-radius:26px;
       background:rgba(255,255,255,.96);
       box-shadow:0 22px 70px rgba(15,23,42,.10);
     }
     .topbar {
       position:absolute;
-      top:18px;
-      left:22px;
-      right:22px;
+      top:16px;
+      left:20px;
+      right:20px;
       z-index:5;
       display:flex;
       align-items:center;
@@ -2242,10 +2242,10 @@ def public_chat_page():
       line-height:1;
     }
     .tool-btn:hover { background:#eef6f8; color:#172033; }
-    .hero { flex:0 0 auto; padding:78px 34px 14px; text-align:center; }
+    .hero { flex:0 0 auto; padding:72px 34px 12px; text-align:center; }
     .hero h1 {
       margin:0 0 18px;
-      font-size:clamp(32px,4.2vw,52px);
+      font-size:clamp(32px,3.7vw,56px);
       line-height:1.15;
       font-weight:800;
       letter-spacing:0;
@@ -2255,7 +2255,7 @@ def public_chat_page():
       color:transparent;
     }
     .quick-list {
-      width:min(980px,100%);
+      width:min(1180px,100%);
       margin:0 auto;
       display:flex;
       flex-wrap:nowrap;
@@ -2264,6 +2264,7 @@ def public_chat_page():
       overflow-x:auto;
       padding:0 2px 8px;
       scrollbar-width:none;
+      mask-image:linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
     }
     .quick-list::-webkit-scrollbar { display:none; }
     .quick {
@@ -2356,7 +2357,7 @@ def public_chat_page():
       flex:1 1 auto;
       min-height:0;
       overflow:auto;
-      padding:14px min(88px,6vw) 22px;
+      padding:12px min(72px,4.8vw) 18px;
       scroll-behavior:smooth;
     }
     .chat-log::-webkit-scrollbar { width:10px; }
@@ -2366,10 +2367,14 @@ def public_chat_page():
       background:#cfd8e3;
       background-clip:padding-box;
     }
-    .message-row { display:flex; margin:0 0 16px; }
+    .message-row {
+      width:min(1160px,100%);
+      margin:0 auto 16px;
+      display:flex;
+    }
     .message-row.user { justify-content:flex-end; }
     .bubble {
-      max-width:min(880px,86%);
+      max-width:min(1040px,90%);
       overflow:hidden;
       border:1px solid #e5ebf2;
       border-radius:20px;
@@ -2377,7 +2382,7 @@ def public_chat_page():
       box-shadow:0 8px 26px rgba(15,23,42,.04);
     }
     .user .bubble {
-      max-width:min(520px,76%);
+      max-width:min(680px,76%);
       padding:14px 18px;
       border:0;
       border-bottom-right-radius:8px;
@@ -2421,10 +2426,12 @@ def public_chat_page():
     .source-card small { display:block; margin-top:4px; color:#7b8798; font-size:12px; font-weight:700; }
     .composer {
       flex:0 0 auto;
-      padding:12px min(88px,6vw) 26px;
+      padding:10px min(72px,4.8vw) 18px;
       background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.96) 28%);
     }
     .input-row {
+      width:min(1160px,100%);
+      margin:0 auto;
       display:flex;
       align-items:center;
       gap:12px;
@@ -2463,8 +2470,8 @@ def public_chat_page():
     .note { margin-top:8px; color:#98a2b3; text-align:center; font-size:12px; line-height:1.6; }
     .empty .chat-log { display:none; }
     .empty .shell { justify-content:center; }
-    .empty .hero { padding-top:44px; }
-    .empty .composer { padding-bottom:70px; }
+    .empty .hero { padding-top:54px; }
+    .empty .composer { padding-bottom:44px; }
     @media (max-width:760px) {
       body { overflow:auto; }
       .page { min-height:100%; height:auto; padding:12px; }
@@ -2481,6 +2488,7 @@ def public_chat_page():
       .name-row { flex-direction:column; }
       .name-action { width:100%; }
       .chat-log { padding:12px 14px 18px; }
+      .message-row { width:100%; }
       .bubble, .user .bubble { max-width:92%; }
       .content { font-size:15px; }
       .composer { padding:10px 14px 18px; }
