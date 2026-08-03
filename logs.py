@@ -690,7 +690,7 @@ def logs_ui(
             <td data-label="回覆" class="reply-cell">{e(str(reply)[:60])}</td>
 
             <td data-label="延遲" class="latency">{e(g(l,'latency','-'))}</td>
-            <td data-label="IP" class="ip" title="{e(g(l,'ip','-'))}">{e(g(l,'ip','-'))}</td>
+            <td data-label="IP" class="ip"><span title="{e(g(l,'ip','-'))}">{e(g(l,'ip','-'))}</span></td>
 
             <td data-label="更多資訊" class="log-actions">
                 <button onclick="toggleDetail({i})">點擊查看</button>
@@ -1328,7 +1328,7 @@ def logs_ui(
         display:grid;
         grid-template-columns:repeat(2, minmax(0, 1fr));
         align-items:stretch;
-        gap:8px;
+        gap:6px;
         white-space:normal;
     }
 
@@ -1342,8 +1342,9 @@ def logs_ui(
     .log-actions .faq-added-pill {
         width:100%;
         min-width:0;
-        min-height:36px;
-        padding:7px 10px;
+        min-height:34px;
+        padding:6px 8px;
+        font-size:12px;
         white-space:nowrap;
     }
 
@@ -1448,10 +1449,13 @@ def logs_ui(
     }
 
     .ip {
-        display:block;
-        max-width:100%;
         font-family:monospace;
         color:var(--muted);
+    }
+
+    .ip span {
+        display:block;
+        max-width:100%;
         white-space:nowrap;
         overflow:hidden;
         text-overflow:ellipsis;
@@ -2094,23 +2098,23 @@ def logs_ui(
     <table class="logs-table">
         <colgroup>
             <col style="width:4%;">
-            <col style="width:10%;">
+            <col style="width:9%;">
             <col style="width:7%;">
-            <col style="width:25%;">
-            <col style="width:26%;">
+            <col style="width:22%;">
+            <col style="width:28%;">
             <col style="width:7%;">
             <col style="width:9%;">
-            <col style="width:12%;">
+            <col style="width:14%;">
         </colgroup>
         <tr>
             {sort_th("ID", "id", "4%")}
-            {sort_th("時間", "time", "10%")}
+            {sort_th("時間", "time", "9%")}
             {sort_th("平台", "platform", "7%")}
-            <th width="25%">問題</th>
-            <th width="26%">回覆</th>
+            <th width="22%">問題</th>
+            <th width="28%">回覆</th>
             {sort_th("延遲", "latency", "7%")}
             {sort_th("IP", "ip", "9%")}
-            <th width="12%">更多資訊</th>
+            <th width="14%">更多資訊</th>
         </tr>
 
         {rows}
