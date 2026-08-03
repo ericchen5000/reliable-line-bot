@@ -618,9 +618,12 @@ def looks_like_followup(message):
     if not text:
         return False
 
+    if re.fullmatch(r"[\d\s+\-*/×÷().=？?]+", text):
+        return False
+
     if len(text) <= 12:
         followup_prefixes = ("那", "所以", "還有", "比較", "差", "它", "他", "她", "這", "這個", "那個")
-        followup_suffixes = ("呢", "嗎", "?", "？")
+        followup_suffixes = ("呢",)
         return text.startswith(followup_prefixes) or text.endswith(followup_suffixes)
 
     return any(hint.lower() in text for hint in FOLLOWUP_HINTS)
