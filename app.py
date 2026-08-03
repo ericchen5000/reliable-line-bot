@@ -2092,6 +2092,364 @@ def test_chat_page(message: str = ""):
     """)
 
 
+@app.get("/chat", response_class=HTMLResponse)
+def public_chat_page():
+    return HTMLResponse("""
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>定承資訊 AI 客服</title>
+  <style>
+    * { box-sizing:border-box; }
+    html, body { width:100%; height:100%; margin:0; }
+    body {
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Roboto,sans-serif;
+      color:#172033;
+      background:
+        radial-gradient(circle at top left, rgba(0,137,206,.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(0,165,168,.12), transparent 32%),
+        linear-gradient(180deg,#f8fbfc 0%,#f0f7f8 100%);
+      overflow:hidden;
+    }
+    .page { width:100%; height:100%; padding:28px; display:flex; align-items:center; justify-content:center; }
+    .shell {
+      width:min(1180px, calc(100vw - 48px));
+      height:min(820px, calc(100vh - 48px));
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      border:1px solid #dfe8ee;
+      border-radius:30px;
+      background:rgba(255,255,255,.96);
+      box-shadow:0 22px 70px rgba(15,23,42,.10);
+    }
+    .tools { position:absolute; top:20px; left:22px; z-index:5; display:flex; gap:8px; }
+    .tool-btn {
+      width:36px; height:36px; border:0; border-radius:10px; background:transparent;
+      color:#64748b; cursor:pointer; font-size:22px; line-height:1;
+    }
+    .tool-btn:hover { background:#eef6f8; color:#172033; }
+    .hero { flex:0 0 auto; padding:54px 34px 12px; text-align:center; }
+    .hero h1 {
+      margin:0 0 22px;
+      font-size:clamp(32px,4.2vw,52px);
+      line-height:1.15;
+      font-weight:800;
+      letter-spacing:0;
+      background:linear-gradient(90deg,#0089ce,#00a5a8);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+    }
+    .quick-list { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
+    .quick {
+      min-height:42px;
+      padding:9px 16px;
+      border:1px solid #d9e7ec;
+      border-radius:999px;
+      background:#fff;
+      color:#4b5563;
+      box-shadow:0 3px 10px rgba(15,23,42,.03);
+      cursor:pointer;
+      font-size:15px;
+      font-weight:700;
+    }
+    .quick:hover { border-color:#b9d8dc; color:#172033; transform:translateY(-1px); }
+    .chat-log {
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding:14px min(88px,6vw) 22px;
+      scroll-behavior:smooth;
+    }
+    .chat-log::-webkit-scrollbar { width:10px; }
+    .chat-log::-webkit-scrollbar-thumb {
+      border:2px solid transparent;
+      border-radius:999px;
+      background:#cfd8e3;
+      background-clip:padding-box;
+    }
+    .message-row { display:flex; margin:0 0 16px; }
+    .message-row.user { justify-content:flex-end; }
+    .bubble {
+      max-width:min(880px,86%);
+      overflow:hidden;
+      border:1px solid #e5ebf2;
+      border-radius:20px;
+      background:#fff;
+      box-shadow:0 8px 26px rgba(15,23,42,.04);
+    }
+    .user .bubble {
+      max-width:min(520px,76%);
+      padding:14px 18px;
+      border:0;
+      border-bottom-right-radius:8px;
+      background:linear-gradient(135deg,#0089ce,#00a5a8);
+      color:#fff;
+      box-shadow:0 12px 28px rgba(0,137,206,.18);
+    }
+    .label {
+      padding:14px 18px 10px;
+      border-bottom:1px solid #edf2f7;
+      background:#fbfdff;
+      color:#6b7c8f;
+      font-size:14px;
+      font-weight:900;
+    }
+    .content {
+      padding:18px;
+      color:#334155;
+      font-size:16px;
+      line-height:1.9;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .user .content { padding:0; color:#fff; font-weight:800; line-height:1.7; }
+    .sources { margin:4px 18px 18px; padding-top:14px; border-top:1px solid #edf2f7; }
+    .sources-title { margin-bottom:10px; color:#6b7c8f; font-size:13px; font-weight:900; }
+    .source-card {
+      display:block;
+      padding:12px 14px;
+      border:1px solid #e5ebf2;
+      border-radius:14px;
+      background:#fff;
+      color:#334155;
+      text-decoration:none;
+      font-size:14px;
+      font-weight:800;
+      line-height:1.5;
+      word-break:break-word;
+    }
+    .source-card + .source-card { margin-top:10px; }
+    .source-card small { display:block; margin-top:4px; color:#7b8798; font-size:12px; font-weight:700; }
+    .composer {
+      flex:0 0 auto;
+      padding:12px min(88px,6vw) 26px;
+      background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.96) 28%);
+    }
+    .input-row {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:10px 10px 10px 22px;
+      border:1px solid #d8e8ec;
+      border-radius:999px;
+      background:#fff;
+      box-shadow:0 12px 34px rgba(15,23,42,.06);
+    }
+    #question {
+      flex:1;
+      min-width:0;
+      border:0;
+      outline:0;
+      background:transparent;
+      color:#172033;
+      font-size:20px;
+      line-height:1.5;
+    }
+    #question::placeholder { color:#a0aabc; }
+    #send {
+      width:60px;
+      min-width:60px;
+      height:60px;
+      border:0;
+      border-radius:999px;
+      background:linear-gradient(135deg,#0089ce,#00a5a8);
+      color:#fff;
+      cursor:pointer;
+      font-size:30px;
+      line-height:1;
+      box-shadow:0 12px 28px rgba(0,137,206,.20);
+    }
+    #send:disabled { opacity:.5; cursor:not-allowed; box-shadow:none; }
+    .meta { min-height:22px; margin-top:12px; color:#7b8798; text-align:center; font-size:14px; font-weight:800; }
+    .note { margin-top:8px; color:#98a2b3; text-align:center; font-size:12px; line-height:1.6; }
+    .empty .chat-log { display:none; }
+    .empty .shell { justify-content:center; }
+    .empty .hero { padding-top:44px; }
+    .empty .composer { padding-bottom:70px; }
+    @media (max-width:760px) {
+      body { overflow:auto; }
+      .page { min-height:100%; height:auto; padding:12px; }
+      .shell { width:100%; min-height:calc(100vh - 24px); height:auto; border-radius:22px; }
+      .tools { top:14px; left:14px; }
+      .hero { padding:54px 16px 10px; }
+      .hero h1 { font-size:30px; margin-bottom:16px; }
+      .quick { width:100%; min-height:40px; font-size:14px; }
+      .chat-log { padding:12px 14px 18px; }
+      .bubble, .user .bubble { max-width:92%; }
+      .content { font-size:15px; }
+      .composer { padding:10px 14px 18px; }
+      #question { font-size:16px; }
+      #send { width:52px; min-width:52px; height:52px; font-size:26px; }
+      .empty .composer { padding-bottom:26px; }
+    }
+  </style>
+</head>
+<body class="empty">
+  <main class="page">
+    <section class="shell">
+      <div class="tools">
+        <button class="tool-btn" id="fullscreen" type="button" title="全螢幕">↗</button>
+        <button class="tool-btn" id="reset" type="button" title="重新開始">↻</button>
+        <button class="tool-btn" id="collapse" type="button" title="收合對話">−</button>
+      </div>
+      <header class="hero">
+        <h1>我可以為您提供什麼協助？</h1>
+        <div class="quick-list" id="quickList"></div>
+      </header>
+      <section class="chat-log" id="log" aria-live="polite"></section>
+      <footer class="composer">
+        <form class="input-row" id="form">
+          <input id="question" autocomplete="off" placeholder="請輸入您的問題...">
+          <button id="send" type="submit" aria-label="送出">↑</button>
+        </form>
+        <div class="meta" id="meta"></div>
+        <div class="note">請注意：AI 回答僅供參考，仍建議搭配官方資料與實際需求確認。</div>
+      </footer>
+    </section>
+  </main>
+  <script>
+    const body = document.body;
+    const log = document.getElementById("log");
+    const form = document.getElementById("form");
+    const question = document.getElementById("question");
+    const sendButton = document.getElementById("send");
+    const meta = document.getElementById("meta");
+    const quickList = document.getElementById("quickList");
+    const sessionId = "web-page-" + Math.random().toString(36).slice(2, 10);
+    const presets = [
+      "請介紹定承資訊",
+      "你們代理哪些品牌？",
+      "定承資訊聯絡方式？",
+      "Penguin Solutions有什麼產品？",
+      "Array有什麼產品？",
+      "Vates與VMware的比較？",
+      "Neverfail是做什麼的？",
+      "網站有知識庫可以參考嗎？"
+    ];
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function normalizeSources(data) {
+      const refs = Array.isArray(data.references) && data.references.length
+        ? data.references
+        : (Array.isArray(data.used_sources) ? data.used_sources : []);
+      return refs.map(function(item) {
+        if (typeof item === "string") {
+          return { title:item, url:/^https?:\\/\\//i.test(item) ? item : "", type:/^https?:\\/\\//i.test(item) ? "網站來源" : "知識來源" };
+        }
+        return { title:item.title || item.url || item.source || "參考資料", url:item.url || "", type:item.type || item.source_type || "參考資料" };
+      }).filter(function(item) { return item.title || item.url; });
+    }
+
+    function sourceHtml(source) {
+      const title = escapeHtml(source.title || source.url || "參考資料");
+      const type = escapeHtml(source.type || "參考資料");
+      const url = source.url || "";
+      if (/^https?:\\/\\//i.test(url)) {
+        return `<a class="source-card" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${title}<small>${type}</small></a>`;
+      }
+      return `<div class="source-card">${title}<small>${type}</small></div>`;
+    }
+
+    function addMessage(role, text, sources) {
+      body.classList.remove("empty");
+      const row = document.createElement("div");
+      row.className = "message-row " + role;
+      if (role === "user") {
+        row.innerHTML = `<div class="bubble"><div class="content">${escapeHtml(text)}</div></div>`;
+      } else {
+        const sourceBlock = sources && sources.length
+          ? `<div class="sources"><div class="sources-title">參考資料</div>${sources.map(sourceHtml).join("")}</div>`
+          : "";
+        row.innerHTML = `<div class="bubble"><div class="label">AI 建議</div><div class="content">${escapeHtml(text)}</div>${sourceBlock}</div>`;
+      }
+      log.appendChild(row);
+      log.scrollTop = log.scrollHeight;
+      return row;
+    }
+
+    function setBusy(isBusy) {
+      sendButton.disabled = isBusy;
+      question.disabled = isBusy;
+      meta.textContent = isBusy ? "AI 回答中..." : "";
+    }
+
+    async function send(text) {
+      const value = (text || question.value).trim();
+      if (!value || sendButton.disabled) return;
+      question.value = "";
+      addMessage("user", value);
+      const typing = addMessage("ai", "正在整理答案...", []);
+      setBusy(true);
+      try {
+        const res = await fetch("/web/chat", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body:JSON.stringify({ message:value, session_id:sessionId })
+        });
+        const data = await res.json();
+        typing.remove();
+        if (!res.ok) {
+          addMessage("ai", data.detail || "目前無法取得回覆，請稍後再試。", []);
+          meta.textContent = "查詢失敗";
+          return;
+        }
+        const sources = normalizeSources(data);
+        addMessage("ai", data.reply || "目前沒有取得回覆。", sources);
+        meta.textContent = sources.length ? "本次引用 " + sources.length + " 項來源" : "";
+      } catch (error) {
+        typing.remove();
+        addMessage("ai", "目前連線不穩，請稍後再試。", []);
+        meta.textContent = "連線失敗";
+      } finally {
+        setBusy(false);
+        question.focus();
+      }
+    }
+
+    presets.forEach(function(text) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "quick";
+      btn.textContent = text;
+      btn.addEventListener("click", function() { send(text); });
+      quickList.appendChild(btn);
+    });
+    form.addEventListener("submit", function(event) { event.preventDefault(); send(); });
+    document.getElementById("reset").addEventListener("click", function() {
+      log.innerHTML = "";
+      meta.textContent = "";
+      question.value = "";
+      body.classList.add("empty");
+      question.focus();
+    });
+    document.getElementById("fullscreen").addEventListener("click", async function() {
+      try {
+        if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+        else await document.exitFullscreen();
+      } catch (error) {}
+    });
+    document.getElementById("collapse").addEventListener("click", function() {
+      log.style.display = log.style.display === "none" ? "" : "none";
+    });
+    question.focus();
+  </script>
+</body>
+</html>
+    """)
+
+
 def html_escape(value):
     import html
     return html.escape(str(value))
