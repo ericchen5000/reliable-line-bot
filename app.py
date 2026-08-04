@@ -649,6 +649,61 @@ def contextual_search_message(message, entries):
     return f"{previous_question} {message}"
 
 
+BRAND_QUERY_ALIASES = [
+    (("penguin solutions", "penguin", "stratus"), "Stratus ztC Edge ztC Endurance everRun ftServer 高可用 容錯"),
+    (("array networks", "array"), "Array Networks VPN AG SSL VPN vxAG ztag 應用交付 安全存取"),
+    (("vates", "xcp-ng", "xen orchestra", "vmware"), "VATES XCP-ng Xen Orchestra Xen Orchestra Proxy XOSTOR VMware 虛擬化 備份"),
+    (("neverfail", "continuity engine"), "Neverfail Continuity Engine HA DR 災難復原 業務連續 備援"),
+]
+
+
+def expand_query_aliases(message):
+    text = str(message or "")
+    lower = text.lower()
+    additions = []
+
+    for triggers, expansion in BRAND_QUERY_ALIASES:
+        if any(trigger in lower for trigger in triggers):
+            additions.append(expansion)
+
+    if not additions:
+        return text
+
+    return text + " " + " ".join(dict.fromkeys(additions))
+
+
+def search_terms(message):
+    text = expand_query_aliases(message).lower()
+    terms = re.findall(r"[a-z0-9][a-z0-9.+-]*|[\u4e00-\u9fff]{2,}", text)
+    stopwords = {
+        "什麼", "哪些", "那些", "有什麼", "介紹", "說明", "比較", "產品",
+        "請問", "可以", "一下", "我們", "你們", "的是", "the", "and", "with",
+    }
+    cleaned = []
+
+    for term in terms:
+        if term in stopwords:
+            continue
+        if term not in cleaned:
+            cleaned.append(term)
+
+    return cleaned
+
+
+def url_keyword_matches(message, keyword):
+    msg = str(message or "").lower()
+    key = str(keyword or "").lower().strip()
+
+    if not key:
+        return False
+
+    if re.fullmatch(r"[a-z0-9.+-]+", key) and len(key) <= 2:
+        tokens = re.findall(r"[a-z0-9.+-]+", msg)
+        return key in tokens
+
+    return key in msg
+
+
 # =========================
 # URL CONFIG
 # =========================
@@ -662,7 +717,7 @@ def search_urls(user_message):
     except:
         return None
 
-    msg = user_message.lower()
+    msg = expand_query_aliases(user_message).lower()
 
     for item in urls:
         if item.get("active", True) is False:
@@ -671,7 +726,7 @@ def search_urls(user_message):
         keywords = item.get("keywords", [])
         url = item.get("url", "")
 
-        if url and any(k.lower() in msg for k in keywords):
+        if url and any(url_keyword_matches(msg, k) for k in keywords):
             return item
 
     return None
@@ -692,7 +747,7 @@ def search_website_content(user_message, site, answer_message=None):
 
     keywords = [
         word.strip().lower()
-        for word in user_message.split()
+        for word in expand_query_aliases(user_message).split()
         if word.strip()
     ]
 
@@ -797,7 +852,11 @@ def search_knowledge(user_message):
     if not os.path.exists(kb_path):
         return None, None
 
-    msg = user_message.lower()
+    terms = search_terms(user_message)
+
+    if not terms:
+        return None, None
+
     results = []
 
     for root, dirs, files in os.walk(kb_path):
@@ -809,13 +868,31 @@ def search_knowledge(user_message):
 
                 with open(path, "r", encoding="utf-8") as f:
                     content = f.read().lower()
+                    filename = file.lower()
+                    score = 0
 
-                    if msg in content:
-                        results.append((content[:800], file))
+                    for term in terms:
+                        if term in content:
+                            score += 3
+                        if term in filename:
+                            score += 5
+
+                    if score <= 0:
+                        continue
+
+                    first_hit = min(
+                        [content.find(term) for term in terms if term in content],
+                        default=0
+                    )
+                    start = max(first_hit - 180, 0)
+                    snippet = content[start:start + 1000]
+
+                    results.append((score, snippet, file))
 
     if results:
-        text = "\n\n---\n\n".join([r[0] for r in results[:2]])
-        names = [os.path.splitext(r[1])[0] for r in results[:2]]
+        results.sort(key=lambda item: item[0], reverse=True)
+        text = "\n\n---\n\n".join([r[1] for r in results[:3]])
+        names = [os.path.splitext(r[2])[0] for r in results[:3]]
         source = "KB-" + ",".join(names)
         return text, source
 
@@ -883,7 +960,7 @@ def is_page_allowed_by_index_rules(page_url, active_prefixes, disabled_prefixes)
 
 
 def search_site_index(user_message, answer_message=None):
-    pages = retrieve(user_message, top_k=3)
+    pages = retrieve(expand_query_aliases(user_message), top_k=3)
     active_prefixes, disabled_prefixes = load_index_url_rules()
     pages = [
         page for page in pages
