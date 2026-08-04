@@ -508,13 +508,21 @@ def search_faq(question):
 
 def handle_official_brand_query(question):
     text = str(question or "").lower()
-    brand_terms = ["代理", "品牌", "產品", "product", "brand"]
-    ask_terms = ["哪些", "有什麼", "有哪些", "介紹", "瞭解", "了解", "認識", "說明", "list", "what"]
+    specific_terms = [
+        "penguin", "stratus", "neverfail", "vates", "xcp-ng", "xen orchestra",
+        "array", "vmware", "continuity engine", "ztc", "vpn"
+    ]
+    general_patterns = [
+        "你們代理哪些品牌", "你們代理那些品牌", "代理哪些品牌", "代理那些品牌",
+        "有哪些代理品牌", "有什麼代理品牌", "目前代理品牌", "主要代理品牌",
+        "代理品牌有哪些", "代理的品牌", "代理哪幾個品牌", "代理哪幾家品牌",
+        "你們代理哪些產品", "代理哪些產品", "代理產品有哪些"
+    ]
 
-    if not any(term in text for term in brand_terms):
+    if any(term in text for term in specific_terms):
         return None, None
 
-    if not any(term in text for term in ask_terms) and "代理" not in text:
+    if not any(pattern in text for pattern in general_patterns):
         return None, None
 
     reply = (
@@ -1004,7 +1012,7 @@ def finalize_reply_length(user_message, reply, source):
 def ai_reply(user_message, search_message=None):
     lookup_message = search_message or user_message
 
-    official_brand, official_brand_source = handle_official_brand_query(lookup_message)
+    official_brand, official_brand_source = handle_official_brand_query(user_message)
     if official_brand:
         return official_brand, official_brand_source
 
