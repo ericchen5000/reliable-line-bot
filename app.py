@@ -59,6 +59,12 @@ from insights import router as insights_router
 from analytics import router as analytics_router
 from services.search_index import build_all_indexes
 from services.retriever import retrieve
+from services.query_normalizer import (
+    expand_query,
+    is_specific_brand_or_product_question,
+    matched_brand_entries,
+    search_terms,
+)
 from admin_ui import admin_bar_css, admin_bar_html
 import admin_tools
 
@@ -508,10 +514,6 @@ def search_faq(question):
 
 def handle_official_brand_query(question):
     text = str(question or "").lower()
-    specific_terms = [
-        "penguin", "stratus", "neverfail", "vates", "xcp-ng", "xen orchestra",
-        "array", "vmware", "continuity engine", "ztc", "vpn"
-    ]
     general_patterns = [
         "你們代理哪些品牌", "你們代理那些品牌", "代理哪些品牌", "代理那些品牌",
         "有哪些代理品牌", "有什麼代理品牌", "目前代理品牌", "主要代理品牌",
@@ -519,7 +521,7 @@ def handle_official_brand_query(question):
         "你們代理哪些產品", "代理哪些產品", "代理產品有哪些"
     ]
 
-    if any(term in text for term in specific_terms):
+    if is_specific_brand_or_product_question(question):
         return None, None
 
     if not any(pattern in text for pattern in general_patterns):
@@ -649,45 +651,8 @@ def contextual_search_message(message, entries):
     return f"{previous_question} {message}"
 
 
-BRAND_QUERY_ALIASES = [
-    (("penguin solutions", "penguin", "stratus"), "Stratus ztC Edge ztC Endurance everRun ftServer 高可用 容錯"),
-    (("array networks", "array"), "Array Networks VPN AG SSL VPN vxAG ztag 應用交付 安全存取"),
-    (("vates", "xcp-ng", "xen orchestra", "vmware"), "VATES XCP-ng Xen Orchestra Xen Orchestra Proxy XOSTOR VMware 虛擬化 備份"),
-    (("neverfail", "continuity engine"), "Neverfail Continuity Engine HA DR 災難復原 業務連續 備援"),
-]
-
-
 def expand_query_aliases(message):
-    text = str(message or "")
-    lower = text.lower()
-    additions = []
-
-    for triggers, expansion in BRAND_QUERY_ALIASES:
-        if any(trigger in lower for trigger in triggers):
-            additions.append(expansion)
-
-    if not additions:
-        return text
-
-    return text + " " + " ".join(dict.fromkeys(additions))
-
-
-def search_terms(message):
-    text = expand_query_aliases(message).lower()
-    terms = re.findall(r"[a-z0-9][a-z0-9.+-]*|[\u4e00-\u9fff]{2,}", text)
-    stopwords = {
-        "什麼", "哪些", "那些", "有什麼", "介紹", "說明", "比較", "產品",
-        "請問", "可以", "一下", "我們", "你們", "的是", "the", "and", "with",
-    }
-    cleaned = []
-
-    for term in terms:
-        if term in stopwords:
-            continue
-        if term not in cleaned:
-            cleaned.append(term)
-
-    return cleaned
+    return expand_query(message)
 
 
 def url_keyword_matches(message, keyword):
@@ -1136,6 +1101,26 @@ def safe_ai_reply(user_message, search_message=None):
             "目前 AI 客服暫時無法回應，請稍後再試；若您方便，也可以留下聯絡資訊，將由專人協助。",
             "AI錯誤"
         )
+
+
+def build_search_diagnostics(message, search_message, source):
+    original = str(message or "").strip()
+    lookup = str(search_message or original).strip()
+    expanded = expand_query(lookup)
+    brands = [
+        item.get("display_name") or item.get("brand")
+        for item in matched_brand_entries(lookup)
+    ]
+
+    return {
+        "original_question": original,
+        "lookup_question": lookup,
+        "context_used": bool(lookup and lookup != original),
+        "expanded_query": expanded,
+        "terms": search_terms(lookup)[:24],
+        "matched_brands": [brand for brand in brands if brand],
+        "selected_source": source or "-",
+    }
 
 
 def admin_nav(active=""):
@@ -3027,6 +3012,7 @@ async def web_chat_response(request: Request):
         {
             "context_used": bool(search_message != message),
             "context_turns": len(context_entries),
+            "search_message": search_message,
             "web_visitor_name": visitor_name,
         }
     )
@@ -3234,6 +3220,13 @@ def save_log(user, message, reply, request: Request, platform, latency, source, 
     if extra:
         row.update(extra)
 
+    if not row.get("search_diagnostics"):
+        row["search_diagnostics"] = build_search_diagnostics(
+            message,
+            row.get("search_message") or message,
+            source,
+        )
+
     logs.append(row)
 
     with open(LOG_PATH, "w", encoding="utf-8") as f:
@@ -3334,6 +3327,7 @@ async def line_webhook(request: Request):
             extra.update({
                 "context_used": bool(search_message != user_msg),
                 "context_turns": len(context_entries),
+                "search_message": search_message,
             })
 
         save_log(

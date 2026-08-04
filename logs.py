@@ -93,6 +93,37 @@ def source_detail_html(value):
     return f'<div class="detail-text">{e(source)}</div>'
 
 
+def search_diagnostics_html(item):
+    diagnostics = item.get("search_diagnostics") if isinstance(item, dict) else None
+    if not isinstance(diagnostics, dict):
+        return ""
+
+    terms = diagnostics.get("terms") or []
+    brands = diagnostics.get("matched_brands") or []
+    term_text = "、".join(str(term) for term in terms[:16]) or "-"
+    brand_text = "、".join(str(brand) for brand in brands) or "-"
+
+    rows = [
+        ("原始問題", diagnostics.get("original_question", "-")),
+        ("搜尋問題", diagnostics.get("lookup_question", "-")),
+        ("品牌命中", brand_text),
+        ("搜尋詞", term_text),
+        ("採用來源", diagnostics.get("selected_source", "-")),
+    ]
+
+    row_html = "".join(
+        f"<div><b>{e(label)}</b><span>{e(value or '-')}</span></div>"
+        for label, value in rows
+    )
+
+    return f"""
+    <div class="block">
+        <span class="pill-more"><b>搜尋診斷</b></span>
+        <div class="diagnostics-grid">{row_html}</div>
+    </div>
+    """
+
+
 def lead_badge(item):
     score = int(item.get("lead_score") or 0)
     need_followup = bool(item.get("need_followup"))
@@ -728,6 +759,8 @@ def logs_ui(
                         <span class="pill-more"><b>問題</b></span>
                         <div class="detail-text">{e(message)}</div>
                     </div>
+
+                    {search_diagnostics_html(l)}
 
                     <div class="block">
                         <span class="pill-more"><b>回覆</b></span>
@@ -1582,6 +1615,34 @@ def logs_ui(
         white-space:pre-wrap;
     }
 
+    .diagnostics-grid {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:8px;
+        margin-top:10px;
+    }
+
+    .diagnostics-grid div {
+        padding:10px;
+        border:1px solid var(--border);
+        border-radius:8px;
+        background:var(--panel);
+        min-width:0;
+    }
+
+    .diagnostics-grid b {
+        display:block;
+        margin-bottom:5px;
+        color:var(--muted);
+        font-size:12px;
+    }
+
+    .diagnostics-grid span {
+        display:block;
+        overflow-wrap:anywhere;
+        line-height:1.55;
+    }
+
     .source-list {
         margin:12px 0 0 0;
         padding:12px;
@@ -2023,6 +2084,10 @@ def logs_ui(
         }
 
         .detail-summary-grid {
+            grid-template-columns:1fr;
+        }
+
+        .diagnostics-grid {
             grid-template-columns:1fr;
         }
     }

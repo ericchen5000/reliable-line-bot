@@ -1,0 +1,42 @@
+[
+  {
+    "brand": "Penguin Solutions",
+    "display_name": "Penguin Solutions（Stratus）",
+    "aliases": ["penguin", "penguin solutions", "stratus", "stratus technologies"],
+    "products": ["ztC Edge", "ztC Endurance", "everRun", "ftServer"],
+    "keywords": ["高可用", "容錯", "邊緣運算", "關鍵系統", "不停機", "連續運作"],
+    "urls": [
+      "https://www.reliable.com.tw/brand-stratus/"
+    ]
+  },
+  {
+    "brand": "Neverfail",
+    "display_name": "Neverfail",
+    "aliases": ["neverfail", "continuity engine", "neverfail continuity engine"],
+    "products": ["Continuity Engine"],
+    "keywords": ["HA", "DR", "災難復原", "業務連續", "應用不中斷", "備援", "故障切換"],
+    "urls": [
+      "https://www.reliable.com.tw/neverfail-continuity-engine/"
+    ]
+  },
+  {
+    "brand": "VATES",
+    "display_name": "VATES",
+    "aliases": ["vates", "xcp-ng", "xcpng", "xen orchestra", "xen orchestra proxy", "xostor", "vmware"],
+    "products": ["XCP-ng", "Xen Orchestra", "Xen Orchestra Proxy", "XOSTOR"],
+    "keywords": ["虛擬化", "開源虛擬化", "私有雲", "備份", "集中管理", "hypervisor", "xen"],
+    "urls": [
+      "https://www.reliable.com.tw/vates/"
+    ]
+  },
+  {
+    "brand": "Array Networks",
+    "display_name": "Array Networks",
+    "aliases": ["array", "array networks"],
+    "products": ["AG", "vxAG", "APV", "ZTAG", "SSL VPN"],
+    "keywords": ["VPN", "SSL VPN", "零信任", "安全存取", "應用交付", "負載平衡", "遠端存取"],
+    "urls": [
+      "https://www.reliable.com.tw/array-networks/"
+    ]
+  }
+]
