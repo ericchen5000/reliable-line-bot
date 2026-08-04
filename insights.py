@@ -1,6 +1,6 @@
 from collections import Counter, defaultdict
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 import html
 import json
 import os
@@ -152,6 +152,8 @@ def looks_unanswered(item):
 
 @router.get("/unanswered", response_class=HTMLResponse)
 def unanswered_page():
+    return RedirectResponse("/logs?quick=unanswered", status_code=302)
+
     rows = ""
     for item in load_json(LOG_PATH, []):
         if not looks_unanswered(item):
@@ -190,6 +192,8 @@ def unanswered_page():
 
 @router.get("/faq-suggestions", response_class=HTMLResponse)
 def faq_suggestions_page():
+    return RedirectResponse("/logs?quick=unanswered", status_code=302)
+
     logs = load_json(LOG_PATH, [])
     known = faq_questions()
     counts = Counter()

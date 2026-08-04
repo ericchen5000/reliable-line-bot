@@ -367,6 +367,8 @@ def weekly_report(generate: int = 0, days: int = 7, chart: str = "bar"):
 
 @router.get("/knowledge-gaps", response_class=HTMLResponse)
 def knowledge_gaps():
+    return RedirectResponse("/", status_code=302)
+
     logs = load_json(LOG_PATH, [])
     groups = defaultdict(lambda: {"count": 0, "latest": "-", "sample": ""})
 

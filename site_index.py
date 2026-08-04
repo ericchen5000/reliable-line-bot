@@ -42,6 +42,8 @@ def index_count():
 
 @router.get("/site-index", response_class=HTMLResponse)
 def site_index_page():
+    return RedirectResponse("/#site-index", status_code=302)
+
     status = load_status()
     sites = status.get("sites", [])
 
@@ -237,4 +239,4 @@ def site_index_page():
 @router.post("/site-index/rebuild")
 def rebuild_site_index(background_tasks: BackgroundTasks):
     background_tasks.add_task(build_all_indexes)
-    return RedirectResponse("/site-index", status_code=302)
+    return RedirectResponse("/#site-index", status_code=302)

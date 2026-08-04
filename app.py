@@ -3143,6 +3143,8 @@ async def web_lead(request: Request):
 
 @app.get("/health", response_class=HTMLResponse)
 def health_page():
+    return RedirectResponse("/#health", status_code=302)
+
     ai_settings = load_ai_settings()
     checks = [
         ("LINE_CHANNEL_ACCESS_TOKEN", bool(LINE_CHANNEL_ACCESS_TOKEN)),

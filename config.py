@@ -17,5 +17,5 @@ DEEPSEEK_API_URL = os.getenv(
 # Files
 FAQ_FILE = "data/faq.json"
 SYSTEM_PROMPT_FILE = "prompts/system_prompt.txt"
-WEBSITE_FILE = "website/urls.json"
+WEBSITE_FILE = "data/urls.json"
 KNOWLEDGE_PATH = "knowledge"
