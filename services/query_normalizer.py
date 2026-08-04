@@ -41,6 +41,9 @@ def matched_brand_entries(message):
 
     matches = []
     for item in load_brand_dictionary():
+        if item.get("active", True) is False:
+            continue
+
         aliases = item.get("aliases") or []
         products = item.get("products") or []
         candidates = [item.get("brand", ""), item.get("display_name", ""), *aliases, *products]

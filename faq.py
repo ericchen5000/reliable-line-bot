@@ -18,6 +18,7 @@ router = APIRouter()
 
 FAQ_PATH = "data/faq.json"
 URLS_PATH = "data/urls.json"
+BRAND_DICTIONARY_PATH = "data/brand_dictionary.json"
 KB_DIR = "knowledge/txt"
 KB_DISABLED_DIR = "knowledge/txt_disabled"
 CHAT_LOG_PATH = "logs/chat_logs.json"
@@ -60,6 +61,23 @@ def load_urls():
 def save_urls(data):
     os.makedirs(os.path.dirname(URLS_PATH), exist_ok=True)
     with open(URLS_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_brand_dictionary():
+    if not os.path.exists(BRAND_DICTIONARY_PATH):
+        return []
+    try:
+        with open(BRAND_DICTIONARY_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except:
+        return []
+
+
+def save_brand_dictionary(data):
+    os.makedirs(os.path.dirname(BRAND_DICTIONARY_PATH), exist_ok=True)
+    with open(BRAND_DICTIONARY_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -472,12 +490,14 @@ def faq_page(
 
     faq = load_faq()
     urls = load_urls()
+    brands = load_brand_dictionary()
     files = kb_files()
     search_text = q.strip().lower()
     readonly = admin_tools.is_readonly_admin(request)
-    active_tab = tab if tab in {"faq", "url", "kb"} else "faq"
+    active_tab = tab if tab in {"faq", "url", "brand", "kb"} else "faq"
     batch_faq_colspan = 8 if not readonly else 7
     batch_url_colspan = 9 if not readonly else 8
+    batch_brand_colspan = 9 if not readonly else 8
     batch_kb_colspan = 8 if not readonly else 7
 
     if edit_url is not None:
@@ -619,6 +639,72 @@ def faq_page(
     url_value = edit_url_item.get("url", "") if url_is_edit else ""
     url_keywords = edit_url_item.get("keywords", []) if url_is_edit else []
     url_keywords_value = ", ".join(url_keywords) if isinstance(url_keywords, list) else str(url_keywords)
+    brand_rows = ""
+    for i, item in enumerate(brands):
+        aliases = list_text(item.get("aliases", []))
+        products = list_text(item.get("products", []))
+        keywords = list_text(item.get("keywords", []))
+        urls_text = list_text(item.get("urls", []))
+        active = is_active_item(item)
+        detail_button = '<button type="button" class="btn-detail" data-open-detail="1">詳情</button>'
+        brand_action_html = (
+            f'{detail_button}<span class="readonly-pill">唯讀</span>'
+            if readonly else
+            f"""
+                {detail_button}
+                <a href="/faq?edit_brand={i}&tab=brand" class="btn-edit">編輯</a>
+                <a href="/faq/brands/toggle/{i}" class="btn-toggle {'toggle-off' if active else 'toggle-on'}">{'停用' if active else '啟用'}</a>
+                <a href="/faq/brands/delete/{i}" class="btn-del danger-link" data-confirm="確定要永久刪除這個品牌字典項目嗎？此動作無法復原。">刪除</a>
+            """
+        )
+        brand_rows += f"""
+        <tr class="inspectable-row"
+            data-kind="品牌字典"
+            data-title="{e(item.get('display_name') or item.get('brand', '-'))}"
+            data-body-label="產品與關鍵字"
+            data-body="{e('品牌：' + str(item.get('brand', '-')) + chr(10) + '顯示名稱：' + str(item.get('display_name', '-')) + chr(10) + '產品：' + str(products or '-') + chr(10) + '關鍵字：' + str(keywords or '-'))}"
+            data-extra-label="別名與網址"
+            data-extra="{e('別名：' + str(aliases or '-') + chr(10) + '網址：' + str(urls_text or '-'))}"
+            data-meta="狀態：{'啟用' if active else '停用'}｜建立：{e(item.get('created_at') or '-')}｜更新：{e(item.get('updated_at') or '-')}"
+            data-owner="{e(audit_plain(item))}"
+        >
+            {'' if readonly else f'<td data-label="選取"><input type="checkbox" name="ids" value="{i}"></td>'}
+            <td data-label="編號" class="row-number" data-sort-key="no" data-sort-value="{i+1}">{i+1}</td>
+            <td data-label="狀態" data-sort-key="status" data-sort-value="{1 if active else 0}">{status_badge(active)}</td>
+            <td data-label="品牌" data-sort-key="brand" data-sort-value="{e(item.get('brand', '-'))}">{e(item.get('brand', '-'))}</td>
+            <td data-label="顯示名稱" data-sort-key="display" data-sort-value="{e(item.get('display_name', '-'))}">{e(item.get('display_name', '-'))}</td>
+            <td data-label="別名" data-sort-key="aliases" data-sort-value="{e(aliases)}">{e(aliases)}</td>
+            <td data-label="產品" data-sort-key="products" data-sort-value="{e(products)}">{e(products)}</td>
+            <td data-label="最後修改" class="meta-cell" data-sort-key="updated" data-sort-value="{e(item.get('updated_at') or item.get('created_at') or '')}">{audit_text(item)}</td>
+            <td data-label="操作" class="actions-cell">
+                <div class="actions">
+                {brand_action_html}
+                </div>
+            </td>
+        </tr>
+        """
+
+    if not brand_rows:
+        brand_rows = empty_row(batch_brand_colspan, "尚未建立品牌字典", "新增品牌、別名與產品後，AI 搜尋會更容易命中正確資料。")
+
+    edit_brand = None
+    try:
+        edit_brand = int(request.query_params.get("edit_brand", ""))
+    except:
+        edit_brand = None
+    if edit_brand is not None and 0 <= edit_brand < len(brands):
+        active_tab = "brand"
+    brand_edit_item = brands[edit_brand] if edit_brand is not None and 0 <= edit_brand < len(brands) else None
+    brand_is_edit = brand_edit_item is not None
+    brand_form_action = f"/faq/brands/edit/{edit_brand}" if brand_is_edit else "/faq/brands/add"
+    brand_form_title = "編輯品牌字典" if brand_is_edit else "新增品牌字典"
+    brand_btn_text = "更新品牌" if brand_is_edit else "新增品牌"
+    brand_value = brand_edit_item.get("brand", "") if brand_is_edit else ""
+    brand_display = brand_edit_item.get("display_name", "") if brand_is_edit else ""
+    brand_aliases = list_text(brand_edit_item.get("aliases", [])) if brand_is_edit else ""
+    brand_products = list_text(brand_edit_item.get("products", [])) if brand_is_edit else ""
+    brand_keywords = list_text(brand_edit_item.get("keywords", [])) if brand_is_edit else ""
+    brand_urls = list_text(brand_edit_item.get("urls", [])) if brand_is_edit else ""
     kb_edit_name = safe_kb_filename(edit_kb) if edit_kb else ""
     kb_edit_active = bool(kb_active)
     kb_edit_content = read_kb_file(kb_edit_name, kb_edit_active) if kb_edit_name else ""
@@ -1005,6 +1091,10 @@ def faq_page(
         .url-table .col-title {{ width:17%; }}
         .url-table .col-url {{ width:24%; }}
         .url-table .col-keywords {{ width:18%; }}
+        .brand-table .col-brand {{ width:15%; }}
+        .brand-table .col-display {{ width:17%; }}
+        .brand-table .col-aliases {{ width:18%; }}
+        .brand-table .col-products {{ width:18%; }}
         .kb-table .col-name {{ width:auto; }}
         .kb-table .col-size {{ width:104px; }}
 
@@ -1996,7 +2086,7 @@ def faq_page(
     <header class="topbar">
         <div>
             <h2>知識管理中心</h2>
-            <p class="subtitle">集中管理 FAQ、網站索引與 KB 文件</p>
+            <p class="subtitle">集中管理 FAQ、網站索引、品牌字典與 KB 文件</p>
         </div>
         <label class="theme-control">
             <span>深夜模式</span>
@@ -2012,6 +2102,7 @@ def faq_page(
     <div class="section-tabs">
         {tab_link("faq", "FAQ 管理", active_tab)}
         {tab_link("url", "網站索引管理", active_tab)}
+        {tab_link("brand", "品牌字典", active_tab)}
         {tab_link("kb", "知識庫文件管理", active_tab)}
     </div>
 
@@ -2206,6 +2297,96 @@ def faq_page(
                     <th>操作</th>
                 </tr>
                 {url_rows}
+            </table>
+            </div>
+            </form>
+        </div>
+    </div>
+    </section>
+
+    <section class="tab-panel {'active' if active_tab == 'brand' else ''}">
+    <div class="section-title" id="brand-manager">
+        <h3>品牌字典</h3>
+        <p class="subtitle">管理品牌、產品、別名與搜尋關鍵字，減少需要手動訓練的情況。</p>
+    </div>
+    {'' if readonly else '''
+    <div class="card manager-actions">
+        <p class="hint">新增或調整品牌關係後，AI 客服搜尋 FAQ、KB 與網站索引時會自動套用。</p>
+        <button type="button" onclick="openFormModal('brand-form-modal')">新增品牌字典</button>
+    </div>
+    '''}
+    <div class="management-grid">
+        {readonly_card if readonly else f'''
+        <div class="form-modal {'open' if brand_is_edit else ''}" id="brand-form-modal" onclick="if(event.target.id === 'brand-form-modal') closeFormModal('brand-form-modal')">
+            <div class="form-modal-panel editor-panel">
+                <div class="form-modal-head">
+                    <div>
+                        <h3>{brand_form_title}</h3>
+                        <p class="hint">讓系統知道品牌、別名、產品與關鍵字之間的關係。</p>
+                    </div>
+                    {"<a href='/faq?tab=brand' class='form-modal-close cancel-link'>關閉</a>" if brand_is_edit else "<button type='button' class='form-modal-close' onclick=\"closeFormModal('brand-form-modal')\">關閉</button>"}
+                </div>
+                <div class="form-modal-body">
+                <form method="post" action="{e(brand_form_action)}">
+                    <div class="editor-grid">
+                        <div>
+                            <input name="brand" placeholder="品牌名稱，例如：Penguin Solutions" value="{e(brand_value)}" required>
+                            <input name="display_name" placeholder="顯示名稱，例如：Penguin Solutions（Stratus）" value="{e(brand_display)}">
+                            <textarea name="aliases" placeholder="別名，可用逗號或換行分隔，例如：penguin, stratus">{e(brand_aliases)}</textarea>
+                        </div>
+                        <div>
+                            <textarea name="products" placeholder="產品，可用逗號或換行分隔">{e(brand_products)}</textarea>
+                            <textarea name="keywords" placeholder="搜尋關鍵字，可用逗號或換行分隔">{e(brand_keywords)}</textarea>
+                            <textarea name="urls" placeholder="對應網址，可用逗號或換行分隔">{e(brand_urls)}</textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button>{brand_btn_text}</button>
+                        {"<a href='/faq?tab=brand' class='cancel-link'>取消編輯</a>" if brand_is_edit else ""}
+                    </div>
+                </form>
+                </div>
+            </div>
+        </div>
+        '''}
+        <div class="card">
+            <div class="top-title">品牌字典清單</div>
+            <form method="post" action="/faq/brands/batch">
+            {'' if readonly else '''
+            <div class="batch-bar">
+                <span>批次操作</span>
+                <div class="batch-actions">
+                    <button name="action" value="enable">啟用</button>
+                    <button name="action" value="disable">停用</button>
+                    <button name="action" value="delete" class="btn-del" data-batch-delete="1">刪除</button>
+                </div>
+            </div>
+            '''}
+            <div class="table-wrap">
+            <table class="manage-table brand-table">
+                <colgroup>
+                    {'' if readonly else '<col class="col-check">'}
+                    <col class="col-no">
+                    <col class="col-status">
+                    <col class="col-brand">
+                    <col class="col-display">
+                    <col class="col-aliases">
+                    <col class="col-products">
+                    <col class="col-updated">
+                    <col class="col-actions">
+                </colgroup>
+                <tr>
+                    {'' if readonly else '<th class="check-cell"><input type="checkbox" data-check-all="input[name=\'ids\']"></th>'}
+                    <th class="sortable-th" data-sort-key="no" data-sort-type="number"><span class="sort-label">編號<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="status" data-sort-type="number"><span class="sort-label">狀態<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="brand"><span class="sort-label">品牌<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="display"><span class="sort-label">顯示名稱<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="aliases"><span class="sort-label">別名<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="products"><span class="sort-label">產品<span class="sort-indicator"></span></span></th>
+                    <th class="sortable-th" data-sort-key="updated"><span class="sort-label">最後修改<span class="sort-indicator"></span></span></th>
+                    <th>操作</th>
+                </tr>
+                {brand_rows}
             </table>
             </div>
             </form>
@@ -2551,6 +2732,18 @@ def parse_keywords(value):
     return [item.strip() for item in str(value or "").split(",") if item.strip()]
 
 
+def parse_list_text(value):
+    text = str(value or "").replace("\r", "\n")
+    parts = re.split(r"[,，\n]+", text)
+    return list(dict.fromkeys([item.strip() for item in parts if item.strip()]))
+
+
+def list_text(value):
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value if str(item).strip())
+    return str(value or "")
+
+
 @router.post("/faq/urls/add")
 def add_url(
     request: Request,
@@ -2670,6 +2863,144 @@ def batch_urls(request: Request, action: str = Form(...), ids: list[int] = Form(
         return redirect_with_notice("/faq?tab=url", f"已{'啟用' if next_active else '停用'} {len(selected)} 筆網站索引")
 
     return redirect_with_notice("/faq?tab=url", "未知的批次操作")
+
+
+@router.post("/faq/brands/add")
+def add_brand(
+    request: Request,
+    brand: str = Form(...),
+    display_name: str = Form(""),
+    aliases: str = Form(""),
+    products: str = Form(""),
+    keywords: str = Form(""),
+    urls: str = Form("")
+):
+    items = load_brand_dictionary()
+    brand_name = brand.strip()
+
+    if not brand_name:
+        return redirect_with_notice("/faq?tab=brand", "請輸入品牌名稱")
+
+    if any(str(item.get("brand", "")).strip().lower() == brand_name.lower() for item in items):
+        return redirect_with_notice("/faq?tab=brand", "品牌字典已存在，未重複新增")
+
+    admin_name = current_admin_name(request)
+    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    items.append({
+        "brand": brand_name,
+        "display_name": display_name.strip() or brand_name,
+        "aliases": parse_list_text(aliases),
+        "products": parse_list_text(products),
+        "keywords": parse_list_text(keywords),
+        "urls": parse_list_text(urls),
+        "created_by": admin_name,
+        "created_at": now,
+        "updated_by": admin_name,
+        "updated_at": now,
+        "active": True,
+    })
+    save_brand_dictionary(items)
+    admin_tools.log_admin_activity(request, "新增品牌字典", brand_name)
+    return redirect_with_notice("/faq?tab=brand", "品牌字典已新增")
+
+
+@router.post("/faq/brands/edit/{idx}")
+def edit_brand(
+    request: Request,
+    idx: int,
+    brand: str = Form(...),
+    display_name: str = Form(""),
+    aliases: str = Form(""),
+    products: str = Form(""),
+    keywords: str = Form(""),
+    urls: str = Form("")
+):
+    items = load_brand_dictionary()
+
+    if 0 <= idx < len(items):
+        original = items[idx]
+        brand_name = brand.strip()
+        admin_name = current_admin_name(request)
+        items[idx] = {
+            "brand": brand_name,
+            "display_name": display_name.strip() or brand_name,
+            "aliases": parse_list_text(aliases),
+            "products": parse_list_text(products),
+            "keywords": parse_list_text(keywords),
+            "urls": parse_list_text(urls),
+            "created_by": original.get("created_by", ""),
+            "created_at": original.get("created_at", ""),
+            "updated_by": admin_name,
+            "updated_at": datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+            "active": original.get("active", True),
+        }
+        save_brand_dictionary(items)
+        admin_tools.log_admin_activity(request, "編輯品牌字典", brand_name)
+        return redirect_with_notice("/faq?tab=brand", "品牌字典已更新")
+
+    return redirect_with_notice("/faq?tab=brand", "找不到指定品牌字典")
+
+
+@router.get("/faq/brands/toggle/{idx}")
+def toggle_brand(request: Request, idx: int):
+    items = load_brand_dictionary()
+
+    if 0 <= idx < len(items):
+        item = items[idx]
+        next_active = not is_active_item(item)
+        item["active"] = next_active
+        item["updated_by"] = current_admin_name(request)
+        item["updated_at"] = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        save_brand_dictionary(items)
+        action = "啟用品牌字典" if next_active else "停用品牌字典"
+        admin_tools.log_admin_activity(request, action, item.get("brand", f"#{idx + 1}"))
+        return redirect_with_notice("/faq?tab=brand", f"品牌字典已{'啟用' if next_active else '停用'}")
+
+    return redirect_with_notice("/faq?tab=brand", "找不到指定品牌字典")
+
+
+@router.get("/faq/brands/delete/{idx}")
+def delete_brand(request: Request, idx: int):
+    items = load_brand_dictionary()
+
+    if 0 <= idx < len(items):
+        removed = items.pop(idx)
+        save_brand_dictionary(items)
+        admin_tools.log_admin_activity(request, "刪除品牌字典", removed.get("brand", f"#{idx + 1}"))
+        return redirect_with_notice("/faq?tab=brand", "品牌字典已刪除")
+
+    return redirect_with_notice("/faq?tab=brand", "找不到指定品牌字典")
+
+
+@router.post("/faq/brands/batch")
+def batch_brands(request: Request, action: str = Form(...), ids: list[int] = Form([])):
+    items = load_brand_dictionary()
+    selected = sorted(set(i for i in ids if 0 <= i < len(items)), reverse=True)
+
+    if not selected:
+        return redirect_with_notice("/faq?tab=brand", "請先選取品牌字典")
+
+    admin_name = current_admin_name(request)
+    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+
+    if action == "delete":
+        for idx in selected:
+            removed = items.pop(idx)
+            admin_tools.log_admin_activity(request, "批次刪除品牌字典", removed.get("brand", f"#{idx + 1}"))
+        save_brand_dictionary(items)
+        return redirect_with_notice("/faq?tab=brand", f"已刪除 {len(selected)} 筆品牌字典")
+
+    if action in {"enable", "disable"}:
+        next_active = action == "enable"
+        for idx in selected:
+            items[idx]["active"] = next_active
+            items[idx]["updated_by"] = admin_name
+            items[idx]["updated_at"] = now
+        save_brand_dictionary(items)
+        admin_tools.log_admin_activity(request, "批次更新品牌字典狀態", f"{len(selected)} 筆", "啟用" if next_active else "停用")
+        return redirect_with_notice("/faq?tab=brand", f"已{'啟用' if next_active else '停用'} {len(selected)} 筆品牌字典")
+
+    return redirect_with_notice("/faq?tab=brand", "未知的批次操作")
 
 
 @router.post("/faq/kb/add")
