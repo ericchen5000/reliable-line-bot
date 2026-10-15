@@ -215,6 +215,7 @@ def is_public_path(path):
         "/web/image",
         "/web/lead",
         "/line/webhook",
+        "/webhook",
     }
     public_prefixes = ()
     return path in public_exact or any(path.startswith(prefix) for prefix in public_prefixes)
@@ -227,7 +228,7 @@ def is_write_path(request: Request):
         return False
 
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-        return path not in {"/chat", "/web/chat", "/web/image", "/web/lead", "/line/webhook"}
+        return path not in {"/chat", "/web/chat", "/web/image", "/web/lead", "/line/webhook", "/webhook"}
 
     write_get_prefixes = (
         "/faq/delete/",
@@ -3345,3 +3346,11 @@ async def line_webhook(request: Request):
         )
 
     return {"status": "ok"}
+
+
+# Messenger shares the existing answer, context and lead tracking pipeline.
+from facebook_channel import create_facebook_router
+app.include_router(create_facebook_router(
+    safe_ai_reply, recent_conversation_entries, contextual_search_message,
+    classify_lead, apply_handoff_message, save_log,
+))

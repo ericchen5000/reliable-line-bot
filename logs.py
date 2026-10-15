@@ -165,6 +165,13 @@ def contact_detail_html(item):
 def user_profile_html(item):
     platform = str(item.get("platform", "")).upper()
 
+    if platform == "FB":
+        fields = [("Facebook User ID", item.get("fb_user_id", "")),
+                  ("粉專 ID", item.get("fb_page_id", "")),
+                  ("訊息 ID", item.get("fb_message_id", ""))]
+        rows = "".join(f"<div><b>{e(label)}</b><span>{e(value or '-')}</span></div>" for label, value in fields)
+        return f'<div class="block"><span class="pill-more"><b>Facebook 訪客</b></span><div class="contact-grid">{rows}</div></div>'
+
     if platform == "WEB":
         fields = [
             ("稱呼", item.get("web_visitor_name", "")),
@@ -2118,7 +2125,7 @@ def logs_ui(
     <header class="topbar">
         <div class="title-block">
             <h2>LOGS管理介面</h2>
-            <p class="subtitle">LINE 對話紀錄、來源與回應時間</p>
+            <p class="subtitle">LINE / WEB / FB 對話紀錄、來源與回應時間</p>
         </div>
         <label class="theme-control">
             <span>深夜模式</span>

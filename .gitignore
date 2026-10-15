@@ -10,3 +10,6 @@ logs/admin_activity.json
 logs/admin_sessions.json
 logs/images/
 docs/internal-guide.md
+
+# Messenger queue contains private message data.
+logs/facebook_queue.sqlite3*
